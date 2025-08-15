@@ -1,0 +1,33 @@
+:host {
+  position: fixed;
+  bottom: 2rem;
+  right: 2rem;
+  z-index: 1000;
+}
+
+::ng-deep .p-speeddial {
+  .p-speeddial-button {
+    width: 3.5rem;
+    height: 3.5rem;
+    border-radius: 50%;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    
+    &:hover {
+      transform: scale(1.05);
+      transition: transform 0.2s ease-in-out;
+    }
+  }
+  
+  .p-speeddial-list {
+    .p-speeddial-item {
+      margin: 0.25rem 0;
+      
+      .p-speeddial-action {
+        width: 2.5rem;
+        height: 2.5rem;
+        border-radius: 50%;
+        box-shadow: 0 2px 4px -1px rgba(0, 0, 0, 0.1);
+      }
+    }
+  }
+}

@@ -88,6 +88,7 @@ src/app/
 - **Signals-First Approach**: Prefer signals over traditional reactive patterns where applicable
 - **Standalone Components**: Use standalone components by default
 - **Zoneless Change Detection**: Already configured in app.config.ts
+- **Specific Imports Only**: NEVER import CommonModule in standalone components. Import only specific modules needed (e.g., NgIf, NgFor, etc.)
 
 ### Mobile-First Development
 - **Design mobile-first**: Start with mobile layouts and scale up
@@ -95,9 +96,10 @@ src/app/
 - **Touch-friendly interfaces**: Ensure adequate touch targets (44px minimum)
 
 ### Styling Hierarchy
-1. **TailwindCSS classes first**: Use utility classes whenever possible
-2. **PrimeNG component styling**: Leverage built-in PrimeNG theming
+1. **PrimeNG components ALWAYS**: Use PrimeNG components for ALL UI elements (buttons, menus, etc.)
+2. **TailwindCSS classes second**: Use utility classes for layout and spacing
 3. **SCSS only when necessary**: For complex custom styles that can't be achieved with utilities
+4. **NEVER use @apply in SCSS**: Use regular CSS properties instead of @apply directives
 
 ### HTML and SEO Standards
 - **Semantic HTML**: Use proper semantic elements (`<article>`, `<section>`, `<nav>`, `<header>`, `<footer>`, etc.)

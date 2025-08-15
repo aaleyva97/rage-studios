@@ -1,0 +1,34 @@
+<nav class="topbar">
+  <div class="topbar-container">
+    <div class="logo">
+      <span class="logo-text">RAGE</span>
+    </div>
+    
+    <div class="nav-menu">
+      @for (item of menuItems(); track item.routerLink) {
+        <a [routerLink]="item.routerLink" class="nav-item">
+          <span>{{ item.label }}</span>
+          <div class="nav-underline"></div>
+        </a>
+      }
+      
+      @if (!isLoggedIn()) {
+        <p-button 
+          label="Iniciar Sesión" 
+          severity="primary" 
+          size="small"
+          routerLink="/login"
+          styleClass="ml-4">
+        </p-button>
+      } @else {
+        <p-button 
+          label="Reservar" 
+          severity="success" 
+          size="small"
+          routerLink="/reservar"
+          styleClass="ml-4">
+        </p-button>
+      }
+    </div>
+  </div>
+</nav>
