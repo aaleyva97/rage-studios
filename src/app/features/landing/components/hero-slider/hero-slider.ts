@@ -1,4 +1,4 @@
-import { Component, ChangeDetectionStrategy, ViewChild, signal, AfterViewInit } from '@angular/core';
+import { Component, ChangeDetectionStrategy, ViewChild, signal, AfterViewInit, OnDestroy } from '@angular/core';
 import { CarouselModule, Carousel } from 'primeng/carousel';
 
 @Component({
@@ -9,10 +9,12 @@ import { CarouselModule, Carousel } from 'primeng/carousel';
   templateUrl: './hero-slider.html',
   styleUrl: './hero-slider.scss'
 })
-export class HeroSlider implements AfterViewInit {
+export class HeroSlider implements AfterViewInit, OnDestroy {
   @ViewChild('carousel') carousel!: Carousel;
   
   currentIndex = signal(0);
+  private autoplayTimer: any;
+  private readonly autoplayInterval = 5000;
   
   slides = [
     {
@@ -43,13 +45,41 @@ export class HeroSlider implements AfterViewInit {
       this.carousel.onPage.subscribe((event: any) => {
         this.currentIndex.set(event.page);
       });
+      
+      // Start custom autoplay since PrimeNG's autoplay might stop on manual navigation
+      this.startAutoplay();
+    }
+  }
+  
+  private startAutoplay() {
+    this.clearAutoplay();
+    this.autoplayTimer = setInterval(() => {
+      if (this.carousel) {
+        const nextIndex = (this.currentIndex() + 1) % this.slides.length;
+        this.carousel.page = nextIndex;
+        this.currentIndex.set(nextIndex);
+      }
+    }, this.autoplayInterval);
+  }
+  
+  private clearAutoplay() {
+    if (this.autoplayTimer) {
+      clearInterval(this.autoplayTimer);
+      this.autoplayTimer = null;
     }
   }
   
   goToSlide(index: number) {
-    if (this.carousel) {
+    if (this.carousel && index !== this.currentIndex()) {
       this.carousel.page = index;
       this.currentIndex.set(index);
+      
+      // Restart autoplay after manual navigation
+      this.startAutoplay();
     }
+  }
+  
+  ngOnDestroy() {
+    this.clearAutoplay();
   }
 }
