@@ -1,10 +1,10 @@
+<p-toast />
 <nav class="topbar">
   <div class="topbar-container">
     <div class="logo">
       <span class="logo-text">RAGE</span>
     </div>
     
-    <!-- Hamburger menu button for mobile -->
     <p-button 
       icon="pi pi-bars" 
       severity="secondary" 
@@ -16,7 +16,6 @@
       [attr.aria-controls]="mobileMenuVisible() ? 'mobile-menu-drawer' : null">
     </p-button>
     
-    <!-- Desktop menu -->
     <div class="nav-menu">
       @for (item of menuItems(); track item.routerLink) {
         <a [routerLink]="item.routerLink" class="nav-item">
@@ -34,32 +33,40 @@
           styleClass="ml-4">
         </p-button>
       } @else {
-        <p-button 
-          label="Reservar" 
-          severity="success" 
-          size="small"
-          routerLink="/reservar"
-          styleClass="ml-4">
-        </p-button>
+        <div class="flex items-center gap-2 ml-4">
+          <p-button 
+            label="Reservar" 
+            severity="success" 
+            size="small"
+            routerLink="/reservar">
+          </p-button>
+          <p-button 
+            icon="pi pi-sign-out" 
+            severity="secondary" 
+            size="small"
+            [text]="true"
+            [rounded]="true"
+            pTooltip="Cerrar Sesión"
+            tooltipPosition="bottom"
+            (onClick)="logout()">
+          </p-button>
+        </div>
       }
     </div>
   </div>
 </nav>
 
-<!-- Mobile menu drawer -->
 <p-drawer 
   [(visible)]="mobileMenuVisible" 
-  position="right" 
+  position="right"
   id="mobile-menu-drawer"
   styleClass="!w-full sm:!w-80"
   (onHide)="closeMobileMenu()">
   
   <ng-template #header>
-    <div class="flex justify-end w-full">
-    </div>
+    <div class="flex justify-end w-full"></div>
   </ng-template>
   
-  <!-- Mobile menu content -->
   <div class="flex flex-col gap-6 pt-4 px-6 items-center">
     @for (item of menuItems(); track item.routerLink) {
       <a 
@@ -70,7 +77,7 @@
       </a>
     }
     
-    <div class="pt-4 mt-4">
+    <div class="pt-4 mt-4 border-t border-gray-200 w-full">
       @if (!isLoggedIn()) {
         <p-button 
           label="Iniciar Sesión" 
@@ -80,25 +87,36 @@
           (onClick)="onLoginFromMobile()">
         </p-button>
       } @else {
-        <p-button 
-          label="Reservar" 
-          severity="success" 
-          size="small"
-          class="w-full"
-          routerLink="/reservar"
-          (onClick)="onMenuItemClick()">
-        </p-button>
+        <div class="flex flex-col gap-3">
+          <p-button 
+            label="Reservar" 
+            severity="success" 
+            size="small"
+            class="w-full"
+            routerLink="/reservar"
+            (onClick)="onMenuItemClick()">
+          </p-button>
+          <p-button 
+            label="Cerrar Sesión" 
+            severity="secondary" 
+            size="small"
+            class="w-full"
+            [outlined]="true"
+            icon="pi pi-sign-out"
+            (onClick)="onLogoutFromMobile()">
+          </p-button>
+        </div>
       }
     </div>
   </div>
 </p-drawer>
 
 <app-login-dialog 
-  [(visible)]="showLoginDialog"
+  [(visible)]="showLoginDialog" 
   (openRegister)="onOpenRegisterFromLogin()">
 </app-login-dialog>
 
 <app-register-dialog 
-  [(visible)]="showRegisterDialog"
+  [(visible)]="showRegisterDialog" 
   (openLogin)="onOpenLoginFromRegister()">
 </app-register-dialog>

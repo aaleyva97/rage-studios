@@ -1,52 +1,73 @@
-<p-dialog
-  header="Iniciar Sesión"
-  [modal]="true"
-  [(visible)]="visible"
+<p-dialog 
+  header="Iniciar Sesión" 
+  [modal]="true" 
+  [(visible)]="visible" 
   [style]="{ width: '25rem' }"
   [breakpoints]="{ '1199px': '75vw', '575px': '90vw' }"
   (onHide)="onDialogHide()">
   
-  <div class="flex flex-col gap-4 p-4">
+  <p-toast />
+  
+  <form [formGroup]="loginForm" (ngSubmit)="onLogin()" class="flex flex-col gap-4 p-4">
     <div class="flex flex-col gap-2">
       <label for="email" class="font-semibold text-sm">Correo Electrónico</label>
-      <input
-        id="email"
-        type="email"
-        pInputText
-        [(ngModel)]="email"
+      <input 
+        id="email" 
+        type="email" 
+        pInputText 
+        formControlName="email"
         placeholder="tu@correo.com"
-        class="w-full" />
+        class="w-full"
+        [class.ng-invalid]="email?.invalid && email?.touched" />
+      @if (email?.invalid && email?.touched) {
+        @if (email?.errors?.['required']) {
+          <small class="text-red-500 text-xs">El correo es requerido</small>
+        }
+        @if (email?.errors?.['email']) {
+          <small class="text-red-500 text-xs">Ingresa un correo válido</small>
+        }
+      }
     </div>
     
     <div class="flex flex-col gap-2">
       <label for="password" class="font-semibold text-sm">Contraseña</label>
-      <p-password
+      <p-password 
         class="w-full"
-        id="password"
-        [(ngModel)]="password"
+        id="password" 
+        formControlName="password"
         placeholder="Tu contraseña"
         [feedback]="false"
         [toggleMask]="true"
         inputStyleClass="w-full"
-        />
+        [styleClass]="password?.invalid && password?.touched ? 'ng-invalid' : ''" />
+      @if (password?.invalid && password?.touched) {
+        @if (password?.errors?.['required']) {
+          <small class="text-red-500 text-xs">La contraseña es requerida</small>
+        }
+        @if (password?.errors?.['minlength']) {
+          <small class="text-red-500 text-xs">Mínimo 6 caracteres</small>
+        }
+      }
     </div>
     
     <div class="mt-4">
-      <p-button
-        label="Iniciar Sesión"
-        severity="primary"
+      <p-button 
+        label="Iniciar Sesión" 
+        severity="primary" 
         styleClass="w-full"
-        (onClick)="onLogin()" />
+        type="submit"
+        [loading]="isLoading"
+        [disabled]="loginForm.invalid || isLoading" />
     </div>
     
     <div class="text-center mt-4 pt-4 border-t border-gray-200">
       <p class="text-sm text-gray-600 mb-2">¿No tienes una cuenta?</p>
-      <p-button
-        label="Crear Cuenta"
-        severity="help"
+      <p-button 
+        label="Crear Cuenta" 
+        severity="help" 
         size="small"
         [outlined]="true"
         (onClick)="onOpenRegister()" />
     </div>
-  </div>
+  </form>
 </p-dialog>

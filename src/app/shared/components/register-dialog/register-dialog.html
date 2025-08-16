@@ -1,84 +1,133 @@
-<p-dialog
-  header="Crear Cuenta"
-  [modal]="true"
-  [(visible)]="visible"
+<p-dialog 
+  header="Crear Cuenta" 
+  [modal]="true" 
+  [(visible)]="visible" 
   [style]="{ width: '30rem' }"
   [breakpoints]="{ '1199px': '75vw', '575px': '90vw' }"
   styleClass="register-dialog"
   (onHide)="onDialogHide()">
   
-  <div class="flex flex-col gap-4 p-4">
+  <p-toast />
+  
+  <form [formGroup]="registerForm" (ngSubmit)="onRegister()" class="flex flex-col gap-4 p-4">
     <div class="flex flex-col gap-2">
       <label for="fullName" class="font-semibold text-sm">Nombre Completo</label>
-      <input
-        id="fullName"
-        type="text"
-        pInputText
-        [(ngModel)]="fullName"
+      <input 
+        id="fullName" 
+        type="text" 
+        pInputText 
+        formControlName="fullName"
         placeholder="Tu nombre completo"
-        class="w-full" />
+        class="w-full"
+        [class.ng-invalid]="fullName?.invalid && fullName?.touched" />
+      @if (fullName?.invalid && fullName?.touched) {
+        @if (fullName?.errors?.['required']) {
+          <small class="text-red-500 text-xs">El nombre es requerido</small>
+        }
+        @if (fullName?.errors?.['minlength']) {
+          <small class="text-red-500 text-xs">Mínimo 3 caracteres</small>
+        }
+      }
     </div>
     
     <div class="flex flex-col gap-2">
       <label for="email" class="font-semibold text-sm">Correo Electrónico</label>
-      <input
-        id="email"
-        type="email"
-        pInputText
-        [(ngModel)]="email"
+      <input 
+        id="email" 
+        type="email" 
+        pInputText 
+        formControlName="email"
         placeholder="tu@correo.com"
-        class="w-full" />
+        class="w-full"
+        [class.ng-invalid]="email?.invalid && email?.touched" />
+      @if (email?.invalid && email?.touched) {
+        @if (email?.errors?.['required']) {
+          <small class="text-red-500 text-xs">El correo es requerido</small>
+        }
+        @if (email?.errors?.['email']) {
+          <small class="text-red-500 text-xs">Ingresa un correo válido</small>
+        }
+      }
     </div>
     
     <div class="flex flex-col gap-2">
       <label for="phone" class="font-semibold text-sm">Teléfono</label>
-      <input
-        id="phone"
-        type="tel"
-        pInputText
-        [(ngModel)]="phone"
+      <input 
+        id="phone" 
+        type="tel" 
+        pInputText 
+        formControlName="phone"
         placeholder="+52 (55) 1234-5678"
-        class="w-full" />
+        class="w-full"
+        [class.ng-invalid]="phone?.invalid && phone?.touched" />
+      @if (phone?.invalid && phone?.touched) {
+        @if (phone?.errors?.['required']) {
+          <small class="text-red-500 text-xs">El teléfono es requerido</small>
+        }
+        @if (phone?.errors?.['pattern']) {
+          <small class="text-red-500 text-xs">Formato de teléfono inválido</small>
+        }
+      }
     </div>
     
     <div class="flex flex-col gap-2">
       <label for="password" class="font-semibold text-sm">Contraseña</label>
-      <p-password
-        id="password"
-        [(ngModel)]="password"
+      <p-password 
+        id="password" 
+        formControlName="password"
         placeholder="Contraseña segura"
         [feedback]="true"
         [toggleMask]="true"
-        inputStyleClass="w-full" />
+        inputStyleClass="w-full"
+        [styleClass]="password?.invalid && password?.touched ? 'ng-invalid' : ''" />
+      @if (password?.invalid && password?.touched) {
+        @if (password?.errors?.['required']) {
+          <small class="text-red-500 text-xs">La contraseña es requerida</small>
+        }
+        @if (password?.errors?.['minlength']) {
+          <small class="text-red-500 text-xs">Mínimo 6 caracteres</small>
+        }
+      }
     </div>
     
     <div class="flex flex-col gap-2">
       <label for="confirmPassword" class="font-semibold text-sm">Confirmar Contraseña</label>
-      <p-password
-        id="confirmPassword"
-        [(ngModel)]="confirmPassword"
+      <p-password 
+        id="confirmPassword" 
+        formControlName="confirmPassword"
         placeholder="Repite tu contraseña"
         [feedback]="false"
         [toggleMask]="true"
-        inputStyleClass="w-full" />
+        inputStyleClass="w-full"
+        [styleClass]="confirmPassword?.invalid && confirmPassword?.touched ? 'ng-invalid' : ''" />
+      @if (confirmPassword?.invalid && confirmPassword?.touched) {
+        @if (confirmPassword?.errors?.['required']) {
+          <small class="text-red-500 text-xs">Por favor confirma tu contraseña</small>
+        }
+        @if (confirmPassword?.errors?.['passwordMismatch']) {
+          <small class="text-red-500 text-xs">Las contraseñas no coinciden</small>
+        }
+      }
     </div>
     
     <div class="mt-4">
-      <p-button
-        label="Crear Cuenta"
-        severity="primary"
+      <p-button 
+        label="Crear Cuenta" 
+        severity="primary" 
         styleClass="w-full"
-        (onClick)="onRegister()" />
+        type="submit"
+        [loading]="isLoading"
+        [disabled]="registerForm.invalid || isLoading" />
     </div>
     
     <div class="text-center mt-4 pt-4 border-t border-gray-200">
       <p class="text-sm text-gray-600 mb-2">¿Ya tienes una cuenta?</p>
-      <p-button
-        label="Iniciar Sesión"
-        severity="help"
+      <p-button 
+        label="Iniciar Sesión" 
+        severity="help" 
         size="small"
-        outlined="true"
+        [outlined]="true"
         (onClick)="onOpenLogin()" />
     </div>
-  </div>
+  </form>
 </p-dialog>

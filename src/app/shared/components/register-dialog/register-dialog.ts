@@ -1,43 +1,141 @@
-import { Component, model, output } from '@angular/core';
-import { FormsModule } from '@angular/forms';
+import { Component, model, output, inject } from '@angular/core';
+import { FormBuilder, FormGroup, ReactiveFormsModule, Validators, AbstractControl, ValidationErrors } from '@angular/forms';
 import { DialogModule } from 'primeng/dialog';
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
 import { PasswordModule } from 'primeng/password';
+import { ToastModule } from 'primeng/toast';
+import { MessageService } from 'primeng/api';
+import { SupabaseService } from '../../../core/services/supabase-service';
 
 @Component({
   selector: 'app-register-dialog',
-  imports: [FormsModule, DialogModule, ButtonModule, InputTextModule, PasswordModule],
+  standalone: true,
+  imports: [
+    ReactiveFormsModule,
+    DialogModule,
+    ButtonModule,
+    InputTextModule,
+    PasswordModule,
+    ToastModule
+  ],
+  providers: [MessageService],
   templateUrl: './register-dialog.html',
   styleUrl: './register-dialog.scss'
 })
 export class RegisterDialog {
   visible = model<boolean>(false);
   openLogin = output<void>();
-
-  fullName: string = '';
-  email: string = '';
-  phone: string = '';
-  password: string = '';
-  confirmPassword: string = '';
-
-  onRegister() {
-    // TODO: Implement registration logic
-    console.log('Register clicked', { 
-      fullName: this.fullName,
-      email: this.email,
-      phone: this.phone,
-      password: this.password,
-      confirmPassword: this.confirmPassword
+  
+  private fb = inject(FormBuilder);
+  private supabaseService = inject(SupabaseService);
+  private messageService = inject(MessageService);
+  
+  registerForm: FormGroup;
+  isLoading = false;
+  
+  constructor() {
+    this.registerForm = this.fb.group({
+      fullName: ['', [Validators.required, Validators.minLength(3)]],
+      email: ['', [Validators.required, Validators.email]],
+      phone: ['', [Validators.required, Validators.pattern(/^[\d\s\-\+\(\)]+$/)]],
+      password: ['', [Validators.required, Validators.minLength(6)]],
+      confirmPassword: ['', [Validators.required]]
+    }, {
+      validators: this.passwordMatchValidator
     });
   }
-
+  
+  passwordMatchValidator(control: AbstractControl): ValidationErrors | null {
+    const password = control.get('password');
+    const confirmPassword = control.get('confirmPassword');
+    
+    if (!password || !confirmPassword) {
+      return null;
+    }
+    
+    if (password.value !== confirmPassword.value) {
+      confirmPassword.setErrors({ passwordMismatch: true });
+      return { passwordMismatch: true };
+    } else {
+      confirmPassword.setErrors(null);
+      return null;
+    }
+  }
+  
+  get fullName() {
+    return this.registerForm.get('fullName');
+  }
+  
+  get email() {
+    return this.registerForm.get('email');
+  }
+  
+  get phone() {
+    return this.registerForm.get('phone');
+  }
+  
+  get password() {
+    return this.registerForm.get('password');
+  }
+  
+  get confirmPassword() {
+    return this.registerForm.get('confirmPassword');
+  }
+  
+  async onRegister() {
+    if (this.registerForm.invalid) {
+      this.registerForm.markAllAsTouched();
+      return;
+    }
+    
+    this.isLoading = true;
+    const { email, password, fullName, phone } = this.registerForm.value;
+    
+    try {
+      await this.supabaseService.signUp(email, password, fullName, phone);
+      this.messageService.add({
+        severity: 'success',
+        summary: 'Éxito',
+        detail: 'Cuenta creada correctamente. Por favor revisa tu correo para confirmar tu cuenta.'
+      });
+      this.visible.set(false);
+      this.registerForm.reset();
+      setTimeout(() => {
+        this.openLogin.emit();
+      }, 2000);
+    } catch (error: any) {
+      this.messageService.add({
+        severity: 'error',
+        summary: 'Error',
+        detail: this.getErrorMessage(error)
+      });
+    } finally {
+      this.isLoading = false;
+    }
+  }
+  
+  private getErrorMessage(error: any): string {
+    if (error.message === 'User already registered') {
+      return 'Este correo ya está registrado';
+    }
+    if (error.message === 'Password should be at least 6 characters') {
+      return 'La contraseña debe tener al menos 6 caracteres';
+    }
+    if (error.message === 'Unable to validate email address: invalid format') {
+      return 'Formato de correo inválido';
+    }
+    return error.message || 'Error al crear la cuenta';
+  }
+  
   onOpenLogin() {
     this.visible.set(false);
+    this.registerForm.reset();
     this.openLogin.emit();
   }
-
+  
   onDialogHide() {
     this.visible.set(false);
+    this.registerForm.reset();
   }
 }
