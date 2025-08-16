@@ -38,4 +38,9 @@ export class RegisterDialog {
     this.visibleChange.emit(this.visible);
     this.openLogin.emit();
   }
+
+  onDialogHide() {
+    this.visible = false;
+    this.visibleChange.emit(this.visible);
+  }
 }

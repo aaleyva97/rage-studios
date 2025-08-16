@@ -29,4 +29,9 @@ export class LoginDialog {
     this.visibleChange.emit(this.visible);
     this.openRegister.emit();
   }
+
+  onDialogHide() {
+    this.visible = false;
+    this.visibleChange.emit(this.visible);
+  }
 }

@@ -4,7 +4,8 @@
   [(visible)]="visible"
   [style]="{ width: '30rem' }"
   [breakpoints]="{ '1199px': '75vw', '575px': '90vw' }"
-  styleClass="register-dialog">
+  styleClass="register-dialog"
+  (onHide)="onDialogHide()">
   
   <div class="flex flex-col gap-4 p-4">
     <div class="flex flex-col gap-2">
@@ -66,8 +67,7 @@
       <p-button
         label="Crear Cuenta"
         severity="primary"
-        size="small"
-        styleClass="flex-1 mr-2"
+        styleClass="w-full"
         (onClick)="onRegister()" />
     </div>
     
