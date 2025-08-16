@@ -3,3 +3,27 @@
   height: 100vh;
   width: 100%;
 }
+
+:host {
+  display: block;
+  min-height: 100vh;
+}
+
+::ng-deep .p-toast {
+  z-index: 9999 !important;
+  
+  .p-toast-message {
+    animation: slideInRight 0.3s ease-in-out;
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}

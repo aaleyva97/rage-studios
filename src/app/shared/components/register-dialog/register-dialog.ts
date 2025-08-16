@@ -94,21 +94,29 @@ export class RegisterDialog {
     
     try {
       await this.supabaseService.signUp(email, password, fullName, phone);
+      
       this.messageService.add({
         severity: 'success',
-        summary: 'Éxito',
-        detail: 'Cuenta creada correctamente. Por favor revisa tu correo para confirmar tu cuenta.'
+        summary: '¡Cuenta creada exitosamente!',
+        detail: 'Por favor revisa tu correo electrónico para confirmar tu cuenta',
+        life: 5000
       });
-      this.visible.set(false);
-      this.registerForm.reset();
+      
       setTimeout(() => {
-        this.openLogin.emit();
-      }, 2000);
+        this.visible.set(false);
+        this.registerForm.reset();
+        
+        setTimeout(() => {
+          this.openLogin.emit();
+        }, 500);
+      }, 1500);
+      
     } catch (error: any) {
       this.messageService.add({
         severity: 'error',
-        summary: 'Error',
-        detail: this.getErrorMessage(error)
+        summary: 'Error al crear cuenta',
+        detail: this.getErrorMessage(error),
+        life: 5000
       });
     } finally {
       this.isLoading = false;

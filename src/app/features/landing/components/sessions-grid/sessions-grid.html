@@ -1,0 +1,111 @@
+<section class="py-16 md:py-24 bg-gray-50">
+  <div class="container mx-auto px-4 max-w-7xl">
+    <header class="text-center mb-12 md:mb-16">
+      <h2 class="text-3xl md:text-4xl lg:text-5xl font-bold text-gray-900 mb-4">
+        Nuestras Clases
+      </h2>
+      <p class="text-lg md:text-xl text-gray-600 max-w-2xl mx-auto">
+        Entrena con los mejores coaches cada día de la semana
+      </p>
+    </header>
+    
+    @if (isLoading()) {
+      <div class="flex justify-center items-center min-h-[400px]">
+        <p-progressSpinner />
+      </div>
+    } @else {
+      <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-4 md:gap-6 lg:gap-8">
+        @for (session of sessions(); track session.id) {
+          <article class="group cursor-pointer">
+            <div 
+              class="relative overflow-hidden rounded-lg shadow-lg transition-all duration-300 hover:shadow-2xl hover:scale-105"
+              (click)="openSessionDetails(session)">
+              
+              <div class="aspect-[3/4] relative">
+                <img 
+                  [src]="session.image_url" 
+                  [alt]="session.class_name"
+                  class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                  loading="lazy" />
+                
+                <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                  <button class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white text-black px-6 py-3 rounded-full font-semibold text-sm tracking-wider hover:bg-gray-100 transition-colors">
+                    MORE INFO
+                  </button>
+                </div>
+              </div>
+            </div>
+            
+            <div class="mt-3 text-center">
+              <p class="text-sm md:text-base font-medium text-gray-700">
+                <span class="uppercase tracking-wider">{{ session.day_name }}</span>
+                <span class="mx-2 text-gray-400">|</span>
+                <span class="uppercase tracking-wider">{{ session.class_name }}</span>
+              </p>
+            </div>
+          </article>
+        }
+      </div>
+    }
+  </div>
+</section>
+
+<p-dialog 
+  [header]="selectedSession()?.class_name"
+  [(visible)]="showDetailsDialog"
+  [modal]="true"
+  [style]="{ width: '90vw', maxWidth: '600px' }"
+  [breakpoints]="{ '768px': '95vw', '480px': '100vw' }"
+  (onHide)="closeDetailsDialog()">
+  
+  @if (selectedSession(); as session) {
+    <div class="p-4 md:p-6">
+      <div class="aspect-video relative overflow-hidden rounded-lg mb-6">
+        <img 
+          [src]="session.image_url" 
+          [alt]="session.class_name"
+          class="w-full h-full object-cover" />
+      </div>
+      
+      <div class="space-y-4">
+        <div>
+          <h3 class="text-xl font-bold text-gray-900 mb-2">{{ session.class_subtitle }}</h3>
+          <p class="text-gray-600">{{ session.description }}</p>
+        </div>
+        
+        <div class="grid grid-cols-2 gap-4 pt-4 border-t border-gray-200">
+          <div>
+            <span class="text-sm text-gray-500">Día</span>
+            <p class="font-semibold text-gray-900">{{ session.day_name }}</p>
+          </div>
+          
+          <div>
+            <span class="text-sm text-gray-500">Duración</span>
+            <p class="font-semibold text-gray-900">{{ session.duration }}</p>
+          </div>
+          
+          <div>
+            <span class="text-sm text-gray-500">Nivel</span>
+            <p class="font-semibold text-gray-900">{{ session.level }}</p>
+          </div>
+          
+          <div>
+            <span class="text-sm text-gray-500">Lugares máximos</span>
+            <p class="font-semibold text-gray-900">{{ session.max_spots }} personas</p>
+          </div>
+        </div>
+        
+        <div class="pt-4">
+          <p-button 
+            label="Reservar Clase" 
+            severity="primary"
+            styleClass="w-full"
+            [disabled]="true" />
+          <p class="text-xs text-gray-500 text-center mt-2">
+            Inicia sesión para reservar tu lugar
+          </p>
+        </div>
+      </div>
+    </div>
+  }
+</p-dialog>
