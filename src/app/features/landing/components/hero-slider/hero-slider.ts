@@ -1,5 +1,5 @@
-import { Component, ChangeDetectionStrategy } from '@angular/core';
-import { CarouselModule } from 'primeng/carousel';
+import { Component, ChangeDetectionStrategy, ViewChild, signal, AfterViewInit } from '@angular/core';
+import { CarouselModule, Carousel } from 'primeng/carousel';
 
 @Component({
   selector: 'app-hero-slider',
@@ -9,7 +9,11 @@ import { CarouselModule } from 'primeng/carousel';
   templateUrl: './hero-slider.html',
   styleUrl: './hero-slider.scss'
 })
-export class HeroSlider {
+export class HeroSlider implements AfterViewInit {
+  @ViewChild('carousel') carousel!: Carousel;
+  
+  currentIndex = signal(0);
+  
   slides = [
     {
       title: 'Welcome to RageStudios',
@@ -32,4 +36,20 @@ export class HeroSlider {
       image: 'https://images.unsplash.com/photo-1517077304055-6e89abbf09b0?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80'
     }
   ];
+  
+  ngAfterViewInit() {
+    // Listen to page changes to update our signal
+    if (this.carousel) {
+      this.carousel.onPage.subscribe((event: any) => {
+        this.currentIndex.set(event.page);
+      });
+    }
+  }
+  
+  goToSlide(index: number) {
+    if (this.carousel) {
+      this.carousel.page = index;
+      this.currentIndex.set(index);
+    }
+  }
 }
