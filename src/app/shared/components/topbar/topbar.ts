@@ -1,6 +1,7 @@
 import { Component, signal, OnInit } from '@angular/core';
 import { RouterModule } from '@angular/router';
 import { Button } from 'primeng/button';
+import { Drawer } from 'primeng/drawer';
 import { LoginDialog } from '../login-dialog/login-dialog';
 import { RegisterDialog } from '../register-dialog/register-dialog';
 
@@ -11,7 +12,7 @@ interface NavItem {
 
 @Component({
   selector: 'app-topbar',
-  imports: [RouterModule, Button, LoginDialog, RegisterDialog],
+  imports: [RouterModule, Button, Drawer, LoginDialog, RegisterDialog],
   templateUrl: './topbar.html',
   styleUrl: './topbar.scss'
 })
@@ -20,6 +21,7 @@ export class Topbar implements OnInit {
   menuItems = signal<NavItem[]>([]);
   showLoginDialog = signal(false);
   showRegisterDialog = signal(false);
+  mobileMenuVisible = signal(false);
 
   private navigationItems: NavItem[] = [
     { label: 'Paquetes', routerLink: '/paquetes' },
@@ -72,5 +74,22 @@ export class Topbar implements OnInit {
   onOpenLoginFromRegister() {
     this.showRegisterDialog.set(false);
     this.showLoginDialog.set(true);
+  }
+
+  toggleMobileMenu() {
+    this.mobileMenuVisible.set(!this.mobileMenuVisible());
+  }
+
+  closeMobileMenu() {
+    this.mobileMenuVisible.set(false);
+  }
+
+  onMenuItemClick() {
+    this.closeMobileMenu();
+  }
+
+  onLoginFromMobile() {
+    this.closeMobileMenu();
+    this.openLoginDialog();
   }
 }
