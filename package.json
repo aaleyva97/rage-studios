@@ -3,11 +3,11 @@
   "version": "0.0.0",
   "scripts": {
     "ng": "ng",
-    "start": "ng serve",
+    "start": "node --no-deprecation node_modules/@angular/cli/bin/ng serve",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
-    "serve:ssr:rage-studios": "node dist/rage-studios/server/server.mjs"
+    "serve:ssr:rage-studios": "node --no-deprecation dist/rage-studios/server/server.mjs"
   },
   "prettier": {
     "overrides": [
