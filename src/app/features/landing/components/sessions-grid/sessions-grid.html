@@ -100,10 +100,12 @@
             label="Reservar Clase" 
             severity="primary"
             styleClass="w-full"
-            [disabled]="true" />
-          <p class="text-xs text-gray-500 text-center mt-2">
-            Inicia sesión para reservar tu lugar
-          </p>
+            [disabled]="!isLoggedIn()" />
+          @if (!isLoggedIn()) {
+            <p class="text-xs text-gray-500 text-center mt-2">
+              Inicia sesión para reservar tu lugar
+            </p>
+          }
         </div>
       </div>
     </div>

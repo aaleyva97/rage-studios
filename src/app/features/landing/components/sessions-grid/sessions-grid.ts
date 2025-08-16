@@ -3,6 +3,7 @@ import { DialogModule } from 'primeng/dialog';
 import { ButtonModule } from 'primeng/button';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { SessionsService, Session } from '../../services/sessions.service';
+import { SupabaseService } from '../../../../core/services/supabase-service';
 
 @Component({
   selector: 'app-sessions-grid',
@@ -12,14 +13,25 @@ import { SessionsService, Session } from '../../services/sessions.service';
 })
 export class SessionsGrid implements OnInit {
   private sessionsService = inject(SessionsService);
+  private supabaseService = inject(SupabaseService);
   
   sessions = signal<Session[]>([]);
   selectedSession = signal<Session | null>(null);
   showDetailsDialog = signal(false);
   isLoading = signal(true);
+  isLoggedIn = signal(false);
   
   ngOnInit() {
     this.loadSessions();
+    this.checkAuthStatus();
+  }
+  
+  private checkAuthStatus() {
+    this.isLoggedIn.set(this.supabaseService.isLoggedIn());
+    
+    this.supabaseService.currentUser$.subscribe(user => {
+      this.isLoggedIn.set(!!user);
+    });
   }
   
   async loadSessions() {
