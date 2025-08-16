@@ -86,6 +86,7 @@ src/app/
 ### Modern Angular Practices (v20+)
 - **Use New Control Flow**: Always use `@if`, `@for`, `@switch` instead of `*ngIf`, `*ngFor`, `*ngSwitch`
 - **Signals-First Approach**: Prefer signals over traditional reactive patterns where applicable
+- **Modern Input/Output**: ALWAYS use `input()` and `output()` signals instead of `@Input()` and `@Output()` decorators
 - **Standalone Components**: Use standalone components by default
 - **Zoneless Change Detection**: Already configured in app.config.ts
 - **Specific Imports Only**: NEVER import CommonModule in standalone components. Import only specific modules needed (e.g., NgIf, NgFor, etc.)
@@ -139,6 +140,34 @@ src/app/
 <div class="p-4 md:p-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
   <!-- Content -->
 </div>
+```
+
+### Modern Input/Output Signals
+```typescript
+// ✅ Correct - Modern signals-based approach
+import { Component, input, output } from '@angular/core';
+
+@Component({
+  selector: 'app-my-component',
+  template: '...'
+})
+export class MyComponent {
+  // Input signals
+  data = input<string>('');
+  config = input.required<Config>();
+  
+  // Output signals
+  valueChange = output<string>();
+  action = output<void>();
+  
+  onAction() {
+    this.action.emit();
+  }
+}
+
+// ❌ Avoid - Legacy decorators
+// @Input() data: string = '';
+// @Output() valueChange = new EventEmitter<string>();
 ```
 
 ### Semantic HTML

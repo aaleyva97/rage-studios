@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter } from '@angular/core';
+import { Component, model, output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { DialogModule } from 'primeng/dialog';
 import { ButtonModule } from 'primeng/button';
@@ -12,9 +12,8 @@ import { PasswordModule } from 'primeng/password';
   styleUrl: './login-dialog.scss'
 })
 export class LoginDialog {
-  @Input() visible: boolean = false;
-  @Output() visibleChange = new EventEmitter<boolean>();
-  @Output() openRegister = new EventEmitter<void>();
+  visible = model<boolean>(false);
+  openRegister = output<void>();
 
   email: string = '';
   password: string = '';
@@ -25,13 +24,11 @@ export class LoginDialog {
   }
 
   onOpenRegister() {
-    this.visible = false;
-    this.visibleChange.emit(this.visible);
+    this.visible.set(false);
     this.openRegister.emit();
   }
 
   onDialogHide() {
-    this.visible = false;
-    this.visibleChange.emit(this.visible);
+    this.visible.set(false);
   }
 }
