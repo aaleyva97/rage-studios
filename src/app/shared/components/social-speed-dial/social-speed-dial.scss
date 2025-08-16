@@ -30,4 +30,9 @@
       }
     }
   }
+
+  ::ng-deep .p-button-sm.p-button-icon-only.p-button-rounded {
+    height: 60px;
+    width: 60px;
+}
 }

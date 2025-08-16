@@ -1,0 +1,84 @@
+<p-dialog
+  header="Crear Cuenta"
+  [modal]="true"
+  [(visible)]="visible"
+  [style]="{ width: '30rem' }"
+  [breakpoints]="{ '1199px': '75vw', '575px': '90vw' }"
+  styleClass="register-dialog">
+  
+  <div class="flex flex-col gap-4 p-4">
+    <div class="flex flex-col gap-2">
+      <label for="fullName" class="font-semibold text-sm">Nombre Completo</label>
+      <input
+        id="fullName"
+        type="text"
+        pInputText
+        [(ngModel)]="fullName"
+        placeholder="Tu nombre completo"
+        class="w-full" />
+    </div>
+    
+    <div class="flex flex-col gap-2">
+      <label for="email" class="font-semibold text-sm">Correo Electrónico</label>
+      <input
+        id="email"
+        type="email"
+        pInputText
+        [(ngModel)]="email"
+        placeholder="tu@correo.com"
+        class="w-full" />
+    </div>
+    
+    <div class="flex flex-col gap-2">
+      <label for="phone" class="font-semibold text-sm">Teléfono</label>
+      <input
+        id="phone"
+        type="tel"
+        pInputText
+        [(ngModel)]="phone"
+        placeholder="+52 (55) 1234-5678"
+        class="w-full" />
+    </div>
+    
+    <div class="flex flex-col gap-2">
+      <label for="password" class="font-semibold text-sm">Contraseña</label>
+      <p-password
+        id="password"
+        [(ngModel)]="password"
+        placeholder="Contraseña segura"
+        [feedback]="true"
+        [toggleMask]="true"
+        inputStyleClass="w-full" />
+    </div>
+    
+    <div class="flex flex-col gap-2">
+      <label for="confirmPassword" class="font-semibold text-sm">Confirmar Contraseña</label>
+      <p-password
+        id="confirmPassword"
+        [(ngModel)]="confirmPassword"
+        placeholder="Repite tu contraseña"
+        [feedback]="false"
+        [toggleMask]="true"
+        inputStyleClass="w-full" />
+    </div>
+    
+    <div class="mt-4">
+      <p-button
+        label="Crear Cuenta"
+        severity="primary"
+        size="small"
+        styleClass="flex-1 mr-2"
+        (onClick)="onRegister()" />
+    </div>
+    
+    <div class="text-center mt-4 pt-4 border-t border-gray-200">
+      <p class="text-sm text-gray-600 mb-2">¿Ya tienes una cuenta?</p>
+      <p-button
+        label="Iniciar Sesión"
+        severity="help"
+        size="small"
+        outlined="true"
+        (onClick)="onOpenLogin()" />
+    </div>
+  </div>
+</p-dialog>

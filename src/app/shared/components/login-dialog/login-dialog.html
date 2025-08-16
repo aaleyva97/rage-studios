@@ -1,0 +1,50 @@
+<p-dialog
+  header="Iniciar Sesión"
+  [modal]="true"
+  [(visible)]="visible"
+  [style]="{ width: '25rem' }"
+  [breakpoints]="{ '1199px': '75vw', '575px': '90vw' }">
+  
+  <div class="flex flex-col gap-4 p-4">
+    <div class="flex flex-col gap-2">
+      <label for="email" class="font-semibold text-sm">Correo Electrónico</label>
+      <input
+        id="email"
+        type="email"
+        pInputText
+        [(ngModel)]="email"
+        placeholder="tu@correo.com"
+        class="w-full" />
+    </div>
+    
+    <div class="flex flex-col gap-2">
+      <label for="password" class="font-semibold text-sm">Contraseña</label>
+      <p-password
+        class="w-full"
+        id="password"
+        [(ngModel)]="password"
+        placeholder="Tu contraseña"
+        [feedback]="false"
+        [toggleMask]="true"
+        inputStyleClass="w-full"
+        />
+    </div>
+    
+    <div class="mt-4">
+      <p-button
+        label="Iniciar Sesión"
+        severity="primary"
+        (onClick)="onLogin()" />
+    </div>
+    
+    <div class="text-center mt-4 pt-4 border-t border-gray-200">
+      <p class="text-sm text-gray-600 mb-2">¿No tienes una cuenta?</p>
+      <p-button
+        label="Crear Cuenta"
+        severity="help"
+        size="small"
+        [outlined]="true"
+        (onClick)="onOpenRegister()" />
+    </div>
+  </div>
+</p-dialog>
