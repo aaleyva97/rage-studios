@@ -54,18 +54,13 @@
   styleClass="!w-full sm:!w-80"
   (onHide)="closeMobileMenu()">
   
+  <ng-template #header>
+    <div class="flex justify-end w-full">
+    </div>
+  </ng-template>
+  
   <!-- Mobile menu content -->
-  <div class="flex flex-col gap-4 pt-8 px-4 relative">
-    <!-- Close button positioned absolutely -->
-    <p-button 
-      icon="pi pi-times" 
-      severity="secondary" 
-      [text]="true"
-      size="large"
-      class="absolute top-2 right-2"
-      (onClick)="closeMobileMenu()"
-      aria-label="Close menu">
-    </p-button>
+  <div class="flex flex-col gap-6 pt-4 px-6 items-center">
     @for (item of menuItems(); track item.routerLink) {
       <a 
         [routerLink]="item.routerLink" 
