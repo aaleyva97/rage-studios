@@ -1,0 +1,177 @@
+:host {
+  display: block;
+  position: absolute;
+  top: 4rem; // Start right below the fixed topbar
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: calc(100vh - 4rem);
+}
+
+.hero-slider-container {
+  height: calc(100vh - 4rem);
+  width: 100%;
+  position: relative;
+}
+
+.slide-container {
+  position: relative;
+  height: calc(100vh - 4rem);
+  width: 100%;
+  overflow: hidden;
+}
+
+.slide-image {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+
+.slide-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, rgba(0, 0, 0, 0.6) 0%, rgba(0, 0, 0, 0.3) 100%);
+  z-index: 1;
+}
+
+.slide-content {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 3rem 2rem;
+  color: white;
+  z-index: 2;
+  max-width: 1200px;
+  margin: 0 auto;
+  
+  @media (min-width: 768px) {
+    padding: 4rem 3rem;
+  }
+  
+  @media (min-width: 1024px) {
+    padding: 5rem 4rem;
+  }
+}
+
+.slide-title {
+  font-size: 2rem;
+  font-weight: 700;
+  margin-bottom: 1rem;
+  line-height: 1.2;
+  
+  @media (min-width: 768px) {
+    font-size: 3rem;
+  }
+  
+  @media (min-width: 1024px) {
+    font-size: 4rem;
+  }
+}
+
+.slide-description {
+  font-size: 1.125rem;
+  margin-bottom: 0;
+  max-width: 600px;
+  line-height: 1.6;
+  opacity: 0.95;
+  
+  @media (min-width: 768px) {
+    font-size: 1.25rem;
+  }
+}
+
+// PrimeNG carousel overrides with more aggressive targeting
+:host ::ng-deep {
+  .p-carousel {
+    height: calc(100vh - 4rem) !important;
+    position: relative !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    
+    * {
+      box-sizing: border-box !important;
+    }
+    
+    .p-carousel-content {
+      padding: 0 !important;
+      margin: 0 !important;
+      height: calc(100vh - 4rem) !important;
+      position: relative !important;
+      display: flex !important;
+      flex-direction: column !important;
+    }
+    
+    .p-carousel-viewport {
+      height: calc(100vh - 4rem) !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      flex: 1 !important;
+    }
+    
+    .p-carousel-items-content {
+      height: calc(100vh - 4rem) !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      
+      .p-carousel-items-container {
+        height: calc(100vh - 4rem) !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        
+        .p-carousel-item {
+          height: calc(100vh - 4rem) !important;
+          margin: 0 !important;
+          padding: 0 !important;
+        }
+      }
+    }
+  }
+}
+
+// Separate rule for indicators to ensure they're absolutely positioned
+:host ::ng-deep .p-carousel .p-carousel-indicators {
+  position: absolute !important;
+  bottom: 2rem !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  z-index: 1000 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  width: auto !important;
+  height: auto !important;
+  
+  .p-carousel-indicator {
+    margin: 0 0.375rem !important;
+    
+    button {
+      width: 12px !important;
+      height: 12px !important;
+      border-radius: 50% !important;
+      background-color: rgba(255, 255, 255, 0.4) !important;
+      border: 2px solid rgba(255, 255, 255, 0.6) !important;
+      cursor: pointer !important;
+      transition: all 0.3s ease !important;
+      
+      &:hover {
+        background-color: rgba(255, 255, 255, 0.7) !important;
+        border-color: rgba(255, 255, 255, 0.9) !important;
+        transform: scale(1.1) !important;
+      }
+      
+      &.p-highlight {
+        background-color: #ffffff !important;
+        border-color: #ffffff !important;
+        transform: scale(1.2) !important;
+      }
+    }
+  }
+}
