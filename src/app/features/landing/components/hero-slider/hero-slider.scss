@@ -1,12 +1,9 @@
 :host {
   display: block;
-  position: absolute;
-  top: 4rem; // Start right below the fixed topbar
-  left: 0;
-  right: 0;
-  bottom: 0;
+  position: relative;
   width: 100%;
   height: calc(100vh - 4rem);
+  margin-top: 4rem; // Space for the fixed topbar
 }
 
 .hero-slider-container {
