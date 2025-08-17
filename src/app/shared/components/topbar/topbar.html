@@ -1,10 +1,7 @@
 <p-toast />
 <nav class="topbar">
   <div class="topbar-container">
-    <div class="logo">
-      <span class="logo-text">RAGE STUDIOS</span>
-    </div>
-    
+    <!-- Mobile: Hamburger menu on left -->
     <p-button 
       icon="pi pi-bars" 
       severity="secondary" 
@@ -16,8 +13,24 @@
       [attr.aria-controls]="mobileMenuVisible() ? 'mobile-menu-drawer' : null">
     </p-button>
     
-    <div class="nav-menu">
-      @for (item of menuItems(); track item.routerLink) {
+    <!-- Desktop: Left navigation items -->
+    <div class="nav-section-left">
+      @for (item of leftMenuItems(); track item.routerLink) {
+        <a [routerLink]="item.routerLink" class="nav-item">
+          <span>{{ item.label }}</span>
+          <div class="nav-underline"></div>
+        </a>
+      }
+    </div>
+    
+    <!-- Center: Logo -->
+    <div class="logo">
+      <span class="logo-text">RAGE STUDIOS</span>
+    </div>
+    
+    <!-- Desktop: Right navigation items -->
+    <div class="nav-section-right">
+      @for (item of rightMenuItems(); track item.routerLink) {
         <a [routerLink]="item.routerLink" class="nav-item">
           <span>{{ item.label }}</span>
           <div class="nav-underline"></div>
@@ -33,24 +46,47 @@
           styleClass="ml-4">
         </p-button>
       } @else {
-        <div class="flex items-center gap-2 ml-4">
+        <div class="user-section">
           <p-button 
-            label="Reservar" 
-            severity="success" 
-            size="small"
-            routerLink="/reservar">
-          </p-button>
-          <p-button 
-            icon="pi pi-sign-out" 
+            [label]="getUserDisplayName()" 
             severity="secondary" 
             size="small"
             [text]="true"
-            [rounded]="true"
-            pTooltip="Cerrar Sesión"
-            tooltipPosition="bottom"
-            (onClick)="logout()">
+            icon="pi pi-chevron-down"
+            iconPos="right"
+            (onClick)="toggleUserMenu($event)"
+            styleClass="user-menu-button">
           </p-button>
+          <p-menu 
+            #userMenu
+            [model]="userMenuItems()"
+            [popup]="true"
+            appendTo="body">
+          </p-menu>
         </div>
+      }
+    </div>
+    
+    <!-- Mobile: Right action button -->
+    <div class="mobile-action-button">
+      @if (!isLoggedIn()) {
+        <p-button 
+          icon="pi pi-user" 
+          severity="secondary" 
+          [text]="true"
+          size="large"
+          class="md:hidden"
+          (onClick)="openLoginDialog()">
+        </p-button>
+      } @else {
+        <p-button 
+          icon="pi pi-calendar" 
+          severity="secondary" 
+          [text]="true"
+          size="large"
+          class="md:hidden"
+          routerLink="/reservar">
+        </p-button>
       }
     </div>
   </div>
@@ -68,7 +104,15 @@
   </ng-template>
   
   <div class="flex flex-col gap-6 pt-4 px-6 items-center">
-    @for (item of menuItems(); track item.routerLink) {
+    @for (item of leftMenuItems(); track item.routerLink) {
+      <a 
+        [routerLink]="item.routerLink" 
+        class="mobile-nav-item"
+        (click)="onMenuItemClick()">
+        <span>{{ item.label }}</span>
+      </a>
+    }
+    @for (item of rightMenuItems(); track item.routerLink) {
       <a 
         [routerLink]="item.routerLink" 
         class="mobile-nav-item"
@@ -88,14 +132,10 @@
         </p-button>
       } @else {
         <div class="flex flex-col gap-3">
-          <p-button 
-            label="Reservar" 
-            severity="success" 
-            size="small"
-            class="w-full"
-            routerLink="/reservar"
-            (onClick)="onMenuItemClick()">
-          </p-button>
+          <div class="text-center py-2">
+            <span class="text-sm text-gray-600">Bienvenido,</span>
+            <div class="font-medium text-gray-900">{{ getUserDisplayName() }}</div>
+          </div>
           <p-button 
             label="Cerrar Sesión" 
             severity="secondary" 

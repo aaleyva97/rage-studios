@@ -1,9 +1,10 @@
-import { Component, signal, OnInit, OnDestroy, inject } from '@angular/core';
+import { Component, signal, OnInit, OnDestroy, inject, ViewChild } from '@angular/core';
 import { RouterModule } from '@angular/router';
 import { Button } from 'primeng/button';
 import { Drawer } from 'primeng/drawer';
+import { Menu } from 'primeng/menu';
 import { ToastModule } from 'primeng/toast';
-import { MessageService } from 'primeng/api';
+import { MessageService, MenuItem } from 'primeng/api';
 import { LoginDialog } from '../login-dialog/login-dialog';
 import { RegisterDialog } from '../register-dialog/register-dialog';
 import { Subscription } from 'rxjs';
@@ -14,43 +15,82 @@ interface NavItem {
   routerLink: string;
 }
 
+interface Profile {
+  id: string;
+  full_name: string;
+  phone: string;
+  role: string;
+  created_at: string;
+  updated_at: string;
+}
+
 @Component({
   selector: 'app-topbar',
   standalone: true,
-  imports: [RouterModule, Button, Drawer, LoginDialog, RegisterDialog, ToastModule],
+  imports: [RouterModule, Button, Drawer, Menu, LoginDialog, RegisterDialog, ToastModule],
   providers: [MessageService],
   templateUrl: './topbar.html',
   styleUrl: './topbar.scss'
 })
 export class Topbar implements OnInit, OnDestroy {
+  @ViewChild('userMenu') userMenu!: Menu;
+  
   private supabaseService = inject(SupabaseService);
   private messageService = inject(MessageService);
   
   isLoggedIn = signal(false);
-  menuItems = signal<NavItem[]>([]);
+  currentUser = signal<any>(null);
+  userProfile = signal<Profile | null>(null);
+  leftMenuItems = signal<NavItem[]>([]);
+  rightMenuItems = signal<NavItem[]>([]);
   showLoginDialog = signal(false);
   showRegisterDialog = signal(false);
   mobileMenuVisible = signal(false);
+  userMenuVisible = signal(false);
+  userMenuItems = signal<MenuItem[]>([]);
   
   private authSubscription?: Subscription;
   
-  private navigationItems: NavItem[] = [
+  // Left side menu items
+  private leftNavItems: NavItem[] = [
     { label: 'Paquetes', routerLink: '/paquetes' },
-    { label: 'Coaches', routerLink: '/coaches' },
     { label: 'Training', routerLink: '/training' }
   ];
   
-  private loggedInItems: NavItem[] = [
+  private leftNavItemsLoggedIn: NavItem[] = [
+    { label: 'Reservar', routerLink: '/reservar' },
     { label: 'Paquetes', routerLink: '/paquetes' },
+    { label: 'Training', routerLink: '/training' }
+  ];
+  
+  // Right side menu items
+  private rightNavItems: NavItem[] = [
+    { label: 'Coaches', routerLink: '/coaches' }
+  ];
+  
+  private rightNavItemsLoggedIn: NavItem[] = [
     { label: 'Coaches', routerLink: '/coaches' },
-    { label: 'Training', routerLink: '/training' },
     { label: 'Mi Cuenta', routerLink: '/mi-cuenta' }
   ];
   
   ngOnInit() {
-    this.authSubscription = this.supabaseService.currentUser$.subscribe(user => {
+    this.authSubscription = this.supabaseService.currentUser$.subscribe(async user => {
       this.isLoggedIn.set(!!user);
+      this.currentUser.set(user);
+      
+      if (user) {
+        try {
+          const profile = await this.supabaseService.getProfile(user.id);
+          this.userProfile.set(profile);
+        } catch (error) {
+          console.error('Error loading user profile:', error);
+        }
+      } else {
+        this.userProfile.set(null);
+      }
+      
       this.updateMenuItems();
+      this.updateUserMenu();
     });
   }
   
@@ -59,7 +99,28 @@ export class Topbar implements OnInit, OnDestroy {
   }
   
   private updateMenuItems() {
-    this.menuItems.set(this.isLoggedIn() ? this.loggedInItems : this.navigationItems);
+    this.leftMenuItems.set(this.isLoggedIn() ? this.leftNavItemsLoggedIn : this.leftNavItems);
+    this.rightMenuItems.set(this.isLoggedIn() ? this.rightNavItemsLoggedIn : this.rightNavItems);
+  }
+  
+  private updateUserMenu() {
+    if (this.isLoggedIn()) {
+      this.userMenuItems.set([
+        {
+          label: 'Mi Cuenta',
+          icon: 'pi pi-user',
+          routerLink: '/mi-cuenta'
+        },
+        {
+          separator: true
+        },
+        {
+          label: 'Cerrar Sesión',
+          icon: 'pi pi-sign-out',
+          command: () => this.logout()
+        }
+      ]);
+    }
   }
   
   async logout() {
@@ -107,6 +168,19 @@ export class Topbar implements OnInit, OnDestroy {
   
   toggleMobileMenu() {
     this.mobileMenuVisible.set(!this.mobileMenuVisible());
+  }
+  
+  toggleUserMenu(event: Event) {
+    this.userMenu.toggle(event);
+  }
+  
+  getUserDisplayName(): string {
+    const profile = this.userProfile();
+    if (profile?.full_name) {
+      return profile.full_name;
+    }
+    const user = this.currentUser();
+    return user?.email?.split('@')[0] || 'Usuario';
   }
   
   closeMobileMenu() {
