@@ -104,16 +104,6 @@
   .user-section {
     position: relative;
     margin-left: 1rem;
-    
-    :global(.user-menu-button) {
-      font-weight: 500;
-      color: #374151;
-      
-      &:hover {
-        color: #1f2937;
-        background-color: #f9fafb;
-      }
-    }
   }
 
   // Mobile menu item styles for drawer
@@ -137,6 +127,7 @@
       background-color: #e5e7eb;
     }
   }
+
 }
 
 // Global user menu styles
@@ -150,4 +141,15 @@
   .p-menuitem-icon {
     margin-right: 0.5rem;
   }
+}
+
+// User menu button styling to match nav items
+
+ 
+
+::ng-deep .p-button-text {
+    font-weight: 500 !important;
+  font-size: 16px !important;
+    color: #374151;
+    margin-left: -20px;
 }

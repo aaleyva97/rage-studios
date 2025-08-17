@@ -49,13 +49,11 @@
         <div class="user-section">
           <p-button 
             [label]="getUserDisplayName()" 
-            severity="secondary" 
-            size="small"
             [text]="true"
             icon="pi pi-chevron-down"
             iconPos="right"
             (onClick)="toggleUserMenu($event)"
-            styleClass="user-menu-button">
+            class="btn-user">
           </p-button>
           <p-menu 
             #userMenu
