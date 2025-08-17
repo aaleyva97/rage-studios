@@ -41,6 +41,8 @@ export class Topbar implements OnInit, OnDestroy {
   isLoggedIn = signal(false);
   currentUser = signal<any>(null);
   userProfile = signal<Profile | null>(null);
+  profileLoading = signal(false);
+  profileLoadAttempted = signal(false);
   leftMenuItems = signal<NavItem[]>([]);
   rightMenuItems = signal<NavItem[]>([]);
   showLoginDialog = signal(false);
@@ -78,15 +80,11 @@ export class Topbar implements OnInit, OnDestroy {
       this.isLoggedIn.set(!!user);
       this.currentUser.set(user);
       
-      if (user) {
-        try {
-          const profile = await this.supabaseService.getProfile(user.id);
-          this.userProfile.set(profile);
-        } catch (error) {
-          console.error('Error loading user profile:', error);
-        }
-      } else {
+      if (user && !this.profileLoadAttempted()) {
+        this.loadUserProfile(user.id);
+      } else if (!user) {
         this.userProfile.set(null);
+        this.profileLoadAttempted.set(false);
       }
       
       this.updateMenuItems();
@@ -174,12 +172,32 @@ export class Topbar implements OnInit, OnDestroy {
     this.userMenu.toggle(event);
   }
   
+  private async loadUserProfile(userId: string) {
+    if (this.profileLoading()) return;
+    
+    this.profileLoading.set(true);
+    this.profileLoadAttempted.set(true);
+    
+    try {
+      const profile = await this.supabaseService.getProfile(userId);
+      this.userProfile.set(profile);
+    } catch (error: any) {
+      console.warn('User profile not found, using basic info:', error?.message);
+      this.userProfile.set(null);
+    } finally {
+      this.profileLoading.set(false);
+    }
+  }
+  
   getUserDisplayName(): string {
     const profile = this.userProfile();
     if (profile?.full_name) {
       return profile.full_name;
     }
     const user = this.currentUser();
+    if (user?.user_metadata?.full_name) {
+      return user.user_metadata.full_name;
+    }
     return user?.email?.split('@')[0] || 'Usuario';
   }
   

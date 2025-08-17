@@ -16,7 +16,7 @@ export const adminGuard: CanActivateFn = async (route, state) => {
   try {
     const profile = await supabaseService.getProfile(user.id);
     
-    if (profile.role !== 'admin') {
+    if (!profile || profile.role !== 'admin') {
       router.navigate(['/']);
       return false;
     }

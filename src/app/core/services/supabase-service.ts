@@ -79,6 +79,22 @@ export class SupabaseService {
       .from('profiles')
       .select('*')
       .eq('id', userId)
+      .maybeSingle();
+    
+    if (error) throw error;
+    return data as Profile | null;
+  }
+  
+  async createProfile(userId: string, profileData: Partial<Profile>) {
+    const { data, error } = await this.supabaseClient
+      .from('profiles')
+      .insert({
+        id: userId,
+        ...profileData,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .select()
       .single();
     
     if (error) throw error;
