@@ -10,8 +10,64 @@
     </header>
     
     @if (isLoading()) {
-      <div class="flex justify-center items-center min-h-[400px]">
-        <p-progressSpinner />
+      <!-- Mobile Skeleton -->
+      <div class="grid grid-cols-2 gap-4 md:hidden">
+        @for (i of [0,1,2,3,4,5,6]; track i) {
+          <article class="group" [class.col-span-2]="i === 0">
+            <div class="mb-3">
+              <p-skeleton width="60%" height="1rem" class="mb-1"></p-skeleton>
+            </div>
+            <div class="rounded-lg overflow-hidden">
+              <p-skeleton height="300px" borderRadius="8px"></p-skeleton>
+            </div>
+          </article>
+        }
+      </div>
+
+      <!-- Desktop Skeleton -->
+      <div class="hidden md:flex gap-6 lg:gap-8" style="height: 800px;">
+        <!-- Left Column: 3 skeletons -->
+        <div class="flex-1 flex flex-col">
+          @for (i of [0,1,2]; track i) {
+            <article class="group" [style]="'height: 250px;' + (i < 2 ? ' margin-bottom: 24px;' : '')">
+              <div class="mb-2" style="height: 24px;">
+                <p-skeleton width="70%" height="1rem"></p-skeleton>
+              </div>
+              <div class="rounded-lg overflow-hidden" style="height: 226px;">
+                <p-skeleton height="100%" borderRadius="8px"></p-skeleton>
+              </div>
+            </article>
+          }
+        </div>
+
+        <!-- Right Column: 4 skeletons in 2x2 -->
+        <div class="flex-1 flex flex-col">
+          <div style="height: 388px; margin-bottom: 24px;" class="grid grid-cols-2 gap-4 lg:gap-6">
+            @for (i of [0,1]; track i) {
+              <article class="group">
+                <div class="mb-2" style="height: 24px;">
+                  <p-skeleton width="60%" height="0.875rem"></p-skeleton>
+                </div>
+                <div class="rounded-lg overflow-hidden" style="height: 364px;">
+                  <p-skeleton height="100%" borderRadius="8px"></p-skeleton>
+                </div>
+              </article>
+            }
+          </div>
+          
+          <div style="height: 388px;" class="grid grid-cols-2 gap-4 lg:gap-6">
+            @for (i of [0,1]; track i) {
+              <article class="group">
+                <div class="mb-2" style="height: 24px;">
+                  <p-skeleton width="60%" height="0.875rem"></p-skeleton>
+                </div>
+                <div class="rounded-lg overflow-hidden" style="height: 364px;">
+                  <p-skeleton height="100%" borderRadius="8px"></p-skeleton>
+                </div>
+              </article>
+            }
+          </div>
+        </div>
       </div>
     } @else {
       <!-- Mobile Layout -->

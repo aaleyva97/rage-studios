@@ -2,12 +2,13 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { DialogModule } from 'primeng/dialog';
 import { ButtonModule } from 'primeng/button';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
+import { SkeletonModule } from 'primeng/skeleton';
 import { SessionsService, Session } from '../../services/sessions.service';
 import { SupabaseService } from '../../../../core/services/supabase-service';
 
 @Component({
   selector: 'app-sessions-grid',
-  imports: [DialogModule, ButtonModule, ProgressSpinnerModule],
+  imports: [DialogModule, ButtonModule, ProgressSpinnerModule, SkeletonModule],
   templateUrl: './sessions-grid.html',
   styleUrl: './sessions-grid.scss'
 })
