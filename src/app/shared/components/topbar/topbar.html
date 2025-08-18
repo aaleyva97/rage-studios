@@ -15,11 +15,18 @@
     
     <!-- Desktop: Left navigation items -->
     <div class="nav-section-left">
-      @for (item of leftMenuItems(); track item.routerLink) {
-        <a [routerLink]="item.routerLink" class="nav-item">
-          <span>{{ item.label }}</span>
-          <div class="nav-underline"></div>
-        </a>
+      @for (item of leftMenuItems(); track item.routerLink || item.sectionId) {
+        @if (item.action === 'scroll') {
+          <a (click)="onNavItemClick(item, $event)" class="nav-item cursor-pointer">
+            <span>{{ item.label }}</span>
+            <div class="nav-underline"></div>
+          </a>
+        } @else {
+          <a [routerLink]="item.routerLink" class="nav-item">
+            <span>{{ item.label }}</span>
+            <div class="nav-underline"></div>
+          </a>
+        }
       }
     </div>
     
@@ -30,11 +37,18 @@
     
     <!-- Desktop: Right navigation items -->
     <div class="nav-section-right">
-      @for (item of rightMenuItems(); track item.routerLink) {
-        <a [routerLink]="item.routerLink" class="nav-item">
-          <span>{{ item.label }}</span>
-          <div class="nav-underline"></div>
-        </a>
+      @for (item of rightMenuItems(); track item.routerLink || item.sectionId) {
+        @if (item.action === 'scroll') {
+          <a (click)="onNavItemClick(item, $event)" class="nav-item cursor-pointer">
+            <span>{{ item.label }}</span>
+            <div class="nav-underline"></div>
+          </a>
+        } @else {
+          <a [routerLink]="item.routerLink" class="nav-item">
+            <span>{{ item.label }}</span>
+            <div class="nav-underline"></div>
+          </a>
+        }
       }
       
       @if (!isLoggedIn()) {
@@ -102,21 +116,37 @@
   </ng-template>
   
   <div class="flex flex-col gap-6 pt-4 px-6 items-center">
-    @for (item of leftMenuItems(); track item.routerLink) {
-      <a 
-        [routerLink]="item.routerLink" 
-        class="mobile-nav-item"
-        (click)="onMenuItemClick()">
-        <span>{{ item.label }}</span>
-      </a>
+    @for (item of leftMenuItems(); track item.routerLink || item.sectionId) {
+      @if (item.action === 'scroll') {
+        <a 
+          (click)="onNavItemClick(item, $event)"
+          class="mobile-nav-item cursor-pointer">
+          <span>{{ item.label }}</span>
+        </a>
+      } @else {
+        <a 
+          [routerLink]="item.routerLink" 
+          class="mobile-nav-item"
+          (click)="onMenuItemClick()">
+          <span>{{ item.label }}</span>
+        </a>
+      }
     }
-    @for (item of rightMenuItems(); track item.routerLink) {
-      <a 
-        [routerLink]="item.routerLink" 
-        class="mobile-nav-item"
-        (click)="onMenuItemClick()">
-        <span>{{ item.label }}</span>
-      </a>
+    @for (item of rightMenuItems(); track item.routerLink || item.sectionId) {
+      @if (item.action === 'scroll') {
+        <a 
+          (click)="onNavItemClick(item, $event)"
+          class="mobile-nav-item cursor-pointer">
+          <span>{{ item.label }}</span>
+        </a>
+      } @else {
+        <a 
+          [routerLink]="item.routerLink" 
+          class="mobile-nav-item"
+          (click)="onMenuItemClick()">
+          <span>{{ item.label }}</span>
+        </a>
+      }
     }
     
     <div class="pt-4 mt-4 border-t border-gray-200 w-full">

@@ -9,10 +9,13 @@ import { LoginDialog } from '../login-dialog/login-dialog';
 import { RegisterDialog } from '../register-dialog/register-dialog';
 import { Subscription } from 'rxjs';
 import { SupabaseService } from '../../../core/services/supabase-service';
+import { NavigationService } from '../../../core/services/navigation.service';
 
 interface NavItem {
   label: string;
-  routerLink: string;
+  routerLink?: string;
+  sectionId?: string;
+  action?: 'route' | 'scroll';
 }
 
 interface Profile {
@@ -37,6 +40,7 @@ export class Topbar implements OnInit, OnDestroy {
   
   private supabaseService = inject(SupabaseService);
   private messageService = inject(MessageService);
+  private navigationService = inject(NavigationService);
   
   isLoggedIn = signal(false);
   currentUser = signal<any>(null);
@@ -55,24 +59,24 @@ export class Topbar implements OnInit, OnDestroy {
   
   // Left side menu items
   private leftNavItems: NavItem[] = [
-    { label: 'Paquetes', routerLink: '/paquetes' },
-    { label: 'Training', routerLink: '/training' }
+    { label: 'Paquetes', sectionId: 'packages', action: 'scroll' },
+    { label: 'Training', sectionId: 'sessions', action: 'scroll' }
   ];
   
   private leftNavItemsLoggedIn: NavItem[] = [
-    { label: 'Reservar', routerLink: '/reservar' },
-    { label: 'Paquetes', routerLink: '/paquetes' },
-    { label: 'Training', routerLink: '/training' }
+    { label: 'Reservar', routerLink: '/reservar', action: 'route' },
+    { label: 'Paquetes', sectionId: 'packages', action: 'scroll' },
+    { label: 'Training', sectionId: 'sessions', action: 'scroll' }
   ];
   
   // Right side menu items
   private rightNavItems: NavItem[] = [
-    { label: 'Coaches', routerLink: '/coaches' }
+    { label: 'Coaches', sectionId: 'coaches', action: 'scroll' }
   ];
   
   private rightNavItemsLoggedIn: NavItem[] = [
-    { label: 'Coaches', routerLink: '/coaches' },
-    { label: 'Mi Cuenta', routerLink: '/mi-cuenta' }
+    { label: 'Coaches', sectionId: 'coaches', action: 'scroll' },
+    { label: 'Mi Cuenta', routerLink: '/mi-cuenta', action: 'route' }
   ];
   
   ngOnInit() {
@@ -198,6 +202,18 @@ export class Topbar implements OnInit, OnDestroy {
   }
   
   onMenuItemClick() {
+    this.closeMobileMenu();
+  }
+  
+  onNavItemClick(item: NavItem, event?: Event) {
+    if (event) {
+      event.preventDefault();
+    }
+    
+    if (item.action === 'scroll' && item.sectionId) {
+      this.navigationService.navigateToSection(item.sectionId);
+    }
+    
     this.closeMobileMenu();
   }
   
