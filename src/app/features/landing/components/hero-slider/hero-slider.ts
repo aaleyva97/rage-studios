@@ -1,61 +1,84 @@
-import { Component, ChangeDetectionStrategy, ViewChild, signal, AfterViewInit, OnDestroy } from '@angular/core';
+import { Component, ChangeDetectionStrategy, ViewChild, signal, AfterViewInit, OnDestroy, OnInit, inject } from '@angular/core';
 import { CarouselModule, Carousel } from 'primeng/carousel';
+import { SkeletonModule } from 'primeng/skeleton';
+import { SlidesService, HeroSlide } from '../../services/slides.service';
 
 @Component({
   selector: 'app-hero-slider',
   standalone: true,
-  imports: [CarouselModule],
+  imports: [CarouselModule, SkeletonModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './hero-slider.html',
   styleUrl: './hero-slider.scss'
 })
-export class HeroSlider implements AfterViewInit, OnDestroy {
+export class HeroSlider implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild('carousel') carousel!: Carousel;
   
+  private slidesService = inject(SlidesService);
+  
   currentIndex = signal(0);
+  slides = signal<HeroSlide[]>([]);
+  isLoading = signal(true);
+  
   private autoplayTimer: any;
   private readonly autoplayInterval = 5000;
   
-  slides = [
+  // Slides de respaldo por si falla la carga
+  private fallbackSlides: HeroSlide[] = [
     {
-      title: 'Welcome to RageStudios',
-      description: 'Experience the power of modern web development with cutting-edge technology and innovative solutions.',
-      image: 'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80'
-    },
-    {
-      title: 'Innovative Design Solutions',
-      description: 'Transform your ideas into stunning digital experiences with our comprehensive design and development services.',
-      image: 'https://images.unsplash.com/photo-1600880292203-757bb62b4baf?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80'
-    },
-    {
-      title: 'Technology at Your Service',
-      description: 'Leverage the latest technologies and frameworks to build scalable, efficient, and modern applications.',
-      image: 'https://images.unsplash.com/photo-1559136555-9303baea8ebd?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80'
-    },
-    {
-      title: 'Build the Future',
-      description: 'Join us in creating tomorrow\'s digital landscape with innovative solutions and exceptional user experiences.',
-      image: 'https://images.unsplash.com/photo-1517077304055-6e89abbf09b0?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80'
+      id: '1',
+      image_url: 'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80',
+      title: null,
+      description: null,
+      order_index: 1,
+      is_active: true,
+      created_at: '',
+      updated_at: ''
     }
   ];
   
-  ngAfterViewInit() {
-    // Listen to page changes to update our signal
-    if (this.carousel) {
-      this.carousel.onPage.subscribe((event: any) => {
-        this.currentIndex.set(event.page);
-      });
+  ngOnInit() {
+    this.loadSlides();
+  }
+  
+  async loadSlides() {
+    try {
+      this.isLoading.set(true);
+      const data = await this.slidesService.getActiveSlides();
       
-      // Start custom autoplay since PrimeNG's autoplay might stop on manual navigation
-      this.startAutoplay();
+      if (data && data.length > 0) {
+        this.slides.set(data);
+      } else {
+        // Si no hay slides, usar los de respaldo
+        this.slides.set(this.fallbackSlides);
+      }
+    } catch (error) {
+      console.error('Error loading slides:', error);
+      // En caso de error, usar slides de respaldo
+      this.slides.set(this.fallbackSlides);
+    } finally {
+      this.isLoading.set(false);
     }
+  }
+  
+  ngAfterViewInit() {
+    // Esperar un poco para que los slides se carguen
+    setTimeout(() => {
+      if (this.carousel && this.slides().length > 0) {
+        this.carousel.onPage.subscribe((event: any) => {
+          this.currentIndex.set(event.page);
+        });
+        
+        this.startAutoplay();
+      }
+    }, 500);
   }
   
   private startAutoplay() {
     this.clearAutoplay();
     this.autoplayTimer = setInterval(() => {
-      if (this.carousel) {
-        const nextIndex = (this.currentIndex() + 1) % this.slides.length;
+      if (this.carousel && this.slides().length > 1) {
+        const nextIndex = (this.currentIndex() + 1) % this.slides().length;
         this.carousel.page = nextIndex;
         this.currentIndex.set(nextIndex);
       }

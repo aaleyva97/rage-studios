@@ -1,0 +1,104 @@
+<section class="packages-section py-16 md:py-24 bg-white">
+  <div class="container mx-auto px-4 max-w-7xl">
+    <header class="text-center mb-12 md:mb-16">
+      <h2 class="text-3xl md:text-4xl lg:text-5xl font-bold text-gray-900 mb-4">
+        Paquetes
+      </h2>
+      <p class="text-lg md:text-xl text-gray-600 max-w-2xl mx-auto">
+        Elige el paquete que mejor se adapte a tus necesidades
+      </p>
+    </header>
+    
+    @if (isLoading()) {
+      <div class="flex justify-center items-center min-h-[500px]">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-5xl">
+          @for (item of [1,2,3]; track item) {
+            <div class="package-skeleton">
+              <p-skeleton width="100%" height="400px" borderRadius="0" />
+            </div>
+          }
+        </div>
+      </div>
+    } @else {
+      <p-carousel 
+        [value]="packages()" 
+        [numVisible]="3" 
+        [numScroll]="1"
+        [circular]="true"
+        [autoplayInterval]="5000"
+        [responsiveOptions]="responsiveOptions"
+        styleClass="custom-carousel">
+        
+        <ng-template pTemplate="item" let-package>
+          <div class="package-card">
+            <div class="package-content">
+              <div class="package-header">
+                <h3 class="package-title">{{ package.title }}</h3>
+                <button 
+                  class="info-link"
+                  (click)="showPolicies(package)">
+                  Info
+                </button>
+              </div>
+              
+              <div class="package-divider"></div>
+              
+              <div class="package-details">
+                <p class="package-classes">{{ getClassesText(package) }}</p>
+                <p class="package-validity">{{ getValidityText(package.validity_days) }}</p>
+                <p class="package-price">${{ package.price }} MX</p>
+              </div>
+              
+              <div class="package-actions">
+                @if (isLoggedIn()) {
+                  <button 
+                    class="action-button"
+                    (click)="onPurchaseClick(package)">
+                    COMPRAR PAQUETE
+                    <span class="arrow">→</span>
+                  </button>
+                } @else {
+                  <button 
+                    class="action-button"
+                    (click)="onPurchaseClick(package)">
+                    INICIAR SESIÓN
+                    <span class="arrow">→</span>
+                  </button>
+                }
+              </div>
+            </div>
+          </div>
+        </ng-template>
+      </p-carousel>
+    }
+  </div>
+</section>
+
+<p-dialog 
+  header="POLÍTICAS DE USO"
+  [(visible)]="showPoliciesDialog"
+  [modal]="true"
+  [style]="{ width: '90vw', maxWidth: '600px' }"
+  [breakpoints]="{ '768px': '95vw', '480px': '100vw' }"
+  styleClass="policies-dialog"
+  (onHide)="closePoliciesDialog()">
+  
+  @if (selectedPackage(); as package) {
+    <div class="policies-content">
+      <div class="policies-list">
+        @for (policy of package.policies; track $index) {
+          <p class="policy-item">{{ policy }}</p>
+        }
+      </div>
+      
+      <div class="policies-footer">
+        <button 
+          class="agree-button"
+          (click)="closePoliciesDialog()">
+          ESTOY DE ACUERDO
+          <span class="arrow">→</span>
+        </button>
+      </div>
+    </div>
+  }
+</p-dialog>
