@@ -1,59 +1,54 @@
 <div class="hero-slider-container">
+
+  <!-- Loading skeleton -->
   @if (isLoading()) {
     <div class="slide-container">
       <p-skeleton width="100%" height="100%" />
     </div>
-  } @else if (slides().length > 0) {
-    <p-carousel 
-      [value]="slides()" 
-      [numVisible]="1"
-      [numScroll]="1"
-      [circular]="true"
-      [showIndicators]="false"
-      [showNavigators]="false"
-      [autoplayInterval]="0"
-      #carousel>
-      <ng-template pTemplate="item" let-slide let-i="index">
-        <div class="slide-container">
-          <img 
-            [src]="slide.image_url" 
-            [alt]="slide.title || 'Slide'"
-            class="slide-image" />
-          <div class="slide-overlay"></div>
-          
-          @if (slide.title || slide.description) {
-            <div class="slide-content">
-              @if (slide.title) {
-                <h1 class="slide-title">{{ slide.title }}</h1>
-              }
-              @if (slide.description) {
-                <p class="slide-description">{{ slide.description }}</p>
-              }
+  }
+
+  <!-- Swiper container - always render if not loading -->
+  @if (!isLoading()) {
+    <div class="swiper hero-swiper" #swiperContainer>
+      <div class="swiper-wrapper">
+        @if (slides().length > 0) {
+          @for (slide of slides(); track slide.id) {
+            <div class="swiper-slide hero-slide">
+              <div class="slide-container">
+                <img 
+                  [src]="slide.image_url" 
+                  [alt]="slide.title || 'Slide'"
+                  class="slide-image" />
+                <div class="slide-overlay"></div>
+                
+                @if (slide.title || slide.description) {
+                  <div class="slide-content">
+                    @if (slide.title) {
+                      <h1 class="slide-title">{{ slide.title }}</h1>
+                    }
+                    @if (slide.description) {
+                      <p class="slide-description">{{ slide.description }}</p>
+                    }
+                  </div>
+                }
+              </div>
             </div>
           }
-          
-          <!-- Custom indicators positioned inside the slide -->
-          @if (slides().length > 1) {
-            <div class="custom-indicators">
-              @for (s of slides(); track $index) {
-                <button 
-                  class="indicator-dot"
-                  [class.active]="$index === currentIndex()"
-                  (click)="goToSlide($index)"
-                  [attr.aria-label]="'Go to slide ' + ($index + 1)">
-                </button>
-              }
+        } @else {
+          <!-- Fallback slide when no data -->
+          <div class="swiper-slide hero-slide">
+            <div class="slide-container">
+              <div class="slide-overlay"></div>
+              <div class="slide-content">
+                <h1 class="slide-title">Bienvenido</h1>
+              </div>
             </div>
-          }
-        </div>
-      </ng-template>
-    </p-carousel>
-  } @else {
-    <div class="slide-container">
-      <div class="slide-overlay"></div>
-      <div class="slide-content">
-        <h1 class="slide-title">Bienvenido</h1>
+          </div>
+        }
       </div>
+      
+      <!-- Pagination -->
+      <div class="swiper-pagination"></div>
     </div>
   }
 </div>
