@@ -5,11 +5,12 @@ import { PackagesCarousel } from '../../components/packages-carousel/packages-ca
 import { CoachesGrid } from '../../components/coaches-grid/coaches-grid';
 import { BrandBanner } from '../../components/brand-banner/brand-banner';
 import { SecondaryNav } from '../../components/secondary-nav/secondary-nav';
+import { Footer } from "../../../../shared/components/footer/footer";
 
 @Component({
   selector: 'app-landing',
   standalone: true,
-  imports: [HeroSlider, SessionsGrid, PackagesCarousel, CoachesGrid, BrandBanner, SecondaryNav],
+  imports: [HeroSlider, SessionsGrid, PackagesCarousel, CoachesGrid, BrandBanner, SecondaryNav, Footer],
   templateUrl: './landing.html',
   styleUrl: './landing.scss'
 })
