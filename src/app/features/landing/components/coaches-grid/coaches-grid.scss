@@ -1,0 +1,117 @@
+.coaches-section {
+  position: relative;
+  z-index: 10;
+}
+
+.coach-card {
+  background: white;
+  overflow: hidden;
+  transition: transform 0.3s ease;
+  
+  &:hover {
+    transform: translateY(-5px);
+    
+    .coach-image {
+      transform: scale(1.05);
+    }
+  }
+}
+
+.coach-image-container {
+  position: relative;
+  width: 100%;
+  height: 400px;
+  overflow: hidden;
+  background: #f0f0f0;
+  
+  @media (max-width: 768px) {
+    height: 350px;
+  }
+}
+
+.coach-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  transition: transform 0.5s ease;
+}
+
+.coach-info {
+  padding: 1.5rem;
+  text-align: center;
+  background: white;
+}
+
+.coach-name {
+  font-size: 1.5rem;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+  margin-bottom: 1rem;
+  text-transform: uppercase;
+}
+
+::ng-deep .discover-button {
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-decoration: underline;
+  transition: all 0.3s;
+  
+  &:hover {
+    opacity: 0.7;
+    text-decoration: underline;
+  }
+  
+  .p-button-label {
+    font-size: 0.875rem;
+  }
+}
+
+// Dialog styles
+::ng-deep .coach-details-dialog {
+  .p-dialog-header {
+    font-weight: 900;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    font-size: 1.5rem;
+    text-align: center;
+  }
+  
+  .p-dialog-header-icons {
+    position: absolute;
+    right: 1rem;
+    top: 50%;
+    transform: translateY(-50%);
+  }
+}
+
+.coach-details {
+  padding: 1rem;
+  
+  @media (max-width: 768px) {
+    padding: 0.5rem;
+  }
+}
+
+.coach-dialog-image {
+  margin-bottom: 1.5rem;
+  
+  img {
+    border-radius: 0.5rem;
+  }
+}
+
+.coach-description {
+  p {
+    font-size: 1rem;
+    line-height: 1.8;
+    color: #374151;
+  }
+}
+
+// Skeleton loading
+.coach-skeleton {
+  background: white;
+  padding: 0;
+  overflow: hidden;
+}
