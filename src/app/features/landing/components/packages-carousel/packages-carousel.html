@@ -51,19 +51,23 @@
               
               <div class="package-actions">
                 @if (isLoggedIn()) {
-                  <button 
-                    class="action-button"
-                    (click)="onPurchaseClick(package)">
-                    COMPRAR PAQUETE
-                    <span class="arrow">→</span>
-                  </button>
+                  <p-button 
+                    label="COMPRAR PAQUETE"
+                    [outlined]="true"
+                    severity="contrast"
+                    styleClass="w-full"
+                    (click)="onPurchaseClick(package)"
+                    iconPos="right"
+                    icon="pi pi-arrow-right" />
                 } @else {
-                  <button 
-                    class="action-button"
-                    (click)="onPurchaseClick(package)">
-                    INICIAR SESIÓN
-                    <span class="arrow">→</span>
-                  </button>
+                  <p-button 
+                    label="INICIAR SESIÓN"
+                    [outlined]="true"
+                    severity="contrast"
+                    styleClass="w-full"
+                    (click)="onPurchaseClick(package)"
+                    iconPos="right"
+                    icon="pi pi-arrow-right" />
                 }
               </div>
             </div>
@@ -92,12 +96,14 @@
       </div>
       
       <div class="policies-footer">
-        <button 
-          class="agree-button"
-          (click)="closePoliciesDialog()">
-          ESTOY DE ACUERDO
-          <span class="arrow">→</span>
-        </button>
+        <p-button 
+          label="ESTOY DE ACUERDO"
+          [outlined]="true"
+          severity="contrast"
+          styleClass="w-full"
+          (click)="closePoliciesDialog()"
+          iconPos="right"
+          icon="pi pi-arrow-right" />
       </div>
     </div>
   }
