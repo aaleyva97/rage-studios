@@ -1,0 +1,24 @@
+// Mínimo SCSS necesario, usando principalmente Tailwind
+:host {
+  display: block;
+  width: 100%;
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+
+// Prevenir cualquier overflow horizontal
+section {
+  max-width: 100vw !important;
+}
+
+// Asegurar que las imágenes no causen overflow
+img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+// Fix crítico para prevenir scroll horizontal
+* {
+  box-sizing: border-box;
+}
