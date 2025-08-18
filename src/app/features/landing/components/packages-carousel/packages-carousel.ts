@@ -4,12 +4,11 @@ import { ButtonModule } from 'primeng/button';
 import { DialogModule } from 'primeng/dialog';
 import { SkeletonModule } from 'primeng/skeleton';
 import { PackagesService, Package } from '../../services/packages.service';
-import { CurrencyPipe } from '@angular/common';
 import { SupabaseService } from '../../../../core/services/supabase-service';
 
 @Component({
   selector: 'app-packages-carousel',
-  imports: [CarouselModule, ButtonModule, DialogModule, SkeletonModule, CurrencyPipe],
+  imports: [CarouselModule, ButtonModule, DialogModule, SkeletonModule],
   templateUrl: './packages-carousel.html',
   styleUrl: './packages-carousel.scss'
 })

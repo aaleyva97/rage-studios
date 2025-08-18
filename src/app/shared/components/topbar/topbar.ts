@@ -105,14 +105,6 @@ export class Topbar implements OnInit, OnDestroy {
     if (this.isLoggedIn()) {
       this.userMenuItems.set([
         {
-          label: 'Mi Cuenta',
-          icon: 'pi pi-user',
-          routerLink: '/mi-cuenta'
-        },
-        {
-          separator: true
-        },
-        {
           label: 'Cerrar Sesión',
           icon: 'pi pi-sign-out',
           command: () => this.logout()
