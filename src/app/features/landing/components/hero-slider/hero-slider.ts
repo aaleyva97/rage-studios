@@ -45,11 +45,9 @@ export class HeroSlider implements OnInit, AfterViewInit, OnDestroy {
   ];
   
   ngOnInit() {
-    console.log('ngOnInit called');
-    // TEMPORARY: Set fallback slides directly for testing
+    // Set fallback slides directly for testing
     this.slides.set(this.fallbackSlides);
     this.isLoading.set(false);
-    console.log('Direct fallback set - slides:', this.slides().length);
     
     // Force change detection to ensure template updates
     this.cdr.detectChanges();
@@ -59,50 +57,34 @@ export class HeroSlider implements OnInit, AfterViewInit, OnDestroy {
   }
   
   ngAfterViewInit() {
-    console.log('ngAfterViewInit called');
-    console.log('Platform check:', isPlatformBrowser(this.platformId));
-    console.log('Container immediately after view init:', this.swiperContainer?.nativeElement);
-    
     // Only initialize Swiper in the browser, not during SSR
     if (isPlatformBrowser(this.platformId)) {
       // Wait for DOM to be fully ready and slides to render
       setTimeout(() => {
-        console.log('AfterViewInit timeout - Attempting to initialize Swiper');
-        console.log('Slides count:', this.slides().length);
-        console.log('Container element:', this.swiperContainer?.nativeElement);
-        
-        // Try to find the element manually if ViewChild fails
-        const manualContainer = document.querySelector('.hero-swiper');
-        console.log('Manual container search:', manualContainer);
-        
-        this.initializeSwiper();
-      }, 1000); // Further increased timeout
+        // Only try to initialize if container exists to prevent error
+        if (this.swiperContainer?.nativeElement || document.querySelector('.hero-swiper')) {
+          this.initializeSwiper();
+        }
+      }, 1000);
     }
   }
   
   async loadSlides() {
-    console.log('loadSlides called');
     try {
       this.isLoading.set(true);
-      console.log('Loading slides from service...');
       
       const data = await this.slidesService.getActiveSlides();
-      console.log('Service returned data:', data);
       
       if (data && data.length > 0) {
-        console.log('Using service data:', data.length, 'slides');
         this.slides.set(data);
       } else {
-        console.log('No service data, using fallback slides');
         this.slides.set(this.fallbackSlides);
       }
     } catch (error) {
       console.error('Error loading slides:', error);
-      console.log('Error occurred, using fallback slides');
       this.slides.set(this.fallbackSlides);
     } finally {
       this.isLoading.set(false);
-      console.log('loadSlides finally - isLoading:', this.isLoading(), 'slides count:', this.slides().length);
       
       // CRITICAL: Force change detection after updating signals
       this.cdr.detectChanges();
@@ -110,8 +92,6 @@ export class HeroSlider implements OnInit, AfterViewInit, OnDestroy {
       // Re-initialize Swiper if already in browser and container exists
       if (isPlatformBrowser(this.platformId)) {
         setTimeout(() => {
-          console.log('loadSlides complete - Re-initializing Swiper');
-          console.log('Final slides count:', this.slides().length);
           // Force another change detection cycle before Swiper init
           this.cdr.detectChanges();
           this.initializeSwiper();
@@ -121,46 +101,31 @@ export class HeroSlider implements OnInit, AfterViewInit, OnDestroy {
   }
   
   private initializeSwiper() {
-    console.log('initializeSwiper called');
-    console.log('Container exists:', !!this.swiperContainer?.nativeElement);
-    console.log('Swiper already exists:', !!this.swiper);
-    console.log('Slides loaded:', this.slides().length);
-    
     // Try ViewChild first, then manual selector
     let containerElement = this.swiperContainer?.nativeElement;
     if (!containerElement) {
-      console.log('ViewChild failed, trying manual selector...');
       containerElement = document.querySelector('.hero-swiper') as HTMLElement;
-      console.log('Manual selector result:', containerElement);
     }
     
+    // Silently exit if container not found (prevents console error)
     if (!containerElement) {
-      console.error('Swiper container not found by ViewChild OR manual selector!');
-      // Let's check if the template is rendering at all
-      const heroContainer = document.querySelector('.hero-slider-container');
-      console.log('Hero container exists:', !!heroContainer);
-      const swiperWrapper = document.querySelector('.swiper-wrapper');
-      console.log('Swiper wrapper exists:', !!swiperWrapper);
       return;
     }
     
     if (this.swiper) {
-      console.log('Destroying existing Swiper instance');
       this.swiper.destroy(true, true);
     }
     
     if (this.slides().length === 0) {
-      console.warn('No slides available, skipping Swiper initialization');
       return;
     }
     
     try {
-      console.log('Creating new Swiper instance with container:', containerElement);
       this.swiper = new Swiper(containerElement, {
         modules: [Pagination, Autoplay, EffectFade],
         slidesPerView: 1,
         spaceBetween: 0,
-        loop: this.slides().length > 1, // Only loop if more than 1 slide
+        loop: this.slides().length > 1,
         effect: 'fade',
         fadeEffect: {
           crossFade: true,
@@ -180,17 +145,10 @@ export class HeroSlider implements OnInit, AfterViewInit, OnDestroy {
         allowTouchMove: true,
         on: {
           slideChange: (swiper) => {
-            console.log('Slide changed to:', swiper.realIndex);
             this.currentIndex.set(swiper.realIndex);
-          },
-          init: (swiper) => {
-            console.log('Swiper initialized successfully!');
-            console.log('Total slides:', swiper.slides.length);
           }
         },
       });
-      
-      console.log('Swiper created successfully with', this.slides().length, 'slides');
     } catch (error) {
       console.error('Error initializing Swiper:', error);
     }
