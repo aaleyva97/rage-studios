@@ -1,0 +1,64 @@
+<p-toast />
+<p-confirm-dialog />
+
+<div class="my-bookings-container">
+  <h2 class="text-2xl font-bold mb-4">Mis Reservas</h2>
+  
+  @if (isLoading()) {
+    <div class="flex justify-center py-8">
+      <i class="pi pi-spin pi-spinner text-3xl"></i>
+    </div>
+  } @else if (bookings().length === 0) {
+    <div class="text-center py-8">
+      <i class="pi pi-calendar text-5xl text-gray-300 mb-4"></i>
+      <p class="text-gray-500">No tienes reservas activas</p>
+    </div>
+  } @else {
+    <p-table 
+      [value]="bookings()" 
+      styleClass="p-datatable-gridlines">
+      
+      <ng-template pTemplate="header">
+        <tr>
+          <th>Fecha</th>
+          <th>Hora</th>
+          <th>Coach</th>
+          <th>Camas</th>
+          <th>Acompañantes</th>
+          <th>Créditos</th>
+          <th>Acciones</th>
+        </tr>
+      </ng-template>
+      
+      <ng-template pTemplate="body" let-booking>
+        <tr>
+          <td>{{ booking.formattedDate }}</td>
+          <td>{{ booking.formattedTime }}</td>
+          <td>{{ booking.coach_name }}</td>
+          <td>{{ booking.bed_numbers.join(', ') }}</td>
+          <td>{{ booking.attendees.length || 0 }}</td>
+          <td>{{ booking.credits_used }}</td>
+          <td>
+            @if (booking.canCancel) {
+              <p-button 
+                icon="pi pi-times" 
+                severity="danger"
+                [text]="true"
+                [rounded]="true"
+                size="small"
+                pTooltip="Cancelar reserva"
+                (onClick)="confirmCancelBooking(booking)">
+              </p-button>
+            } @else {
+              <p-tag 
+                value="No cancelable" 
+                severity="secondary"
+                [rounded]="true">
+              </p-tag>
+            }
+          </td>
+        </tr>
+      </ng-template>
+    </p-table>
+  }
+</div>

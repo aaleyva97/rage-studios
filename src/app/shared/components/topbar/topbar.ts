@@ -13,6 +13,7 @@ import { NavigationService } from '../../../core/services/navigation.service';
 import { OverlayBadge } from 'primeng/overlaybadge';
 import { Tooltip } from 'primeng/tooltip'
 import { CreditsService } from '../../../core/services/credits.service';
+import { BookingDialog } from '../../../features/booking/components/booking-dialog/booking-dialog';
 
 interface NavItem {
   label: string;
@@ -42,7 +43,8 @@ interface Profile {
     RegisterDialog, 
     ToastModule,
     OverlayBadge,
-    Tooltip
+    Tooltip,
+    BookingDialog
   ],
   providers: [MessageService],
   templateUrl: './topbar.html',
@@ -68,6 +70,7 @@ export class Topbar implements OnInit, OnDestroy {
   mobileMenuVisible = signal(false);
   userMenuVisible = signal(false);
   userMenuItems = signal<MenuItem[]>([]);
+  showBookingDialog = signal(false);
   
   private authSubscription?: Subscription;
   
@@ -78,7 +81,7 @@ export class Topbar implements OnInit, OnDestroy {
   ];
   
   private leftNavItemsLoggedIn: NavItem[] = [
-    { label: 'Reservar', routerLink: '/reservar', action: 'route' },
+    { label: 'Reservar', action: 'scroll' },
     { label: 'Paquetes', sectionId: 'packages', action: 'scroll' },
     { label: 'Training', sectionId: 'sessions', action: 'scroll' }
   ];
@@ -220,16 +223,23 @@ export class Topbar implements OnInit, OnDestroy {
   }
   
   onNavItemClick(item: NavItem, event?: Event) {
-    if (event) {
-      event.preventDefault();
-    }
-    
-    if (item.action === 'scroll' && item.sectionId) {
-      this.navigationService.navigateToSection(item.sectionId);
-    }
-    
-    this.closeMobileMenu();
+  if (event) {
+    event.preventDefault();
   }
+  
+  // Caso especial para "Reservar"
+  if (item.label === 'Reservar' && this.isLoggedIn()) {
+    this.openBookingDialog();
+    this.closeMobileMenu();
+    return;
+  }
+  
+  if (item.action === 'scroll' && item.sectionId) {
+    this.navigationService.navigateToSection(item.sectionId);
+  }
+  
+  this.closeMobileMenu();
+}
   
   onLoginFromMobile() {
     this.closeMobileMenu();
@@ -247,4 +257,8 @@ export class Topbar implements OnInit, OnDestroy {
     }
     return `${this.creditsService.totalCredits()} créditos disponibles`;
   }
+
+  openBookingDialog() {
+  this.showBookingDialog.set(true);
+}
 }

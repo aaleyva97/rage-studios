@@ -1,0 +1,273 @@
+<p-toast />
+<p-dialog 
+  [(visible)]="visible" 
+  [modal]="true"
+  [maximizable]="true"
+  [style]="{width: '90vw', maxWidth: '1200px'}"
+  [breakpoints]="{'960px': '95vw', '640px': '100vw'}"
+  header="Reservar Clase"
+  (onHide)="closeDialog()">
+  
+  <p-stepper orientation="horizontal">
+    <!-- Step 1: Fecha y Hora -->
+    <p-step-panel header="Fecha y Hora">
+      <ng-template pTemplate="content" let-activateCallback="activateCallback">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 p-4">
+          <!-- Calendario inline -->
+          <div class="flex flex-col">
+            <h3 class="text-lg font-semibold mb-3">Selecciona una fecha</h3>
+            <p-datepicker 
+              [(ngModel)]="selectedDate"
+              [inline]="true"
+              [minDate]="minDate"
+              [showWeek]="true"
+              dateFormat="dd/mm/yy"
+              (onSelect)="onDateSelect($event)"
+              >
+            </p-datepicker>
+          </div>
+          
+          <!-- Horarios disponibles -->
+          <div class="flex flex-col">
+            <h3 class="text-lg font-semibold mb-3">Horarios disponibles</h3>
+            
+            @if (selectedDate()) {
+              <div class="text-sm text-gray-600 mb-3">
+                {{ selectedDate() | date:'EEEE, d MMMM yyyy':'':'es' }}
+              </div>
+              
+              @if (isLoading()) {
+                <div class="flex justify-center py-8">
+                  <i class="pi pi-spin pi-spinner text-3xl"></i>
+                </div>
+              } @else {
+                <div class="grid grid-cols-2 gap-3">
+                  @for (slot of availableSlots(); track slot.time) {
+                    <button
+                      type="button"
+                      [class.bg-blue-500]="selectedTime() === slot.time"
+                      [class.text-white]="selectedTime() === slot.time"
+                      [class.bg-gray-100]="selectedTime() !== slot.time && slot.available"
+                      [class.bg-gray-300]="!slot.available"
+                      [class.cursor-not-allowed]="!slot.available"
+                      [class.opacity-50]="!slot.available"
+                      [disabled]="!slot.available"
+                      (click)="selectTimeSlot(slot)"
+                      class="p-3 rounded-lg border transition-all hover:shadow-md disabled:hover:shadow-none">
+                      
+                      <div class="font-semibold">{{ slot.time }}</div>
+                      <div class="text-xs mt-1">Coach: {{ slot.coach }}</div>
+                      <div class="text-xs mt-1">
+                        @if (slot.available) {
+                          <span class="text-green-600">{{ 14 - slot.occupiedBeds }} lugares</span>
+                        } @else {
+                          <span class="text-red-600">Completo</span>
+                        }
+                      </div>
+                    </button>
+                  }
+                </div>
+              }
+            } @else {
+              <p class="text-gray-500 text-center py-8">
+                Por favor selecciona una fecha
+              </p>
+            }
+          </div>
+        </div>
+        
+        <div class="flex justify-end gap-2 mt-4 pt-4 border-t">
+          <p-button 
+            label="Siguiente" 
+            icon="pi pi-arrow-right" 
+            iconPos="right"
+            [disabled]="!selectedTime()"
+            (onClick)="activateCallback.emit()">
+          </p-button>
+        </div>
+      </ng-template>
+    </p-step-panel>
+    
+    <!-- Step 2: Acompañantes -->
+    <p-step-panel header="Acompañantes">
+      <ng-template pTemplate="content" let-activateCallback="activateCallback">
+        <div class="p-4">
+          <div class="mb-6">
+            <div class="flex items-center gap-3 mb-4">
+              <label class="font-semibold">¿Llevarás acompañantes?</label>
+              <p-toggleswitch [(ngModel)]="hasCompanions"></p-toggleswitch>
+            </div>
+            
+            @if (hasCompanions()) {
+              <div class="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+                <p class="text-sm text-blue-800">
+                  <i class="pi pi-info-circle mr-2"></i>
+                  Cada acompañante requiere 1 crédito adicional
+                </p>
+              </div>
+              
+              <div class="flex gap-2 mb-4">
+                <p-inputtext 
+                  [(ngModel)]="newCompanion"
+                  placeholder="Nombre del acompañante"
+                  class="flex-1"
+                  (keyup.enter)="addCompanion()">
+                </p-inputtext>
+                <p-button 
+                  icon="pi pi-plus" 
+                  label="Agregar"
+                  severity="secondary"
+                  (onClick)="addCompanion()">
+                </p-button>
+              </div>
+              
+              @if (companions().length > 0) {
+                <div class="space-y-2">
+                  @for (companion of companions(); track $index) {
+                    <div class="flex items-center justify-between bg-gray-50 p-3 rounded-lg">
+                      <span>{{ companion }}</span>
+                      <p-button 
+                        icon="pi pi-times" 
+                        severity="danger"
+                        [text]="true"
+                        [rounded]="true"
+                        size="small"
+                        (onClick)="removeCompanion($index)">
+                      </p-button>
+                    </div>
+                  }
+                </div>
+              }
+            }
+          </div>
+          
+          <div class="bg-gray-100 rounded-lg p-4">
+            <div class="flex justify-between items-center">
+              <span class="font-semibold">Total de personas:</span>
+              <span class="text-xl font-bold">{{ companions().length + 1 }}</span>
+            </div>
+            <div class="flex justify-between items-center mt-2">
+              <span class="font-semibold">Créditos requeridos:</span>
+              <span class="text-xl font-bold text-blue-600">{{ companions().length + 1 }}</span>
+            </div>
+          </div>
+        </div>
+        
+        <div class="flex justify-between gap-2 mt-4 pt-4 border-t">
+          <p-button 
+            label="Anterior" 
+            icon="pi pi-arrow-left"
+            severity="secondary"
+            (onClick)="activateCallback.emit()">
+          </p-button>
+          <p-button 
+            label="Siguiente" 
+            icon="pi pi-arrow-right" 
+            iconPos="right"
+            (onClick)="activateCallback.emit()">
+          </p-button>
+        </div>
+      </ng-template>
+    </p-step-panel>
+    
+    <!-- Step 3: Selección de Camas -->
+    <p-step-panel header="Selección de Camas">
+      <ng-template pTemplate="content" let-activateCallback="activateCallback">
+        <div class="p-4">
+          <h3 class="text-lg font-semibold mb-4">Selecciona tu(s) cama(s)</h3>
+          
+          <div class="mb-4">
+            <div class="text-sm text-gray-600 mb-2">
+              Debes seleccionar {{ companions().length + 1 }} cama(s)
+            </div>
+            <div class="text-sm">
+              Camas seleccionadas: <strong>{{ selectedBeds().length }}</strong>
+            </div>
+          </div>
+          
+          <!-- Visualización del gimnasio -->
+          <div class="bed-selection-container">
+            <!-- Indicador del Coach -->
+            <div class="coach-area">
+              <div class="coach-box">
+                <i class="pi pi-user text-2xl"></i>
+                <div class="text-sm mt-1">COACH</div>
+              </div>
+            </div>
+            
+            <!-- Primera fila (1-7) -->
+            <div class="bed-row">
+              <div class="row-label">Fila 1</div>
+              <div class="beds-grid">
+                @for (bed of [1,2,3,4,5,6,7]; track bed) {
+                  <button
+                    type="button"
+                    [class.bed-selected]="selectedBeds().includes(bed)"
+                    [class.bed-occupied]="occupiedBeds().includes(bed)"
+                    [class.bed-available]="!occupiedBeds().includes(bed) && !selectedBeds().includes(bed)"
+                    [disabled]="occupiedBeds().includes(bed)"
+                    (click)="toggleBed(bed)"
+                    class="bed-button">
+                    {{ bed }}
+                  </button>
+                }
+              </div>
+            </div>
+            
+            <!-- Segunda fila (8-14) -->
+            <div class="bed-row">
+              <div class="row-label">Fila 2</div>
+              <div class="beds-grid">
+                @for (bed of [8,9,10,11,12,13,14]; track bed) {
+                  <button
+                    type="button"
+                    [class.bed-selected]="selectedBeds().includes(bed)"
+                    [class.bed-occupied]="occupiedBeds().includes(bed)"
+                    [class.bed-available]="!occupiedBeds().includes(bed) && !selectedBeds().includes(bed)"
+                    [disabled]="occupiedBeds().includes(bed)"
+                    (click)="toggleBed(bed)"
+                    class="bed-button">
+                    {{ bed }}
+                  </button>
+                }
+              </div>
+            </div>
+            
+            <!-- Leyenda -->
+            <div class="bed-legend">
+              <div class="legend-item">
+                <div class="legend-box bed-available"></div>
+                <span>Disponible</span>
+              </div>
+              <div class="legend-item">
+                <div class="legend-box bed-selected"></div>
+                <span>Seleccionada</span>
+              </div>
+              <div class="legend-item">
+                <div class="legend-box bed-occupied"></div>
+                <span>Ocupada</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="flex justify-between gap-2 mt-4 pt-4 border-t">
+          <p-button 
+            label="Anterior" 
+            icon="pi pi-arrow-left"
+            severity="secondary"
+            (onClick)="activateCallback.emit()">
+          </p-button>
+          <p-button 
+            label="Confirmar Reserva" 
+            icon="pi pi-check" 
+            iconPos="right"
+            severity="success"
+            [disabled]="selectedBeds().length !== (companions().length + 1)"
+            (onClick)="confirmBooking()">
+          </p-button>
+        </div>
+      </ng-template>
+    </p-step-panel>
+  </p-stepper>
+</p-dialog>

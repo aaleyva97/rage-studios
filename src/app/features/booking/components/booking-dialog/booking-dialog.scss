@@ -1,0 +1,96 @@
+.bed-selection-container {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 1rem;
+  
+  .coach-area {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 2rem;
+    
+    .coach-box {
+      background: #f3f4f6;
+      border: 2px solid #9ca3af;
+      border-radius: 0.5rem;
+      padding: 1rem 2rem;
+      text-align: center;
+      font-weight: bold;
+    }
+  }
+  
+  .bed-row {
+    display: flex;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    
+    .row-label {
+      width: 60px;
+      font-weight: 600;
+      color: #4b5563;
+    }
+    
+    .beds-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 0.5rem;
+      flex: 1;
+    }
+  }
+  
+  .bed-button {
+    aspect-ratio: 1;
+    border: 2px solid;
+    border-radius: 0.5rem;
+    font-weight: bold;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    
+    &.bed-available {
+      background: white;
+      border-color: #10b981;
+      color: #10b981;
+      
+      &:hover {
+        background: #10b981;
+        color: white;
+      }
+    }
+    
+    &.bed-selected {
+      background: #3b82f6;
+      border-color: #3b82f6;
+      color: white;
+    }
+    
+    &.bed-occupied {
+      background: #ef4444;
+      border-color: #ef4444;
+      color: white;
+      cursor: not-allowed;
+      opacity: 0.6;
+    }
+  }
+  
+  .bed-legend {
+    display: flex;
+    justify-content: center;
+    gap: 2rem;
+    margin-top: 2rem;
+    padding-top: 1rem;
+    border-top: 1px solid #e5e7eb;
+    
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      
+      .legend-box {
+        width: 24px;
+        height: 24px;
+        border: 2px solid;
+        border-radius: 0.25rem;
+      }
+    }
+  }
+}

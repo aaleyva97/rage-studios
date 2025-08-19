@@ -108,7 +108,7 @@
           [text]="true"
           size="large"
           class="md:hidden"
-          routerLink="/reservar">
+          (onClick)="openBookingDialog()">
         </p-button>
         <div class="mobile-credits-container">
           <p-overlaybadge 
@@ -208,3 +208,7 @@
   [(visible)]="showRegisterDialog" 
   (openLogin)="onOpenLoginFromRegister()">
 </app-register-dialog>
+
+<app-booking-dialog 
+  [(visible)]="showBookingDialog">
+</app-booking-dialog>
