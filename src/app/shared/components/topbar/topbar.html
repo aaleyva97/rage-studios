@@ -101,7 +101,8 @@
           (onClick)="openLoginDialog()">
         </p-button>
       } @else {
-        <p-button 
+        <div class="flex gap-2 items-center">
+          <p-button 
           icon="pi pi-calendar" 
           severity="secondary" 
           [text]="true"
@@ -116,6 +117,7 @@
             styleClass="mobile-credits-badge">
             <i class="pi pi-wallet text-lg"></i>
           </p-overlaybadge>
+        </div>
         </div>
       }
     </div>

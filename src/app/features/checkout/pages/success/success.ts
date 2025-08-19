@@ -50,16 +50,13 @@ export class Success implements OnInit {
       if (error) throw error;
 
       this.isSuccess.set(true);
+      // Refrescar los créditos en el estado global inmediatamente tras éxito
+      const creditsService = inject(CreditsService);
+      await creditsService.refreshCredits();
     } catch (error: any) {
       this.errorMessage.set(error.message || 'Error al procesar el pago');
     } finally {
       this.isProcessing.set(false);
-    }
-
-    if (this.isSuccess()) {
-      // Refrescar los créditos en el estado global
-      const creditsService = inject(CreditsService);
-      await creditsService.refreshCredits();
     }
   }
 
