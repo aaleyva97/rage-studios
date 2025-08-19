@@ -1,0 +1,35 @@
+<div class="cancel-container min-h-screen bg-gray-50 py-12 px-4">
+  <div class="max-w-md mx-auto">
+    <p-card styleClass="text-center shadow-xl">
+      <div class="py-8">
+        <div class="mb-6">
+          <i class="pi pi-info-circle text-6xl text-yellow-500"></i>
+        </div>
+        <h1 class="text-2xl font-bold text-gray-800 mb-4">
+          Pago Cancelado
+        </h1>
+        <p class="text-gray-600 mb-8">
+          Tu pago ha sido cancelado. No se ha realizado ningún cargo.
+          Puedes volver a intentarlo cuando lo desees.
+        </p>
+        
+        <div class="flex flex-col gap-3">
+          <p-button 
+            label="Ver Paquetes"
+            severity="primary"
+            icon="pi pi-shopping-cart"
+            (onClick)="goToPackages()"
+            styleClass="w-full" />
+          
+          <p-button 
+            label="Volver al Inicio"
+            severity="secondary"
+            [outlined]="true"
+            icon="pi pi-home"
+            (onClick)="goToHome()"
+            styleClass="w-full" />
+        </div>
+      </div>
+    </p-card>
+  </div>
+</div>

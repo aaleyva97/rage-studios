@@ -1,9 +1,28 @@
 import { Routes } from '@angular/router';
+import { authGuard } from './core/guards/auth.guard';
 
 export const routes: Routes = [
   {
     path: '',
     loadComponent: () => import('./features/landing/pages/landing/landing').then(m => m.Landing)
+  },
+  { 
+    path: 'checkout',
+    children: [
+      {
+        path: 'success',
+        loadComponent: () => import('./features/checkout/pages/success/success').then(m => m.Success)
+      },
+      {
+        path: 'cancel',
+        loadComponent: () => import('./features/checkout/pages/cancel/cancel').then(m => m.Cancel)
+      },
+      {
+        path: ':packageId',
+        loadComponent: () => import('./features/checkout/pages/checkout/checkout').then(m => m.Checkout),
+        canActivate: [authGuard]
+      }
+    ]
   },
   {
     path: '**',

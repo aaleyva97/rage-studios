@@ -1,0 +1,18 @@
+.checkout-container {
+  padding-top: 5rem; // Espacio para el topbar
+}
+
+::ng-deep {
+  .p-card {
+    border-radius: 1rem;
+    overflow: hidden;
+    
+    .p-card-header {
+      padding: 0 !important;
+    }
+    
+    .p-card-content {
+      padding: 0 !important;
+    }
+  }
+}

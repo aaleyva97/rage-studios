@@ -1,5 +1,6 @@
 import {
   ApplicationConfig,
+  importProvidersFrom,
   provideBrowserGlobalErrorListeners,
   provideZonelessChangeDetection,
 } from '@angular/core';
@@ -13,6 +14,8 @@ import {
   provideClientHydration,
   withEventReplay,
 } from '@angular/platform-browser';
+import { NgxStripeModule } from 'ngx-stripe';
+import { environment } from '../environments/environment';
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -34,5 +37,8 @@ export const appConfig: ApplicationConfig = {
       },
       ripple: true
     }),
+    importProvidersFrom(
+      NgxStripeModule.forRoot(environment.STRIPE_PUBLISHABLE_KEY)
+    )
   ],
 };

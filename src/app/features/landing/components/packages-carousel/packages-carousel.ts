@@ -5,6 +5,7 @@ import { DialogModule } from 'primeng/dialog';
 import { SkeletonModule } from 'primeng/skeleton';
 import { PackagesService, Package } from '../../services/packages.service';
 import { SupabaseService } from '../../../../core/services/supabase-service';
+import { Router } from '@angular/router';
 
 @Component({
   selector: 'app-packages-carousel',
@@ -15,6 +16,7 @@ import { SupabaseService } from '../../../../core/services/supabase-service';
 export class PackagesCarousel implements OnInit {
   private packagesService = inject(PackagesService);
   private supabaseService = inject(SupabaseService);
+  private router = inject(Router);
   
   packages = signal<Package[]>([]);
   isLoading = signal(true);
@@ -77,14 +79,13 @@ export class PackagesCarousel implements OnInit {
   }
   
   onPurchaseClick(packageItem: Package) {
-    if (this.isLoggedIn()) {
-      // TODO: Implementar lógica de compra con Stripe
-      console.log('Comprar paquete:', packageItem.title);
-    } else {
-      // Emitir evento para abrir dialog de login en topbar
-      this.openLoginDialog();
-    }
+  if (this.isLoggedIn()) {
+    // Navegar a la página de checkout
+    this.router.navigate(['/checkout', packageItem.id]);
+  } else {
+    this.openLoginDialog();
   }
+}
   
   openLoginDialog() {
     // Aquí deberías emitir un evento o usar un servicio compartido
