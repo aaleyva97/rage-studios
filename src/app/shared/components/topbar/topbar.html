@@ -60,6 +60,16 @@
           styleClass="ml-4">
         </p-button>
       } @else {
+         <!-- Badge de créditos -->
+        <div class="credits-badge" pTooltip="{{ getCreditsTooltip() }}" tooltipPosition="bottom">
+          <p-overlaybadge 
+            [value]="creditsService.getCreditsDisplay()" 
+            severity="success"
+            styleClass="credits-overlay-badge">
+            <i class="pi pi-wallet text-xl text-gray-600"></i>
+          </p-overlaybadge>
+        </div>
+        <!-- User section with dropdown -->
         <div class="user-section">
           <p-button 
             [label]="getUserDisplayName()" 
@@ -99,6 +109,14 @@
           class="md:hidden"
           routerLink="/reservar">
         </p-button>
+        <div class="mobile-credits-container">
+          <p-overlaybadge 
+            [value]="creditsService.getCreditsDisplay()" 
+            severity="success"
+            styleClass="mobile-credits-badge">
+            <i class="pi pi-wallet text-lg"></i>
+          </p-overlaybadge>
+        </div>
       }
     </div>
   </div>

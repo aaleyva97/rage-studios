@@ -10,6 +10,9 @@ import { RegisterDialog } from '../register-dialog/register-dialog';
 import { Subscription } from 'rxjs';
 import { SupabaseService } from '../../../core/services/supabase-service';
 import { NavigationService } from '../../../core/services/navigation.service';
+import { OverlayBadge } from 'primeng/overlaybadge';
+import { Tooltip } from 'primeng/tooltip'
+import { CreditsService } from '../../../core/services/credits.service';
 
 interface NavItem {
   label: string;
@@ -30,7 +33,17 @@ interface Profile {
 @Component({
   selector: 'app-topbar',
   standalone: true,
-  imports: [RouterModule, Button, Drawer, Menu, LoginDialog, RegisterDialog, ToastModule],
+   imports: [
+    RouterModule, 
+    Button, 
+    Drawer, 
+    Menu, 
+    LoginDialog, 
+    RegisterDialog, 
+    ToastModule,
+    OverlayBadge,
+    Tooltip
+  ],
   providers: [MessageService],
   templateUrl: './topbar.html',
   styleUrl: './topbar.scss'
@@ -41,6 +54,7 @@ export class Topbar implements OnInit, OnDestroy {
   private supabaseService = inject(SupabaseService);
   private messageService = inject(MessageService);
   private navigationService = inject(NavigationService);
+  protected creditsService = inject(CreditsService);
   
   isLoggedIn = signal(false);
   currentUser = signal<any>(null);
@@ -225,5 +239,12 @@ export class Topbar implements OnInit, OnDestroy {
   onLogoutFromMobile() {
     this.closeMobileMenu();
     this.logout();
+  }
+
+  getCreditsTooltip(): string {
+    if (this.creditsService.isUnlimited()) {
+      return 'Créditos ilimitados';
+    }
+    return `${this.creditsService.totalCredits()} créditos disponibles`;
   }
 }

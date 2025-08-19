@@ -6,7 +6,7 @@
   z-index: 1000;
   background: white;
   box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
-  
+
   .topbar-container {
     max-width: 80rem;
     margin: 0 auto;
@@ -16,7 +16,7 @@
     grid-template-columns: 1fr auto 1fr;
     align-items: center;
     gap: 1rem;
-    
+
     @media (max-width: 767px) {
       display: flex;
       justify-content: space-between;
@@ -26,14 +26,14 @@
   .logo {
     display: flex;
     justify-content: center;
-    
+
     .logo-text {
       font-size: 1.5rem;
       font-weight: bold;
       color: #1f2937;
-      font-family: 'Arial Black', sans-serif;
+      font-family: "Arial Black", sans-serif;
       letter-spacing: 0.1em;
-      
+
       @media (max-width: 767px) {
         font-size: 1.25rem;
       }
@@ -43,22 +43,22 @@
   .nav-section-left,
   .nav-section-right {
     display: none;
-    
+
     @media (min-width: 768px) {
       display: flex;
       align-items: center;
       gap: 1.5rem;
     }
   }
-  
+
   .nav-section-left {
     justify-content: flex-start;
   }
-  
+
   .nav-section-right {
     justify-content: flex-end;
   }
-  
+
   .mobile-action-button {
     @media (min-width: 768px) {
       display: none;
@@ -82,7 +82,7 @@
 
     &:hover {
       color: #1f2937;
-      
+
       .nav-underline {
         transform: scaleX(1);
       }
@@ -100,7 +100,7 @@
       transition: transform 0.3s ease-in-out;
     }
   }
-  
+
   .user-section {
     position: relative;
     margin-left: 1rem;
@@ -117,27 +117,26 @@
     transition: all 0.3s ease-in-out;
     border-radius: 0.5rem;
     text-align: center;
-    
+
     &:hover {
       background-color: #f3f4f6;
       color: #1f2937;
     }
-    
+
     &:active {
       background-color: #e5e7eb;
     }
   }
-
 }
 
 // Global user menu styles
 :global(.p-menu) {
   min-width: 200px;
-  
+
   .p-menuitem-text {
     font-weight: 500;
   }
-  
+
   .p-menuitem-icon {
     margin-right: 0.5rem;
   }
@@ -145,11 +144,57 @@
 
 // User menu button styling to match nav items
 
- 
-
 ::ng-deep .p-button-text {
-    font-weight: 500 !important;
+  font-weight: 500 !important;
   font-size: 16px !important;
-    color: #374151;
-    margin-left: -20px;
+  color: #374151;
+  margin-left: -20px;
+}
+
+.credits-badge {
+  display: flex;
+  align-items: center;
+  margin: 0 0.75rem;
+
+  ::ng-deep {
+    .p-overlaybadge {
+      .p-badge {
+        min-width: 1.25rem;
+        height: 1.25rem;
+        font-size: 0.75rem;
+        font-weight: 600;
+      }
+
+      .p-badge-lg {
+        min-width: 1.5rem;
+        height: 1.5rem;
+      }
+    }
+  }
+}
+
+// Mobile credits
+.mobile-credits-container {
+  display: flex;
+  align-items: center;
+
+  ::ng-deep {
+    .mobile-credits-badge {
+      .p-badge {
+        min-width: 1.125rem;
+        height: 1.125rem;
+        font-size: 0.7rem;
+        font-weight: 600;
+      }
+    }
+  }
+}
+
+// Ajustar espaciado cuando hay créditos
+.nav-section-right {
+  @media (min-width: 768px) {
+    .user-section {
+      margin-left: 0.5rem;
+    }
+  }
 }
