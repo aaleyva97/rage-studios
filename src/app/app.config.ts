@@ -11,6 +11,7 @@ import { provideRouter } from '@angular/router';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
 import { providePrimeNG } from 'primeng/config';
 import Aura from '@primeuix/themes/aura';
+import { PRIMENG_SPANISH_LOCALE } from './core/constants/primeng-spanish-locale';
 
 import { routes } from './app.routes';
 import {
@@ -41,7 +42,8 @@ export const appConfig: ApplicationConfig = {
             }
         }
       },
-      ripple: true
+      ripple: true,
+      translation: PRIMENG_SPANISH_LOCALE
     }),
     importProvidersFrom(
       NgxStripeModule.forRoot(environment.STRIPE_PUBLISHABLE_KEY)
