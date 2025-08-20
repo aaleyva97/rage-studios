@@ -113,12 +113,13 @@
               </div>
               
               <div class="flex gap-2 mb-4">
-                <p-inputtext 
+                <input 
+                  type="text"
+                  pInputText
                   [(ngModel)]="newCompanion"
                   placeholder="Nombre del acompañante"
                   class="flex-1"
                   (keyup.enter)="addCompanion()">
-                </p-inputtext>
                 <p-button 
                   icon="pi pi-plus" 
                   label="Agregar"
