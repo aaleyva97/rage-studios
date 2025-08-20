@@ -3,7 +3,10 @@ import {
   importProvidersFrom,
   provideBrowserGlobalErrorListeners,
   provideZonelessChangeDetection,
+  LOCALE_ID,
 } from '@angular/core';
+import { registerLocaleData } from '@angular/common';
+import localeEs from '@angular/common/locales/es';
 import { provideRouter } from '@angular/router';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
 import { providePrimeNG } from 'primeng/config';
@@ -16,6 +19,9 @@ import {
 } from '@angular/platform-browser';
 import { NgxStripeModule } from 'ngx-stripe';
 import { environment } from '../environments/environment';
+
+// Registrar locale español
+registerLocaleData(localeEs, 'es');
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -39,6 +45,7 @@ export const appConfig: ApplicationConfig = {
     }),
     importProvidersFrom(
       NgxStripeModule.forRoot(environment.STRIPE_PUBLISHABLE_KEY)
-    )
+    ),
+    { provide: LOCALE_ID, useValue: 'es' }
   ],
 };
