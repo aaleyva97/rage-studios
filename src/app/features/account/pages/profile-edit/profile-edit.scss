@@ -1,0 +1,24 @@
+.profile-edit-container {
+  max-width: 800px;
+  
+  .field {
+    label {
+      color: #374151;
+      font-size: 0.875rem;
+    }
+  }
+  
+  @media (max-width: 640px) {
+    padding: 0;
+    
+    .max-w-md {
+      max-width: 100%;
+    }
+  }
+}
+
+::ng-deep {
+  .p-inputtext {
+    width: 100%;
+  }
+}

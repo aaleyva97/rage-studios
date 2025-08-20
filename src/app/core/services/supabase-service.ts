@@ -113,4 +113,11 @@ export class SupabaseService {
   isLoggedIn() {
     return !!this.currentUser.value;
   }
+
+
+async updatePassword(newPassword: string) {
+  return await this.supabaseClient.auth.updateUser({
+    password: newPassword
+  });
+}
 }

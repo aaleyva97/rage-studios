@@ -25,6 +25,36 @@ export const routes: Routes = [
     ]
   },
   {
+    path: 'mi-cuenta',
+    loadComponent: () => import('./features/account/layouts/account-layout/account-layout').then(m => m.AccountLayout),
+    canActivate: [authGuard],
+    children: [
+      {
+        path: '',
+        loadComponent: () => import('./features/account/pages/account-dashboard/account-dashboard').then(m => m.AccountDashboard)
+      },
+      {
+        path: 'perfil',
+        loadComponent: () => import('./features/account/pages/profile-edit/profile-edit').then(m => m.ProfileEdit)
+      },
+      {
+        path: 'cambiar-contrasena',
+        loadComponent: () => import('./features/account/pages/change-password/change-password').then(m => m.ChangePassword)
+      },
+      {
+        path: 'reservas',
+        loadComponent: () => import('./features/account/components/my-bookings/my-bookings').then(m => m.MyBookings)
+      },
+      /*
+      
+      
+      {
+        path: 'historial-creditos',
+        component: CreditHistoryComponent
+      }*/
+    ]
+  },
+  {
     path: '**',
     redirectTo: ''
   }
