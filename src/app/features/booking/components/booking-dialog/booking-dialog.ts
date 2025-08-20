@@ -49,6 +49,7 @@ export class BookingDialog {
   private messageService = inject(MessageService);
 
   // Estados
+  currentStep = signal(1);
   selectedDate = signal<Date | null>(null);
   selectedTime = signal<string | null>(null);
   selectedCoach = signal<string | null>(null);
@@ -129,7 +130,25 @@ export class BookingDialog {
     this.resetForm();
   }
 
+  // Navegación del Stepper
+  nextStep() {
+    if (this.currentStep() < 3) {
+      this.currentStep.set(this.currentStep() + 1);
+    }
+  }
+
+  prevStep() {
+    if (this.currentStep() > 1) {
+      this.currentStep.set(this.currentStep() - 1);
+    }
+  }
+
+  goToStep(step: number) {
+    this.currentStep.set(step);
+  }
+
   private resetForm() {
+    this.currentStep.set(1);
     this.selectedDate.set(null);
     this.selectedTime.set(null);
     this.selectedCoach.set(null);

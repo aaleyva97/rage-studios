@@ -8,10 +8,17 @@
   header="Reservar Clase"
   (onHide)="closeDialog()">
   
-  <p-stepper orientation="horizontal">
-    <!-- Step 1: Fecha y Hora -->
-    <p-step-panel header="Fecha y Hora">
-      <ng-template pTemplate="content" let-activateCallback="activateCallback">
+  <p-stepper [value]="currentStep()" class="basis-[50rem]">
+    <p-step-list>
+      <p-step [value]="1">Fecha y Hora</p-step>
+      <p-step [value]="2">Acompañantes</p-step>
+      <p-step [value]="3">Selección de Camas</p-step>
+    </p-step-list>
+    
+    <p-step-panels>
+      <!-- Step 1: Fecha y Hora -->
+      <p-step-panel [value]="1">
+        <ng-template #content let-activateCallback="activateCallback">
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 p-4">
           <!-- Calendario inline -->
           <div class="flex flex-col">
@@ -82,15 +89,15 @@
             icon="pi pi-arrow-right" 
             iconPos="right"
             [disabled]="!selectedTime()"
-            (onClick)="activateCallback.emit()">
+            (onClick)="nextStep()">
           </p-button>
         </div>
       </ng-template>
-    </p-step-panel>
-    
-    <!-- Step 2: Acompañantes -->
-    <p-step-panel header="Acompañantes">
-      <ng-template pTemplate="content" let-activateCallback="activateCallback">
+      </p-step-panel>
+      
+      <!-- Step 2: Acompañantes -->
+      <p-step-panel [value]="2">
+        <ng-template #content let-activateCallback="activateCallback">
         <div class="p-4">
           <div class="mb-6">
             <div class="flex items-center gap-3 mb-4">
@@ -158,21 +165,21 @@
             label="Anterior" 
             icon="pi pi-arrow-left"
             severity="secondary"
-            (onClick)="activateCallback.emit()">
+            (onClick)="prevStep()">
           </p-button>
           <p-button 
             label="Siguiente" 
             icon="pi pi-arrow-right" 
             iconPos="right"
-            (onClick)="activateCallback.emit()">
+            (onClick)="nextStep()">
           </p-button>
         </div>
       </ng-template>
-    </p-step-panel>
-    
-    <!-- Step 3: Selección de Camas -->
-    <p-step-panel header="Selección de Camas">
-      <ng-template pTemplate="content" let-activateCallback="activateCallback">
+      </p-step-panel>
+      
+      <!-- Step 3: Selección de Camas -->
+      <p-step-panel [value]="3">
+        <ng-template #content let-activateCallback="activateCallback">
         <div class="p-4">
           <h3 class="text-lg font-semibold mb-4">Selecciona tu(s) cama(s)</h3>
           
@@ -256,7 +263,7 @@
             label="Anterior" 
             icon="pi pi-arrow-left"
             severity="secondary"
-            (onClick)="activateCallback.emit()">
+            (onClick)="prevStep()">
           </p-button>
           <p-button 
             label="Confirmar Reserva" 
@@ -268,6 +275,7 @@
           </p-button>
         </div>
       </ng-template>
-    </p-step-panel>
+      </p-step-panel>
+    </p-step-panels>
   </p-stepper>
 </p-dialog>
