@@ -76,7 +76,7 @@ export const PRIMENG_SPANISH_LOCALE = {
   today: "Hoy",
   upload: "Subir",
   weak: "Débil",
-  weekHeader: "Sm",
+  weekHeader: "Sem",
   aria: {
     cancelEdit: "Cancelar edición",
     close: "Cerrar",
