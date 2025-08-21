@@ -5,6 +5,7 @@ import { ButtonModule } from 'primeng/button';
 import { TagModule } from 'primeng/tag';
 import { ToastModule } from 'primeng/toast';
 import { ConfirmDialogModule } from 'primeng/confirmdialog';
+import { SkeletonModule } from 'primeng/skeleton';
 import { MessageService, ConfirmationService } from 'primeng/api';
 import { BookingService } from '../../../../core/services/booking.service';
 import { PaymentService } from '../../../../core/services/payment.service';
@@ -19,7 +20,8 @@ import { SupabaseService } from '../../../../core/services/supabase-service';
     ButtonModule,
     TagModule,
     ToastModule,
-    ConfirmDialogModule
+    ConfirmDialogModule,
+    SkeletonModule
   ],
   providers: [MessageService, ConfirmationService],
   templateUrl: './my-bookings.html',
@@ -35,6 +37,7 @@ export class MyBookings implements OnInit {
   
   bookings = signal<any[]>([]);
   isLoading = signal(true);
+  skeletonData = Array(5).fill({});
   
   async ngOnInit() {
     await this.loadBookings();
@@ -47,12 +50,14 @@ export class MyBookings implements OnInit {
     if (user) {
       const userBookings = await this.bookingService.getUserBookings(user.id);
       
-      // Agregar información de si se puede cancelar
+      // Agregar información de si se puede cancelar y formatear datos
       const bookingsWithCancelInfo = userBookings.map(booking => ({
         ...booking,
-        canCancel: this.bookingService.canCancelBooking(booking.session_date, booking.session_time),
+        canCancel: booking.status === 'active' ? this.bookingService.canCancelBooking(booking.session_date, booking.session_time) : false,
         formattedDate: new Date(booking.session_date).toLocaleDateString('es-MX'),
-        formattedTime: booking.session_time.substring(0, 5)
+        formattedTime: booking.session_time.substring(0, 5),
+        statusLabel: booking.status === 'active' ? 'Activa' : 'Cancelada',
+        statusSeverity: booking.status === 'active' ? 'success' : 'danger'
       }));
       
       this.bookings.set(bookingsWithCancelInfo);

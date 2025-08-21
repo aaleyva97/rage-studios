@@ -250,8 +250,7 @@ export class BookingService {
       .from('bookings')
       .select('*')
       .eq('user_id', userId)
-      .eq('status', 'active')
-      .order('session_date', { ascending: true })
+      .order('session_date', { ascending: false })
       .order('session_time', { ascending: true });
 
     if (error) {
