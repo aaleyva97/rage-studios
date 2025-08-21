@@ -2,6 +2,8 @@ import { Component, inject, signal, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { TableModule } from 'primeng/table';
 import { TagModule } from 'primeng/tag';
+import { SkeletonModule } from 'primeng/skeleton';
+import { PaginatorModule } from 'primeng/paginator';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { environment } from '../../../../../environments/environment';
 import { SupabaseService } from '../../../../core/services/supabase-service';
@@ -19,7 +21,7 @@ interface ICreditHistory {
 
 @Component({
   selector: 'app-credit-history',
-   imports: [CommonModule, TableModule, TagModule],
+  imports: [CommonModule, TableModule, TagModule, SkeletonModule, PaginatorModule],
   templateUrl: './credit-history.html',
   styleUrl: './credit-history.scss'
 })
@@ -27,8 +29,13 @@ export class CreditHistory implements OnInit {
   private supabaseService = inject(SupabaseService);
   private supabaseClient: SupabaseClient;
   
-  creditHistory = signal<CreditHistory[]>([]);
+  creditHistory = signal<ICreditHistory[]>([]);
   isLoading = signal(true);
+  skeletonData = Array(5).fill({});
+  
+  // Mobile pagination
+  mobileCurrentPage = signal(0);
+  mobileRowsPerPage = signal(10);
   
   constructor() {
     this.supabaseClient = createClient(environment.SUPABASE_URL, environment.SUPABASE_KEY);
@@ -85,5 +92,17 @@ export class CreditHistory implements OnInit {
       hour: '2-digit',
       minute: '2-digit'
     });
+  }
+
+  // Mobile pagination methods
+  get paginatedCreditHistory() {
+    const start = this.mobileCurrentPage() * this.mobileRowsPerPage();
+    const end = start + this.mobileRowsPerPage();
+    return this.creditHistory().slice(start, end);
+  }
+
+  onMobilePageChange(event: any) {
+    this.mobileCurrentPage.set(event.page);
+    this.mobileRowsPerPage.set(event.rows);
   }
 }
