@@ -43,15 +43,12 @@ export const routes: Routes = [
       },
       {
         path: 'reservas',
-        loadComponent: () => import('./features/account/components/my-bookings/my-bookings').then(m => m.MyBookings)
-      },
-      /*
-      
-      
+        loadComponent: () => import('./features/account/pages/my-bookings/my-bookings').then(m => m.MyBookings)
+      }, 
       {
         path: 'historial-creditos',
-        component: CreditHistoryComponent
-      }*/
+       loadComponent: () => import('.//features/account/pages/credit-history/credit-history').then(m => m.CreditHistory)
+      }
     ]
   },
   {

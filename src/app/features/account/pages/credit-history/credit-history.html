@@ -1,0 +1,49 @@
+<div class="credit-history-container">
+  <h2 class="text-2xl font-bold mb-6">Historial de Créditos</h2>
+  
+  @if (isLoading()) {
+    <div class="flex justify-center py-8">
+      <i class="pi pi-spin pi-spinner text-3xl"></i>
+    </div>
+  } @else if (creditHistory().length === 0) {
+    <div class="text-center py-8">
+      <i class="pi pi-wallet text-5xl text-gray-300 mb-4"></i>
+      <p class="text-gray-500">No hay movimientos de créditos</p>
+    </div>
+  } @else {
+    <p-table 
+      [value]="creditHistory()" 
+      [paginator]="true"
+      [rows]="10"
+      styleClass="p-datatable-gridlines">
+      
+      <ng-template pTemplate="header">
+        <tr>
+          <th>Fecha</th>
+          <th>Tipo</th>
+          <th>Cantidad</th>
+          <th>Descripción</th>
+        </tr>
+      </ng-template>
+      
+      <ng-template pTemplate="body" let-history>
+        <tr>
+          <td>{{ formatDate(history.created_at) }}</td>
+          <td>
+            <p-tag 
+              [value]="getTypeLabel(history.type)" 
+              [severity]="getTypeSeverity(history.type)">
+            </p-tag>
+          </td>
+          <td>
+            <span [class.text-green-600]="history.amount > 0" 
+                  [class.text-red-600]="history.amount < 0">
+              {{ history.amount > 0 ? '+' : '' }}{{ history.amount }}
+            </span>
+          </td>
+          <td>{{ history.description }}</td>
+        </tr>
+      </ng-template>
+    </p-table>
+  }
+</div>
