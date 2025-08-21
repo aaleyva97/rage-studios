@@ -6,6 +6,7 @@ import { TagModule } from 'primeng/tag';
 import { ToastModule } from 'primeng/toast';
 import { ConfirmDialogModule } from 'primeng/confirmdialog';
 import { SkeletonModule } from 'primeng/skeleton';
+import { PaginatorModule } from 'primeng/paginator';
 import { MessageService, ConfirmationService } from 'primeng/api';
 import { BookingService } from '../../../../core/services/booking.service';
 import { PaymentService } from '../../../../core/services/payment.service';
@@ -21,7 +22,8 @@ import { SupabaseService } from '../../../../core/services/supabase-service';
     TagModule,
     ToastModule,
     ConfirmDialogModule,
-    SkeletonModule
+    SkeletonModule,
+    PaginatorModule
   ],
   providers: [MessageService, ConfirmationService],
   templateUrl: './my-bookings.html',
@@ -38,6 +40,10 @@ export class MyBookings implements OnInit {
   bookings = signal<any[]>([]);
   isLoading = signal(true);
   skeletonData = Array(5).fill({});
+  
+  // Mobile pagination
+  mobileCurrentPage = signal(0);
+  mobileRowsPerPage = signal(10);
   
   async ngOnInit() {
     await this.loadBookings();
@@ -109,5 +115,17 @@ export class MyBookings implements OnInit {
         detail: result.error || 'No se pudo cancelar la reserva'
       });
     }
+  }
+
+  // Mobile pagination methods
+  get paginatedBookings() {
+    const start = this.mobileCurrentPage() * this.mobileRowsPerPage();
+    const end = start + this.mobileRowsPerPage();
+    return this.bookings().slice(start, end);
+  }
+
+  onMobilePageChange(event: any) {
+    this.mobileCurrentPage.set(event.page);
+    this.mobileRowsPerPage.set(event.rows);
   }
 }
