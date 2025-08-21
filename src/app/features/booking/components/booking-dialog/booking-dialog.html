@@ -8,7 +8,7 @@
   header="Reservar Clase"
   (onHide)="closeDialog()">
   
-  <p-stepper [value]="currentStep()" class="basis-[50rem]">
+  <p-stepper [value]="currentStep()" class="w-full">
     <p-step-list>
       <p-step [value]="1" class="flex flex-row flex-auto gap-2">
         <ng-template #content let-activateCallback="activateCallback" let-value="value">
@@ -42,7 +42,7 @@
         </ng-template>
       </p-step>
 
-      <p-step [value]="3" class="flex flex-row flex-auto gap-2">
+      <p-step [value]="3" class="flex flex-row gap-2">
         <ng-template #content let-activateCallback="activateCallback" let-value="value">
           <button class="bg-transparent border-0 inline-flex flex-col gap-2" (click)="activateCallback()">
             <span
