@@ -10,7 +10,7 @@ import { SocialSpeedDial } from './shared/components/social-speed-dial/social-sp
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [RouterOutlet, ButtonModule, ToastModule, Topbar, Footer, SocialSpeedDial],
+  imports: [RouterOutlet, ButtonModule, ToastModule, Topbar, SocialSpeedDial],
   providers: [MessageService],
   templateUrl: './app.html',
   styleUrl: './app.scss'
