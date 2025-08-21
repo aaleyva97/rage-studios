@@ -50,7 +50,8 @@ export class SupabaseService {
       password,
       options: {
         data: {
-          full_name: fullName
+          full_name: fullName,
+          phone: phone // Respaldo en metadata
         }
       }
     });
@@ -58,10 +59,44 @@ export class SupabaseService {
     if (error) throw error;
     
     if (data.user) {
-      await this.updateProfile(data.user.id, { full_name: fullName, phone });
+      // Intentar actualizar perfil con retry logic
+      await this.updateProfileWithRetry(data.user.id, { full_name: fullName, phone });
     }
     
     return data;
+  }
+
+  private async updateProfileWithRetry(userId: string, updates: Partial<Profile>, maxRetries: number = 3) {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        // Esperar un poco más en cada intento para dar tiempo al trigger
+        if (attempt > 1) {
+          await new Promise(resolve => setTimeout(resolve, attempt * 500));
+        }
+        
+        const result = await this.updateProfile(userId, updates);
+        return result; // Si es exitoso, salir del loop
+      } catch (error: any) {
+        console.warn(`Profile update attempt ${attempt} failed:`, error.message);
+        
+        if (attempt === maxRetries) {
+          // En el último intento, intentar crear el perfil si no existe
+          try {
+            console.log('Attempting to create profile as fallback...');
+            return await this.createProfile(userId, {
+              ...updates,
+              role: 'user' // Establecer rol por defecto
+            });
+          } catch (createError: any) {
+            console.error('Both update and create profile failed:', createError.message);
+            // No lanzar error para no interrumpir el registro
+            // El usuario puede completar su perfil después
+            return null;
+          }
+        }
+      }
+    }
+    return null; // En caso de que todos los intentos fallen
   }
 
   async updateProfile(userId: string, updates: Partial<Profile>) {
