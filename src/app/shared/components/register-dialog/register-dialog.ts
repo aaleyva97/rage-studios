@@ -98,7 +98,7 @@ export class RegisterDialog {
       this.messageService.add({
         severity: 'success',
         summary: '¡Cuenta creada exitosamente!',
-        detail: 'Por favor revisa tu correo electrónico para confirmar tu cuenta',
+        detail: 'Listo hemos iniciado sesión por ti',
         life: 5000
       });
       
@@ -106,9 +106,11 @@ export class RegisterDialog {
         this.visible.set(false);
         this.registerForm.reset();
         
+        /*
         setTimeout(() => {
           this.openLogin.emit();
         }, 500);
+         */
       }, 1500);
       
     } catch (error: any) {
