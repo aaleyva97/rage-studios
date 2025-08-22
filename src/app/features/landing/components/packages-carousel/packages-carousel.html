@@ -73,7 +73,7 @@
                 @if (isLoggedIn()) {
                   <p-button 
                     label="COMPRAR PAQUETE"
-                    [outlined]="true"
+                    [text]="true"
                     severity="contrast"
                     styleClass="w-full"
                     (click)="onPurchaseClick(package)"
@@ -82,7 +82,7 @@
                 } @else {
                   <p-button 
                     label="INICIAR SESIÓN"
-                    [outlined]="true"
+                    [text]="true"
                     severity="contrast"
                     styleClass="w-full"
                     (click)="onPurchaseClick(package)"
