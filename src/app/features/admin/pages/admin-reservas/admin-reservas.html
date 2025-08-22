@@ -1,0 +1,283 @@
+<p-toast />
+<p-confirm-dialog />
+
+<div class="admin-reservas-container">
+  <div class="header-section mb-6">
+    <h2 class="text-2xl font-bold mb-4">Gestión de Reservas</h2>
+    
+    <!-- Summary Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      <p-card class="summary-card">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm font-medium text-gray-600">Total Reservas</p>
+            <p class="text-xl font-bold text-blue-600">{{ bookings().length }}</p>
+          </div>
+          <i class="pi pi-calendar text-blue-500 text-2xl"></i>
+        </div>
+      </p-card>
+      
+      <p-card class="summary-card">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm font-medium text-gray-600">Activas</p>
+            <p class="text-xl font-bold text-green-600">{{ getActiveBookingsCount() }}</p>
+          </div>
+          <i class="pi pi-check-circle text-green-500 text-2xl"></i>
+        </div>
+      </p-card>
+      
+      <p-card class="summary-card">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm font-medium text-gray-600">Canceladas</p>
+            <p class="text-xl font-bold text-red-600">{{ getCancelledBookingsCount() }}</p>
+          </div>
+          <i class="pi pi-times-circle text-red-500 text-2xl"></i>
+        </div>
+      </p-card>
+    </div>
+    
+    <!-- Filters -->
+    <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200 mb-6">
+      <h3 class="text-lg font-semibold mb-4">Filtros</h3>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <!-- Date Range Picker -->
+        <div class="form-field">
+          <label class="text-sm font-medium text-gray-700 mb-2 block">Rango de fechas</label>
+          <p-datepicker
+            [(ngModel)]="dateRange"
+            selectionMode="range"
+            [readonlyInput]="true"
+            placeholder="Seleccionar rango de fechas"
+            dateFormat="dd/mm/yy"
+            class="w-full"
+            (onSelect)="onDateRangeChange()">
+          </p-datepicker>
+        </div>
+        
+        <!-- Status Filter -->
+        <div class="form-field">
+          <label class="text-sm font-medium text-gray-700 mb-2 block">Estado</label>
+          <p-select
+            [(ngModel)]="selectedStatus"
+            [options]="statusOptions"
+            optionLabel="label"
+            optionValue="value"
+            placeholder="Seleccionar estado"
+            class="w-full"
+            (onChange)="onStatusChange()">
+          </p-select>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  @if (!isLoading() && bookings().length === 0) {
+    <div class="text-center py-12">
+      <i class="pi pi-calendar text-5xl text-gray-300 mb-4"></i>
+      <p class="text-gray-500 text-lg">No se encontraron reservas</p>
+      <p class="text-gray-400 text-sm">Ajusta los filtros para ver más resultados</p>
+    </div>
+  } @else {
+    
+    <!-- Mobile Card Layout -->
+    <div class="block md:hidden">
+      @if (isLoading()) {
+        @for (item of skeletonData; track $index) {
+          <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4">
+            <div class="flex justify-between items-start mb-3">
+              <div class="flex-1">
+                <p-skeleton width="60%" height="1.25rem" class="mb-2" />
+                <p-skeleton width="40%" height="1rem" />
+              </div>
+              <p-skeleton width="4rem" height="1.5rem" styleClass="rounded" />
+            </div>
+            <div class="grid grid-cols-2 gap-3 mb-3">
+              <div>
+                <p-skeleton width="30%" height="0.875rem" class="mb-1" />
+                <p-skeleton width="70%" height="1rem" />
+              </div>
+              <div>
+                <p-skeleton width="40%" height="0.875rem" class="mb-1" />
+                <p-skeleton width="50%" height="1rem" />
+              </div>
+            </div>
+            <div class="border-t border-gray-100 pt-3">
+              <div class="flex justify-between items-center">
+                <p-skeleton width="60%" height="1rem" />
+                <p-skeleton width="2.5rem" height="2.5rem" styleClass="rounded-full" />
+              </div>
+            </div>
+          </div>
+        }
+      } @else {
+        @for (booking of paginatedBookings; track booking.id) {
+          <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4 hover:shadow-md transition-shadow">
+            <!-- Header: Usuario y Estado -->
+            <div class="flex justify-between items-start mb-3">
+              <div>
+                <h3 class="text-lg font-semibold text-gray-900">{{ booking.userDisplayName }}</h3>
+                <p class="text-sm text-gray-600">{{ booking.formattedDate }} - {{ booking.formattedTime }}</p>
+              </div>
+              <p-tag 
+                [value]="booking.statusLabel"
+                [severity]="booking.statusSeverity"
+                [rounded]="true">
+              </p-tag>
+            </div>
+            
+            <!-- Details Grid -->
+            <div class="grid grid-cols-2 gap-3 mb-3">
+              <div>
+                <span class="text-xs text-gray-500 uppercase tracking-wider">Coach</span>
+                <p class="text-sm font-medium text-gray-900">{{ booking.coach_name }}</p>
+              </div>
+              <div>
+                <span class="text-xs text-gray-500 uppercase tracking-wider">Créditos</span>
+                <p class="text-sm font-medium text-gray-900">{{ booking.credits_used }}</p>
+              </div>
+              <div>
+                <span class="text-xs text-gray-500 uppercase tracking-wider">Camas</span>
+                <p class="text-sm font-medium text-gray-900">{{ booking.bed_numbers.join(', ') }}</p>
+              </div>
+              <div>
+                <span class="text-xs text-gray-500 uppercase tracking-wider">Acompañantes</span>
+                <p class="text-sm font-medium text-gray-900">{{ booking.total_attendees || 0 }}</p>
+              </div>
+            </div>
+            
+            <!-- Actions Footer -->
+            <div class="border-t border-gray-100 pt-3">
+              <div class="flex justify-between items-center">
+                <span class="text-xs text-gray-400">ID: {{ booking.id.substring(0, 8) }}</span>
+                @if (booking.canCancel) {
+                  <p-button 
+                    icon="pi pi-times" 
+                    severity="danger"
+                    [text]="true"
+                    [rounded]="true"
+                    size="small"
+                    pTooltip="Cancelar reserva"
+                    (onClick)="confirmCancelBooking(booking)">
+                  </p-button>
+                } @else {
+                  <p-tag 
+                    value="No cancelable" 
+                    severity="secondary"
+                    [rounded]="true"
+                    size="small">
+                  </p-tag>
+                }
+              </div>
+            </div>
+          </div>
+        }
+      }
+      
+      <!-- Mobile Pagination -->
+      @if (!isLoading() && bookings().length > 10) {
+        <div class="mt-6">
+          <p-paginator
+            [rows]="mobileRowsPerPage()"
+            [totalRecords]="bookings().length"
+            [rowsPerPageOptions]="[10, 20, 30]"
+            [showCurrentPageReport]="true"
+            currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} reservas"
+            (onPageChange)="onMobilePageChange($event)">
+          </p-paginator>
+        </div>
+      }
+    </div>
+
+    <!-- Desktop Table Layout -->
+    <div class="hidden md:block">
+      <p-table 
+        [value]="isLoading() ? skeletonData : bookings()"
+        [rows]="15"
+        [paginator]="true"
+        [tableStyle]="{ 'min-width': '60rem' }"
+        [rowHover]="true"
+        dataKey="id"
+        currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} reservas"
+        [showCurrentPageReport]="true"
+        [rowsPerPageOptions]="[15, 25, 50]"
+        class="p-datatable-gridlines">
+        
+        <ng-template pTemplate="header">
+          <tr>
+            <th>Usuario</th>
+            <th>Fecha</th>
+            <th>Hora</th>
+            <th>Coach</th>
+            <th>Camas</th>
+            <th>Acompañantes</th>
+            <th>Créditos</th>
+            <th>Estado</th>
+            <th class="text-center">Acciones</th>
+          </tr>
+        </ng-template>
+        
+        <ng-template pTemplate="body" let-booking>
+          @if (isLoading()) {
+            <tr>
+              <td><p-skeleton width="80%" /></td>
+              <td><p-skeleton width="70%" /></td>
+              <td><p-skeleton width="60%" /></td>
+              <td><p-skeleton width="70%" /></td>
+              <td><p-skeleton width="50%" /></td>
+              <td><p-skeleton width="30%" /></td>
+              <td><p-skeleton width="40%" /></td>
+              <td><p-skeleton width="60%" /></td>
+              <td class="text-center">
+                <p-skeleton width="2.5rem" height="2.5rem" styleClass="rounded-full" />
+              </td>
+            </tr>
+          } @else {
+            <tr>
+              <td>
+                <div>
+                  <div class="font-medium text-gray-900">{{ booking.userDisplayName }}</div>
+                  <div class="text-xs text-gray-500">ID: {{ booking.id.substring(0, 8) }}</div>
+                </div>
+              </td>
+              <td>{{ booking.formattedDate }}</td>
+              <td>{{ booking.formattedTime }}</td>
+              <td>{{ booking.coach_name }}</td>
+              <td>{{ booking.bed_numbers.join(', ') }}</td>
+              <td>{{ booking.total_attendees || 0 }}</td>
+              <td>{{ booking.credits_used }}</td>
+              <td>
+                <p-tag 
+                  [value]="booking.statusLabel"
+                  [severity]="booking.statusSeverity"
+                  [rounded]="true">
+                </p-tag>
+              </td>
+              <td class="text-center">
+                @if (booking.canCancel) {
+                  <p-button 
+                    icon="pi pi-times" 
+                    severity="danger"
+                    [text]="true"
+                    [rounded]="true"
+                    size="small"
+                    pTooltip="Cancelar reserva"
+                    (onClick)="confirmCancelBooking(booking)">
+                  </p-button>
+                } @else {
+                  <p-tag 
+                    value="No cancelable" 
+                    severity="secondary"
+                    [rounded]="true"
+                    size="small">
+                  </p-tag>
+                }
+              </td>
+            </tr>
+          }
+        </ng-template>
+      </p-table>
+    </div>
+  }
+</div>

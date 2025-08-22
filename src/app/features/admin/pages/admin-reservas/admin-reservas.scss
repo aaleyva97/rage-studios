@@ -1,0 +1,156 @@
+.admin-reservas-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 1rem;
+  
+  .header-section {
+    h2 {
+      color: #1f2937;
+      margin-bottom: 1.5rem;
+    }
+  }
+  
+  .form-field {
+    label {
+      display: block;
+      margin-bottom: 0.5rem;
+      font-weight: 500;
+      color: #374151;
+    }
+  }
+}
+
+// Summary cards styling
+::ng-deep {
+  .summary-card {
+    .p-card-body {
+      padding: 1.25rem;
+    }
+    
+    .p-card-content {
+      padding: 0;
+    }
+    
+    &:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+      transition: all 0.3s ease;
+    }
+  }
+  
+  // DatePicker styling
+  .p-datepicker {
+    width: 100%;
+    
+    .p-inputtext {
+      width: 100%;
+    }
+  }
+  
+  // Select styling  
+  .p-select {
+    width: 100%;
+  }
+  
+  // Mobile card styling
+  @media (max-width: 767px) {
+    .admin-reservas-container {
+      padding: 0 0.5rem;
+      
+      .grid {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+      }
+      
+      .header-section .grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  }
+  
+  // Table enhancements
+  .p-datatable {
+    .p-datatable-header {
+      background: #f9fafb;
+      border-bottom: 2px solid #e5e7eb;
+    }
+    
+    .p-datatable-thead > tr > th {
+      background: #f9fafb;
+      color: #374151;
+      font-weight: 600;
+      border-bottom: 2px solid #e5e7eb;
+      padding: 1rem;
+    }
+    
+    .p-datatable-tbody > tr > td {
+      padding: 1rem;
+      border-bottom: 1px solid #f3f4f6;
+    }
+    
+    .p-datatable-tbody > tr:hover {
+      background: #f9fafb;
+    }
+  }
+  
+  // Skeleton enhancements
+  .p-skeleton {
+    border-radius: 4px;
+  }
+  
+  // Tag styling
+  .p-tag {
+    font-weight: 500;
+    
+    &.p-tag-success {
+      background: #10b981;
+    }
+    
+    &.p-tag-danger {
+      background: #ef4444;
+    }
+    
+    &.p-tag-secondary {
+      background: #6b7280;
+    }
+  }
+  
+  // Button styling
+  .p-button.p-button-text.p-button-danger {
+    color: #ef4444;
+    
+    &:hover {
+      background: #fef2f2;
+      color: #dc2626;
+    }
+  }
+  
+  // Pagination styling
+  .p-paginator {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.5rem;
+    padding: 1rem;
+  }
+}
+
+// Responsive adjustments
+@media (max-width: 1024px) {
+  .admin-reservas-container {
+    .header-section .grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+}
+
+@media (max-width: 768px) {
+  .admin-reservas-container {
+    .header-section .grid {
+      grid-template-columns: 1fr;
+    }
+    
+    .form-field {
+      margin-bottom: 1rem;
+    }
+  }
+}

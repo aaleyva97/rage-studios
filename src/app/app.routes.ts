@@ -60,6 +60,10 @@ export const routes: Routes = [
       {
         path: '',
         loadComponent: () => import('./features/admin/pages/admin-dashboard/admin-dashboard').then(m => m.AdminDashboard)
+      },
+      {
+        path: 'reservas',
+        loadComponent: () => import('./features/admin/pages/admin-reservas/admin-reservas').then(m => m.AdminReservas)
       }
     ]
   },

@@ -237,4 +237,71 @@ private async getTotalCredits(): Promise<number> {
   const totalCredits = data?.reduce((sum, batch) => sum + (batch.credits_remaining || 0), 0) || 0;
   return totalCredits;
 }
+
+// Admin Bookings Management
+async getAdminBookings(startDate: Date, endDate: Date, statusFilter: string = 'all'): Promise<any[]> {
+  try {
+    const startDateString = startDate.toISOString().split('T')[0];
+    const endDateString = endDate.toISOString().split('T')[0];
+    
+    let query = this.supabaseClient
+      .from('bookings')
+      .select(`
+        *,
+        profiles!user_id (
+          id,
+          full_name,
+          phone
+        )
+      `)
+      .gte('session_date', startDateString)
+      .lte('session_date', endDateString)
+      .order('session_date', { ascending: true })
+      .order('session_time', { ascending: true });
+
+    // Apply status filter
+    if (statusFilter === 'active') {
+      query = query.eq('status', 'active');
+    } else if (statusFilter === 'cancelled') {
+      query = query.eq('status', 'cancelled');
+    }
+    // 'all' means no additional filter
+
+    const { data, error } = await query;
+
+    if (error) throw error;
+    return data || [];
+    
+  } catch (error) {
+    console.error('Error fetching admin bookings:', error);
+    throw error;
+  }
+}
+
+async getAllBookingsStats(): Promise<{
+  totalBookings: number;
+  activeBookings: number;
+  cancelledBookings: number;
+  totalCreditsUsed: number;
+}> {
+  try {
+    const { data, error } = await this.supabaseClient
+      .from('bookings')
+      .select('status, credits_used');
+
+    if (error) throw error;
+
+    const stats = {
+      totalBookings: data?.length || 0,
+      activeBookings: data?.filter(b => b.status === 'active').length || 0,
+      cancelledBookings: data?.filter(b => b.status === 'cancelled').length || 0,
+      totalCreditsUsed: data?.reduce((sum, b) => sum + (b.credits_used || 0), 0) || 0
+    };
+
+    return stats;
+  } catch (error) {
+    console.error('Error fetching booking stats:', error);
+    throw error;
+  }
+}
 }
