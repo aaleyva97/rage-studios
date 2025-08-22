@@ -1,0 +1,139 @@
+.admin-container {
+  display: flex;
+  min-height: 100vh;
+  position: relative;
+  padding-top: 4rem; // Espacio para la topbar fija
+  
+  .sidebar-desktop {
+    width: 280px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-right: 1px solid #e5e7eb;
+    padding: 1.5rem;
+    transition: transform 0.3s ease;
+    position: fixed;
+    top: 4rem; // Empezar debajo de la topbar
+    height: calc(100vh - 4rem);
+    overflow-y: auto;
+    z-index: 100;
+    color: white;
+    
+    @media (max-width: 767px) {
+      display: none;
+    }
+    
+    &.sidebar-open {
+      transform: translateX(0);
+    }
+    
+    .sidebar-header {
+      text-align: center;
+      padding-bottom: 1.5rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+      margin-bottom: 1.5rem;
+      
+      h3 {
+        color: white;
+        margin-top: 0.5rem;
+      }
+      
+      p {
+        color: rgba(255, 255, 255, 0.8);
+      }
+    }
+  }
+  
+  .admin-avatar {
+    background: rgba(255, 255, 255, 0.2) !important;
+    color: white !important;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+  }
+  
+  .admin-badge {
+    display: inline-block;
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    padding: 0.25rem 0.75rem;
+    border-radius: 1rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin-top: 0.5rem;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+  }
+  
+  .admin-badge-small {
+    display: inline-block;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 0.125rem 0.5rem;
+    border-radius: 0.75rem;
+    font-size: 0.625rem;
+    font-weight: 600;
+    margin-top: 0.25rem;
+  }
+  
+  .main-content {
+    flex: 1;
+    padding: 2rem;
+    transition: margin-left 0.3s ease;
+    margin-left: 0;
+    background: #f8fafc;
+    
+    @media (min-width: 768px) {
+      &.sidebar-open {
+        margin-left: 280px;
+      }
+    }
+    
+    @media (max-width: 767px) {
+      padding: 1rem;
+    }
+  }
+  
+  .sidebar-toggle {
+    @media (min-width: 768px) {
+      display: none;
+    }
+  }
+}
+
+// Estilos para el menú
+::ng-deep {
+  .admin-container .sidebar-menu {
+    .p-menu {
+      width: 100%;
+      border: none;
+      background: transparent;
+      
+      .p-menuitem-link {
+        border-radius: 0.5rem;
+        margin-bottom: 0.25rem;
+        color: rgba(255, 255, 255, 0.9);
+        background: transparent;
+        
+        &:hover {
+          background: rgba(255, 255, 255, 0.1);
+          color: white;
+        }
+        
+        &.p-menuitem-link-active {
+          background: rgba(255, 255, 255, 0.2);
+          color: white;
+        }
+        
+        .p-menuitem-icon {
+          color: rgba(255, 255, 255, 0.8);
+        }
+        
+        .p-menuitem-text {
+          color: rgba(255, 255, 255, 0.9);
+        }
+      }
+    }
+  }
+  
+  .mobile-sidebar {
+    .p-drawer-content {
+      width: 280px;
+    }
+  }
+}

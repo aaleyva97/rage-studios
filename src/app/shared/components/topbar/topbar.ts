@@ -101,6 +101,12 @@ export class Topbar implements OnInit, OnDestroy {
     { label: 'Mi Cuenta', routerLink: '/mi-cuenta', action: 'route' }
   ];
   
+  private rightNavItemsAdmin: NavItem[] = [
+    { label: 'Coaches', sectionId: 'coaches', action: 'scroll' },
+    { label: 'Admin', routerLink: '/admin', action: 'route' },
+    { label: 'Mi Cuenta', routerLink: '/mi-cuenta', action: 'route' }
+  ];
+  
   ngOnInit() {
     this.authSubscription = this.supabaseService.currentUser$.subscribe(async user => {
       this.isLoggedIn.set(!!user);
@@ -124,7 +130,14 @@ export class Topbar implements OnInit, OnDestroy {
   
   private updateMenuItems() {
     this.leftMenuItems.set(this.isLoggedIn() ? this.leftNavItemsLoggedIn : this.leftNavItems);
-    this.rightMenuItems.set(this.isLoggedIn() ? this.rightNavItemsLoggedIn : this.rightNavItems);
+    
+    if (!this.isLoggedIn()) {
+      this.rightMenuItems.set(this.rightNavItems);
+    } else if (this.isAdmin()) {
+      this.rightMenuItems.set(this.rightNavItemsAdmin);
+    } else {
+      this.rightMenuItems.set(this.rightNavItemsLoggedIn);
+    }
   }
   
   private updateUserMenu() {
@@ -217,6 +230,11 @@ export class Topbar implements OnInit, OnDestroy {
       return user.user_metadata.full_name;
     }
     return user?.email?.split('@')[0] || 'Usuario';
+  }
+  
+  isAdmin(): boolean {
+    const profile = this.userProfile();
+    return profile?.role === 'admin';
   }
   
   closeMobileMenu() {

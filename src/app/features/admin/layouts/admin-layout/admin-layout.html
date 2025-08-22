@@ -1,0 +1,70 @@
+<div class="admin-container">
+  <!-- Sidebar para desktop -->
+  <div class="sidebar-desktop" [class.sidebar-open]="sidebarVisible() && !isMobile()">
+    <div class="sidebar-header">
+      <p-avatar 
+        [label]="getUserDisplayName().charAt(0).toUpperCase()" 
+        shape="circle" 
+        size="xlarge"
+        class="mb-3 admin-avatar">
+      </p-avatar>
+      <h3 class="text-lg font-semibold">{{ getUserDisplayName() }}</h3>
+      <p class="text-sm text-gray-500">{{ currentUser()?.email }}</p>
+      <span class="admin-badge">Administrador</span>
+    </div>
+    
+    <p-menu 
+      [model]="menuItems" 
+      styleClass="sidebar-menu w-full border-0">
+    </p-menu>
+  </div>
+  
+  <!-- Drawer para móvil -->
+  @if (isMobile()) {
+    <p-drawer 
+      [(visible)]="sidebarVisible" 
+      [modal]="false"
+      [dismissible]="true"
+      position="left"
+      styleClass="mobile-sidebar">
+      
+      <ng-template pTemplate="header">
+        <div class="flex items-center gap-3">
+          <p-avatar 
+            [label]="getUserDisplayName().charAt(0).toUpperCase()" 
+            shape="circle"
+            class="admin-avatar">
+          </p-avatar>
+          <div>
+            <div class="font-semibold">{{ getUserDisplayName() }}</div>
+            <div class="text-xs text-gray-500">{{ currentUser()?.email }}</div>
+            <span class="admin-badge-small">Admin</span>
+          </div>
+        </div>
+      </ng-template>
+      
+      <p-menu 
+        [model]="menuItems" 
+        styleClass="sidebar-menu w-full border-0"
+        (onSelect)="sidebarVisible.set(false)">
+      </p-menu>
+    </p-drawer>
+  }
+  
+  <!-- Contenido principal -->
+  <div class="main-content" [class.sidebar-open]="sidebarVisible() && !isMobile()">
+    <!-- Botón para abrir sidebar en móvil -->
+    @if (isMobile()) {
+      <p-button 
+        icon="pi pi-bars" 
+        [text]="true"
+        [rounded]="true"
+        severity="secondary"
+        class="sidebar-toggle mb-4"
+        (onClick)="toggleSidebar()">
+      </p-button>
+    }
+    
+    <router-outlet></router-outlet>
+  </div>
+</div>

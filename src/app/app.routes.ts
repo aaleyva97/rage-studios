@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 import { authGuard } from './core/guards/auth.guard';
+import { adminGuard } from './core/guards/admin.guard';
 
 export const routes: Routes = [
   {
@@ -47,7 +48,18 @@ export const routes: Routes = [
       }, 
       {
         path: 'historial-creditos',
-       loadComponent: () => import('.//features/account/pages/credit-history/credit-history').then(m => m.CreditHistory)
+       loadComponent: () => import('./features/account/pages/credit-history/credit-history').then(m => m.CreditHistory)
+      }
+    ]
+  },
+  {
+    path: 'admin',
+    loadComponent: () => import('./features/admin/layouts/admin-layout/admin-layout').then(m => m.AdminLayout),
+    canActivate: [adminGuard],
+    children: [
+      {
+        path: '',
+        loadComponent: () => import('./features/admin/pages/admin-dashboard/admin-dashboard').then(m => m.AdminDashboard)
       }
     ]
   },
