@@ -103,15 +103,18 @@
     font-weight: 500;
     
     &.p-tag-success {
-      background: #10b981;
+      background: #10b981 !important;
+      color: white !important;
     }
     
     &.p-tag-danger {
-      background: #ef4444;
+      background: #ef4444 !important;
+      color: white !important;
     }
     
     &.p-tag-secondary {
-      background: #6b7280;
+      background: #6b7280 !important;
+      color: white !important;
     }
   }
   
@@ -125,12 +128,40 @@
     }
   }
   
-  // Pagination styling
+  // Pagination styling - Fix dropdown width issues
   .p-paginator {
     background: white;
     border: 1px solid #e5e7eb;
     border-radius: 0.5rem;
     padding: 1rem;
+    
+    // Fix rows per page dropdown width (support both dropdown and select)
+    .p-dropdown,
+    .p-select {
+      width: auto !important;
+      min-width: 4rem;
+      max-width: 6rem;
+    }
+    
+    // Ensure proper layout spacing
+    .p-paginator-rpp-options {
+      width: auto;
+      flex-shrink: 0;
+    }
+    
+    // Fix paginator layout
+    .p-paginator-first,
+    .p-paginator-prev,
+    .p-paginator-next,
+    .p-paginator-last {
+      width: auto;
+      flex-shrink: 0;
+    }
+    
+    // Fix the page numbers container
+    .p-paginator-pages {
+      flex-shrink: 0;
+    }
   }
 }
 
