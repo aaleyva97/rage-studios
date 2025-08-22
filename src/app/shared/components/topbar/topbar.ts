@@ -91,6 +91,13 @@ export class Topbar implements OnInit, OnDestroy {
     { label: 'Training', sectionId: 'sessions', action: 'scroll' }
   ];
   
+  private leftNavItemsAdmin: NavItem[] = [
+    { label: 'Reservar', action: 'scroll' },
+    { label: 'Paquetes', sectionId: 'packages', action: 'scroll' },
+    { label: 'Training', sectionId: 'sessions', action: 'scroll' },
+    { label: 'Coaches', sectionId: 'coaches', action: 'scroll' }
+  ];
+  
   // Right side menu items
   private rightNavItems: NavItem[] = [
     { label: 'Coaches', sectionId: 'coaches', action: 'scroll' }
@@ -102,7 +109,6 @@ export class Topbar implements OnInit, OnDestroy {
   ];
   
   private rightNavItemsAdmin: NavItem[] = [
-    { label: 'Coaches', sectionId: 'coaches', action: 'scroll' },
     { label: 'Admin', routerLink: '/admin', action: 'route' },
     { label: 'Mi Cuenta', routerLink: '/mi-cuenta', action: 'route' }
   ];
@@ -129,8 +135,16 @@ export class Topbar implements OnInit, OnDestroy {
   }
   
   private updateMenuItems() {
-    this.leftMenuItems.set(this.isLoggedIn() ? this.leftNavItemsLoggedIn : this.leftNavItems);
+    // Update left menu items based on user status
+    if (!this.isLoggedIn()) {
+      this.leftMenuItems.set(this.leftNavItems);
+    } else if (this.isAdmin()) {
+      this.leftMenuItems.set(this.leftNavItemsAdmin);
+    } else {
+      this.leftMenuItems.set(this.leftNavItemsLoggedIn);
+    }
     
+    // Update right menu items based on user status
     if (!this.isLoggedIn()) {
       this.rightMenuItems.set(this.rightNavItems);
     } else if (this.isAdmin()) {
