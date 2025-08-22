@@ -12,6 +12,7 @@ import { BookingService } from '../../../../core/services/booking.service';
 import { PaymentService } from '../../../../core/services/payment.service';
 import { CreditsService } from '../../../../core/services/credits.service';
 import { SupabaseService } from '../../../../core/services/supabase-service';
+import { formatDateForDisplay } from '../../../../core/functions/date-utils';
 
 @Component({
   selector: 'app-my-bookings',
@@ -60,7 +61,7 @@ export class MyBookings implements OnInit {
       const bookingsWithCancelInfo = userBookings.map(booking => ({
         ...booking,
         canCancel: booking.status === 'active' ? this.bookingService.canCancelBooking(booking.session_date, booking.session_time) : false,
-        formattedDate: new Date(booking.session_date).toLocaleDateString('es-MX'),
+        formattedDate: formatDateForDisplay(booking.session_date),
         formattedTime: booking.session_time.substring(0, 5),
         statusLabel: booking.status === 'active' ? 'Activa' : 'Cancelada',
         statusSeverity: booking.status === 'active' ? 'success' : 'danger'

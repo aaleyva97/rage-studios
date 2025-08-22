@@ -14,6 +14,7 @@ import { TooltipModule } from 'primeng/tooltip';
 import { MessageService, ConfirmationService } from 'primeng/api';
 import { BookingService } from '../../../../core/services/booking.service';
 import { SupabaseService } from '../../../../core/services/supabase-service';
+import { formatDateForDisplay } from '../../../../core/functions/date-utils';
 
 interface StatusOption {
   label: string;
@@ -82,26 +83,28 @@ export class AdminReservas implements OnInit {
   }
   
   async loadBookings() {
+    const dateRange = this.dateRange();
+    
+    // Don't load if we don't have a complete date range
+    if (!dateRange || dateRange.length !== 2 || !dateRange[0] || !dateRange[1]) {
+      return;
+    }
+    
     this.isLoading.set(true);
     
     try {
-      const dateRange = this.dateRange();
       const status = this.selectedStatus();
       
-      let bookings: any[] = [];
-      
-      if (dateRange && dateRange.length === 2) {
-        bookings = await this.supabaseService.getAdminBookings(
-          dateRange[0],
-          dateRange[1],
-          status
-        );
-      }
+      const bookings = await this.supabaseService.getAdminBookings(
+        dateRange[0],
+        dateRange[1],
+        status
+      );
       
       // Format booking data for display
       const formattedBookings = bookings.map(booking => ({
         ...booking,
-        formattedDate: new Date(booking.session_date).toLocaleDateString('es-MX'),
+        formattedDate: formatDateForDisplay(booking.session_date),
         formattedTime: booking.session_time.substring(0, 5),
         statusLabel: booking.status === 'active' ? 'Activa' : 'Cancelada',
         statusSeverity: booking.status === 'active' ? 'success' : 'danger',
@@ -124,7 +127,13 @@ export class AdminReservas implements OnInit {
   }
   
   onDateRangeChange() {
-    this.loadBookings();
+    const dateRange = this.dateRange();
+    
+    // Only load bookings if we have a complete date range (start and end dates)
+    if (dateRange && dateRange.length === 2 && dateRange[0] && dateRange[1]) {
+      this.loadBookings();
+    }
+    // If incomplete range, don't do anything (no error toast)
   }
   
   onStatusChange() {

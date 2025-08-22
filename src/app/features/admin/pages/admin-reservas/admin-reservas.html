@@ -54,6 +54,12 @@
             class="w-full"
             (onSelect)="onDateRangeChange()">
           </p-datepicker>
+          @if (dateRange() && dateRange()!.length === 1) {
+            <small class="text-orange-600 mt-1 block">
+              <i class="pi pi-info-circle mr-1"></i>
+              Selecciona la fecha final para aplicar el filtro
+            </small>
+          }
         </div>
         
         <!-- Status Filter -->
