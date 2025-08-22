@@ -34,11 +34,13 @@
             
             <div class="coach-info">
               <h3 class="coach-name">{{ coach.name }}</h3>
-              <p-button 
+              <div class="px-2">
+                <p-button 
                 label="DISCOVER" 
                 [text]="true"
                 styleClass="discover-button"
                 (onClick)="openCoachDetails(coach)" />
+              </div>
             </div>
           </article>
         }
