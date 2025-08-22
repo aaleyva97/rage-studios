@@ -83,9 +83,9 @@ export class PaymentService {
 
       if (purchaseError) throw purchaseError;
 
-      // URLs hardcodeadas para desarrollo - CAMBIAR en producción
-      const successUrl = `http://localhost:4200/checkout/success?session_id={CHECKOUT_SESSION_ID}`;
-      const cancelUrl = `http://localhost:4200/checkout/cancel`;
+      // URLs dinámicas basadas en el entorno
+      const successUrl = `${environment.baseUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`;
+      const cancelUrl = `${environment.baseUrl}/checkout/cancel`;
 
       console.log('Creating checkout with URLs:', { successUrl, cancelUrl });
 
