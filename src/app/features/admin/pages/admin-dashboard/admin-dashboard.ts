@@ -1,14 +1,18 @@
 import { Component, signal, inject } from '@angular/core';
 import { CardModule } from 'primeng/card';
 import { ButtonModule } from 'primeng/button';
+import { ProgressSpinnerModule } from 'primeng/progressspinner';
+import { MessageModule } from 'primeng/message';
 import { Router } from '@angular/router';
-import { SupabaseService } from '../../../../core/services/supabase-service';
+import { SupabaseService, AdminStats } from '../../../../core/services/supabase-service';
 
 @Component({
   selector: 'app-admin-dashboard',
   imports: [
     CardModule,
-    ButtonModule
+    ButtonModule,
+    ProgressSpinnerModule,
+    MessageModule
   ],
   templateUrl: './admin-dashboard.html',
   styleUrl: './admin-dashboard.scss'
@@ -18,13 +22,15 @@ export class AdminDashboard {
   private supabaseService = inject(SupabaseService);
   
   currentUser = signal<any>(null);
-  
-  adminStats = signal({
+  adminStats = signal<AdminStats>({
     totalReservas: 0,
     reservasHoy: 0,
     usuariosActivos: 0,
     creditosTotales: 0
   });
+  
+  loading = signal(true);
+  error = signal<string | null>(null);
   
   ngOnInit() {
     const user = this.supabaseService.getUser();
@@ -32,14 +38,24 @@ export class AdminDashboard {
     this.loadAdminStats();
   }
   
-  private loadAdminStats() {
-    // Placeholder data - estas llamadas se implementarán cuando se creen las páginas específicas
-    this.adminStats.set({
-      totalReservas: 156,
-      reservasHoy: 8,
-      usuariosActivos: 42,
-      creditosTotales: 1250
-    });
+  private async loadAdminStats() {
+    try {
+      this.loading.set(true);
+      this.error.set(null);
+      
+      const stats = await this.supabaseService.getAdminStats();
+      this.adminStats.set(stats);
+      
+    } catch (error: any) {
+      console.error('Error loading admin stats:', error);
+      this.error.set('Error al cargar las estadísticas. Por favor, intenta de nuevo.');
+    } finally {
+      this.loading.set(false);
+    }
+  }
+  
+  retryLoadStats() {
+    this.loadAdminStats();
   }
   
   navigateToSection(section: string) {

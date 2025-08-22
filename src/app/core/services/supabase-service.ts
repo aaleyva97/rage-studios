@@ -12,6 +12,13 @@ export interface Profile {
   updated_at: string;
 }
 
+export interface AdminStats {
+  totalReservas: number;
+  reservasHoy: number;
+  usuariosActivos: number;
+  creditosTotales: number;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -154,5 +161,80 @@ async updatePassword(newPassword: string) {
   return await this.supabaseClient.auth.updateUser({
     password: newPassword
   });
+}
+
+// Admin Statistics Methods
+async getAdminStats(): Promise<AdminStats> {
+  try {
+    const [totalReservas, reservasHoy, usuariosActivos, creditosTotales] = await Promise.all([
+      this.getTotalBookings(),
+      this.getTodaysBookings(),
+      this.getActiveUsers(),
+      this.getTotalCredits()
+    ]);
+
+    return {
+      totalReservas,
+      reservasHoy,
+      usuariosActivos,
+      creditosTotales
+    };
+  } catch (error) {
+    console.error('Error fetching admin stats:', error);
+    throw error;
+  }
+}
+
+private async getTotalBookings(): Promise<number> {
+  const { count, error } = await this.supabaseClient
+    .from('bookings')
+    .select('*', { count: 'exact', head: true })
+    .eq('status', 'active');
+  
+  if (error) throw error;
+  return count || 0;
+}
+
+private async getTodaysBookings(): Promise<number> {
+  const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+  
+  const { count, error } = await this.supabaseClient
+    .from('bookings')
+    .select('*', { count: 'exact', head: true })
+    .eq('status', 'active')
+    .eq('session_date', today);
+  
+  if (error) throw error;
+  return count || 0;
+}
+
+private async getActiveUsers(): Promise<number> {
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  const thirtyDaysAgoString = thirtyDaysAgo.toISOString();
+
+  const { data, error } = await this.supabaseClient
+    .from('bookings')
+    .select('user_id')
+    .gte('created_at', thirtyDaysAgoString);
+  
+  if (error) throw error;
+  
+  // Get unique user IDs
+  const uniqueUserIds = new Set(data?.map(booking => booking.user_id));
+  return uniqueUserIds.size;
+}
+
+private async getTotalCredits(): Promise<number> {
+  const { data, error } = await this.supabaseClient
+    .from('credit_batches')
+    .select('credits_remaining')
+    .gt('credits_remaining', 0);
+  
+  if (error) throw error;
+  
+  // Sum up all remaining credits
+  const totalCredits = data?.reduce((sum, batch) => sum + (batch.credits_remaining || 0), 0) || 0;
+  return totalCredits;
 }
 }

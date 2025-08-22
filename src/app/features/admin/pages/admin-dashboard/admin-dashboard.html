@@ -4,89 +4,121 @@
     <p class="text-gray-600">Bienvenido, {{ getUserDisplayName() }}</p>
   </div>
   
-  <!-- Estadísticas principales -->
-  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-    <p-card styleClass="stats-card">
-      <div class="flex items-center justify-between">
-        <div>
-          <p class="text-sm font-medium text-gray-600">Total Reservas</p>
-          <p class="text-2xl font-bold text-blue-600">{{ adminStats().totalReservas }}</p>
+  <!-- Error state -->
+  @if (error()) {
+    <p-message 
+      severity="error" 
+      text="{{ error() }}" 
+      class="mb-6">
+      <ng-template pTemplate="content">
+        <div class="flex items-center gap-3">
+          <i class="pi pi-exclamation-triangle"></i>
+          <div>
+            <p>{{ error() }}</p>
+            <button 
+              class="text-sm underline text-red-600 hover:text-red-800 mt-1"
+              (click)="retryLoadStats()">
+              Intentar de nuevo
+            </button>
+          </div>
         </div>
-        <i class="pi pi-calendar text-blue-500 text-2xl"></i>
-      </div>
-    </p-card>
-    
-    <p-card styleClass="stats-card">
-      <div class="flex items-center justify-between">
-        <div>
-          <p class="text-sm font-medium text-gray-600">Reservas Hoy</p>
-          <p class="text-2xl font-bold text-green-600">{{ adminStats().reservasHoy }}</p>
-        </div>
-        <i class="pi pi-clock text-green-500 text-2xl"></i>
-      </div>
-    </p-card>
-    
-    <p-card styleClass="stats-card">
-      <div class="flex items-center justify-between">
-        <div>
-          <p class="text-sm font-medium text-gray-600">Usuarios Activos</p>
-          <p class="text-2xl font-bold text-purple-600">{{ adminStats().usuariosActivos }}</p>
-        </div>
-        <i class="pi pi-users text-purple-500 text-2xl"></i>
-      </div>
-    </p-card>
-    
-    <p-card styleClass="stats-card">
-      <div class="flex items-center justify-between">
-        <div>
-          <p class="text-sm font-medium text-gray-600">Créditos Totales</p>
-          <p class="text-2xl font-bold text-orange-600">{{ adminStats().creditosTotales }}</p>
-        </div>
-        <i class="pi pi-wallet text-orange-500 text-2xl"></i>
-      </div>
-    </p-card>
-  </div>
+      </ng-template>
+    </p-message>
+  }
   
-  <!-- Acciones rápidas -->
-  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-    <p-card 
-      styleClass="action-card cursor-pointer"
-      (click)="navigateToSection('reservas')">
-      <div class="text-center">
-        <i class="pi pi-calendar text-4xl text-blue-500 mb-4"></i>
-        <h3 class="text-lg font-semibold mb-2">Gestionar Reservas</h3>
-        <p class="text-gray-600 text-sm">Ver y administrar todas las reservas</p>
-      </div>
-    </p-card>
+  <!-- Loading state -->
+  @if (loading()) {
+    <div class="flex justify-center items-center py-12">
+      <p-progressSpinner 
+        [style]="{'width': '50px', 'height': '50px'}" 
+        strokeWidth="4">
+      </p-progressSpinner>
+    </div>
+  } @else {
+    <!-- Estadísticas principales -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <p-card class="stats-card">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm font-medium text-gray-600">Total Reservas</p>
+            <p class="text-2xl font-bold text-blue-600">{{ adminStats().totalReservas }}</p>
+          </div>
+          <i class="pi pi-calendar text-blue-500 text-2xl"></i>
+        </div>
+      </p-card>
+      
+      <p-card class="stats-card">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm font-medium text-gray-600">Reservas Hoy</p>
+            <p class="text-2xl font-bold text-green-600">{{ adminStats().reservasHoy }}</p>
+          </div>
+          <i class="pi pi-clock text-green-500 text-2xl"></i>
+        </div>
+      </p-card>
+      
+      <p-card class="stats-card">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm font-medium text-gray-600">Usuarios Activos</p>
+            <p class="text-2xl font-bold text-purple-600">{{ adminStats().usuariosActivos }}</p>
+          </div>
+          <i class="pi pi-users text-purple-500 text-2xl"></i>
+        </div>
+      </p-card>
+      
+      <p-card class="stats-card">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm font-medium text-gray-600">Créditos Totales</p>
+            <p class="text-2xl font-bold text-orange-600">{{ adminStats().creditosTotales }}</p>
+          </div>
+          <i class="pi pi-wallet text-orange-500 text-2xl"></i>
+        </div>
+      </p-card>
+    </div>
     
-    <p-card 
-      styleClass="action-card cursor-pointer"
-      (click)="navigateToSection('creditos')">
-      <div class="text-center">
-        <i class="pi pi-wallet text-4xl text-green-500 mb-4"></i>
-        <h3 class="text-lg font-semibold mb-2">Gestionar Créditos</h3>
-        <p class="text-gray-600 text-sm">Administrar créditos de usuarios</p>
-      </div>
-    </p-card>
-    
-    <p-card 
-      styleClass="action-card cursor-pointer"
-      (click)="navigateToSection('sesiones')">
-      <div class="text-center">
-        <i class="pi pi-clock text-4xl text-purple-500 mb-4"></i>
-        <h3 class="text-lg font-semibold mb-2">Gestionar Sesiones</h3>
-        <p class="text-gray-600 text-sm">Configurar horarios y sesiones</p>
-      </div>
-    </p-card>
-    
-    <p-card 
-      styleClass="action-card cursor-pointer"
-      (click)="navigateToSection('coaches')">
-      <div class="text-center">
-        <i class="pi pi-users text-4xl text-orange-500 mb-4"></i>
-        <h3 class="text-lg font-semibold mb-2">Gestionar Coaches</h3>
-        <p class="text-gray-600 text-sm">Administrar información de coaches</p>
-      </div>
-    </p-card>
-  </div>
+    <!-- Acciones rápidas -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <p-card 
+        class="action-card cursor-pointer"
+        (click)="navigateToSection('reservas')">
+        <div class="text-center">
+          <i class="pi pi-calendar text-4xl text-blue-500 mb-4"></i>
+          <h3 class="text-lg font-semibold mb-2">Gestionar Reservas</h3>
+          <p class="text-gray-600 text-sm">Ver y administrar todas las reservas</p>
+        </div>
+      </p-card>
+      
+      <p-card 
+        class="action-card cursor-pointer"
+        (click)="navigateToSection('creditos')">
+        <div class="text-center">
+          <i class="pi pi-wallet text-4xl text-green-500 mb-4"></i>
+          <h3 class="text-lg font-semibold mb-2">Gestionar Créditos</h3>
+          <p class="text-gray-600 text-sm">Administrar créditos de usuarios</p>
+        </div>
+      </p-card>
+      
+      <p-card 
+        class="action-card cursor-pointer"
+        (click)="navigateToSection('sesiones')">
+        <div class="text-center">
+          <i class="pi pi-clock text-4xl text-purple-500 mb-4"></i>
+          <h3 class="text-lg font-semibold mb-2">Gestionar Sesiones</h3>
+          <p class="text-gray-600 text-sm">Configurar horarios y sesiones</p>
+        </div>
+      </p-card>
+      
+      <p-card 
+        class="action-card cursor-pointer"
+        (click)="navigateToSection('coaches')">
+        <div class="text-center">
+          <i class="pi pi-users text-4xl text-orange-500 mb-4"></i>
+          <h3 class="text-lg font-semibold mb-2">Gestionar Coaches</h3>
+          <p class="text-gray-600 text-sm">Administrar información de coaches</p>
+        </div>
+      </p-card>
+    </div>
+  }
 </div>
