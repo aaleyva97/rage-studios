@@ -6,6 +6,8 @@ import { CoachesGrid } from '../../components/coaches-grid/coaches-grid';
 import { BrandBanner } from '../../components/brand-banner/brand-banner';
 import { SecondaryNav } from '../../components/secondary-nav/secondary-nav';
 import { Footer } from '../../../../shared/components/footer/footer';
+import { BookingDialog } from '../../../booking/components/booking-dialog/booking-dialog';
+import { BookingUiService } from '../../../../core/services/booking-ui.service';
 
 @Component({
   selector: 'app-landing',
@@ -18,8 +20,13 @@ import { Footer } from '../../../../shared/components/footer/footer';
     BrandBanner,
     SecondaryNav,
     Footer,
+    BookingDialog,
   ],
   templateUrl: './landing.html',
   styleUrl: './landing.scss',
 })
-export class Landing {}
+export class Landing {
+  private bookingUiService = inject(BookingUiService);
+  
+  showBookingDialog = this.bookingUiService.showBookingDialog;
+}

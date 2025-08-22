@@ -1,8 +1,6 @@
 import {
   Component,
-  EventEmitter,
-  Input,
-  Output,
+  model,
   signal,
   inject,
 } from '@angular/core';
@@ -39,8 +37,7 @@ import { PaymentService } from '../../../../core/services/payment.service';
   styleUrl: './booking-dialog.scss',
 })
 export class BookingDialog {
-  @Input() visible = false;
-  @Output() visibleChange = new EventEmitter<boolean>();
+  visible = model<boolean>(false);
 
   private bookingService = inject(BookingService);
   private creditsService = inject(CreditsService);
@@ -126,7 +123,7 @@ export class BookingDialog {
   }
 
   closeDialog() {
-    this.visibleChange.emit(false);
+    this.visible.set(false);
     this.resetForm();
   }
 

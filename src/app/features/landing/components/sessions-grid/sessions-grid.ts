@@ -5,6 +5,7 @@ import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { SkeletonModule } from 'primeng/skeleton';
 import { SessionsService, Session } from '../../services/sessions.service';
 import { SupabaseService } from '../../../../core/services/supabase-service';
+import { BookingUiService } from '../../../../core/services/booking-ui.service';
 
 @Component({
   selector: 'app-sessions-grid',
@@ -15,6 +16,7 @@ import { SupabaseService } from '../../../../core/services/supabase-service';
 export class SessionsGrid implements OnInit {
   private sessionsService = inject(SessionsService);
   private supabaseService = inject(SupabaseService);
+  private bookingUiService = inject(BookingUiService);
   
   sessions = signal<Session[]>([]);
   selectedSession = signal<Session | null>(null);
@@ -57,5 +59,12 @@ export class SessionsGrid implements OnInit {
     setTimeout(() => {
       this.selectedSession.set(null);
     }, 300);
+  }
+
+  onReserveClass() {
+    if (this.isLoggedIn()) {
+      this.closeDetailsDialog();
+      this.bookingUiService.openBookingDialog();
+    }
   }
 }

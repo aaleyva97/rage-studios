@@ -11,6 +11,7 @@ import { Subscription } from 'rxjs';
 import { SupabaseService } from '../../../core/services/supabase-service';
 import { NavigationService } from '../../../core/services/navigation.service';
 import { AuthUiService } from '../../../core/services/auth-ui.service';
+import { BookingUiService } from '../../../core/services/booking-ui.service';
 import { OverlayBadge } from 'primeng/overlaybadge';
 import { Tooltip } from 'primeng/tooltip'
 import { CreditsService } from '../../../core/services/credits.service';
@@ -58,6 +59,7 @@ export class Topbar implements OnInit, OnDestroy {
   private messageService = inject(MessageService);
   private navigationService = inject(NavigationService);
   private authUiService = inject(AuthUiService);
+  private bookingUiService = inject(BookingUiService);
   private router = inject(Router);
   protected creditsService = inject(CreditsService);
   
@@ -70,10 +72,10 @@ export class Topbar implements OnInit, OnDestroy {
   rightMenuItems = signal<NavItem[]>([]);
   showLoginDialog = this.authUiService.showLoginDialog;
   showRegisterDialog = this.authUiService.showRegisterDialog;
+  showBookingDialog = this.bookingUiService.showBookingDialog;
   mobileMenuVisible = signal(false);
   userMenuVisible = signal(false);
   userMenuItems = signal<MenuItem[]>([]);
-  showBookingDialog = signal(false);
   
   private authSubscription?: Subscription;
   
@@ -262,6 +264,6 @@ export class Topbar implements OnInit, OnDestroy {
   }
 
   openBookingDialog() {
-  this.showBookingDialog.set(true);
-}
+    this.bookingUiService.openBookingDialog();
+  }
 }

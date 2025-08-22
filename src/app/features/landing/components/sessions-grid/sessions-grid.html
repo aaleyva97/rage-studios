@@ -269,7 +269,8 @@
             label="Reservar Clase" 
             severity="primary"
             styleClass="w-full"
-            [disabled]="!isLoggedIn()" />
+            [disabled]="!isLoggedIn()"
+            (click)="onReserveClass()" />
           @if (!isLoggedIn()) {
             <p class="text-xs text-gray-500 text-center mt-2">
               Inicia sesión para reservar tu lugar
