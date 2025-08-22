@@ -44,17 +44,23 @@ export class AdminLayout {
     {
       label: 'Créditos',
       icon: 'pi pi-wallet',
-      routerLink: '/admin/creditos'
+      disabled: true,
+      styleClass: 'menu-item-disabled',
+      title: 'Próximamente'
     },
     {
       label: 'Sesiones',
       icon: 'pi pi-clock',
-      routerLink: '/admin/sesiones'
+      disabled: true,
+      styleClass: 'menu-item-disabled',
+      title: 'Próximamente'
     },
     {
       label: 'Coaches',
       icon: 'pi pi-users',
-      routerLink: '/admin/coaches'
+      disabled: true,
+      styleClass: 'menu-item-disabled',
+      title: 'Próximamente'
     }
   ];
   

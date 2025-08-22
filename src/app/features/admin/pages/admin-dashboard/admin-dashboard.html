@@ -80,6 +80,7 @@
     
     <!-- Acciones rápidas -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <!-- Gestionar Reservas - ACTIVA -->
       <p-card 
         class="action-card cursor-pointer"
         (click)="navigateToSection('reservas')">
@@ -90,33 +91,36 @@
         </div>
       </p-card>
       
+      <!-- Gestionar Créditos - PRÓXIMAMENTE -->
       <p-card 
-        class="action-card cursor-pointer"
-        (click)="navigateToSection('creditos')">
+        class="action-card-disabled">
         <div class="text-center">
-          <i class="pi pi-wallet text-4xl text-green-500 mb-4"></i>
-          <h3 class="text-lg font-semibold mb-2">Gestionar Créditos</h3>
-          <p class="text-gray-600 text-sm">Administrar créditos de usuarios</p>
+          <i class="pi pi-wallet text-4xl text-gray-400 mb-4"></i>
+          <h3 class="text-lg font-semibold mb-2 text-gray-500">Gestionar Créditos</h3>
+          <p class="text-gray-400 text-sm">Administrar créditos de usuarios</p>
+          <span class="coming-soon-badge">Próximamente</span>
         </div>
       </p-card>
       
+      <!-- Gestionar Sesiones - PRÓXIMAMENTE -->
       <p-card 
-        class="action-card cursor-pointer"
-        (click)="navigateToSection('sesiones')">
+        class="action-card-disabled">
         <div class="text-center">
-          <i class="pi pi-clock text-4xl text-purple-500 mb-4"></i>
-          <h3 class="text-lg font-semibold mb-2">Gestionar Sesiones</h3>
-          <p class="text-gray-600 text-sm">Configurar horarios y sesiones</p>
+          <i class="pi pi-clock text-4xl text-gray-400 mb-4"></i>
+          <h3 class="text-lg font-semibold mb-2 text-gray-500">Gestionar Sesiones</h3>
+          <p class="text-gray-400 text-sm">Configurar horarios y sesiones</p>
+          <span class="coming-soon-badge">Próximamente</span>
         </div>
       </p-card>
       
+      <!-- Gestionar Coaches - PRÓXIMAMENTE -->
       <p-card 
-        class="action-card cursor-pointer"
-        (click)="navigateToSection('coaches')">
+        class="action-card-disabled">
         <div class="text-center">
-          <i class="pi pi-users text-4xl text-orange-500 mb-4"></i>
-          <h3 class="text-lg font-semibold mb-2">Gestionar Coaches</h3>
-          <p class="text-gray-600 text-sm">Administrar información de coaches</p>
+          <i class="pi pi-users text-4xl text-gray-400 mb-4"></i>
+          <h3 class="text-lg font-semibold mb-2 text-gray-500">Gestionar Coaches</h3>
+          <p class="text-gray-400 text-sm">Administrar información de coaches</p>
+          <span class="coming-soon-badge">Próximamente</span>
         </div>
       </p-card>
     </div>
