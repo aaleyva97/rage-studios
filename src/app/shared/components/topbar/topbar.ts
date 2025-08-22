@@ -1,5 +1,5 @@
 import { Component, signal, OnInit, OnDestroy, inject, ViewChild } from '@angular/core';
-import { RouterModule } from '@angular/router';
+import { RouterModule, Router } from '@angular/router';
 import { Button } from 'primeng/button';
 import { Drawer } from 'primeng/drawer';
 import { Menu } from 'primeng/menu';
@@ -56,6 +56,7 @@ export class Topbar implements OnInit, OnDestroy {
   private supabaseService = inject(SupabaseService);
   private messageService = inject(MessageService);
   private navigationService = inject(NavigationService);
+  private router = inject(Router);
   protected creditsService = inject(CreditsService);
   
   isLoggedIn = signal(false);
@@ -142,6 +143,8 @@ export class Topbar implements OnInit, OnDestroy {
         summary: 'Éxito',
         detail: 'Sesión cerrada correctamente'
       });
+      // Redirect to home page after successful logout
+      this.router.navigate(['/']);
     } catch (error) {
       this.messageService.add({
         severity: 'error',
