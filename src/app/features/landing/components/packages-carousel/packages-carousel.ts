@@ -5,6 +5,7 @@ import { DialogModule } from 'primeng/dialog';
 import { SkeletonModule } from 'primeng/skeleton';
 import { PackagesService, Package } from '../../services/packages.service';
 import { SupabaseService } from '../../../../core/services/supabase-service';
+import { AuthUiService } from '../../../../core/services/auth-ui.service';
 import { Router } from '@angular/router';
 
 @Component({
@@ -16,6 +17,7 @@ import { Router } from '@angular/router';
 export class PackagesCarousel implements OnInit {
   private packagesService = inject(PackagesService);
   private supabaseService = inject(SupabaseService);
+  private authUiService = inject(AuthUiService);
   private router = inject(Router);
   
   packages = signal<Package[]>([]);
@@ -23,7 +25,6 @@ export class PackagesCarousel implements OnInit {
   isLoggedIn = signal(false);
   selectedPackage = signal<Package | null>(null);
   showPoliciesDialog = signal(false);
-  showLoginDialog = signal(false);
   
   responsiveOptions = [
     {
@@ -88,10 +89,7 @@ export class PackagesCarousel implements OnInit {
 }
   
   openLoginDialog() {
-    // Aquí deberías emitir un evento o usar un servicio compartido
-    // para abrir el dialog de login del topbar
-    const event = new CustomEvent('openLoginDialog');
-    window.dispatchEvent(event);
+    this.authUiService.openLoginDialog();
   }
   
   getClassesText(packageItem: Package): string {

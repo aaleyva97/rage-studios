@@ -10,6 +10,7 @@ import { RegisterDialog } from '../register-dialog/register-dialog';
 import { Subscription } from 'rxjs';
 import { SupabaseService } from '../../../core/services/supabase-service';
 import { NavigationService } from '../../../core/services/navigation.service';
+import { AuthUiService } from '../../../core/services/auth-ui.service';
 import { OverlayBadge } from 'primeng/overlaybadge';
 import { Tooltip } from 'primeng/tooltip'
 import { CreditsService } from '../../../core/services/credits.service';
@@ -56,6 +57,7 @@ export class Topbar implements OnInit, OnDestroy {
   private supabaseService = inject(SupabaseService);
   private messageService = inject(MessageService);
   private navigationService = inject(NavigationService);
+  private authUiService = inject(AuthUiService);
   private router = inject(Router);
   protected creditsService = inject(CreditsService);
   
@@ -66,8 +68,8 @@ export class Topbar implements OnInit, OnDestroy {
   profileLoadAttempted = signal(false);
   leftMenuItems = signal<NavItem[]>([]);
   rightMenuItems = signal<NavItem[]>([]);
-  showLoginDialog = signal(false);
-  showRegisterDialog = signal(false);
+  showLoginDialog = this.authUiService.showLoginDialog;
+  showRegisterDialog = this.authUiService.showRegisterDialog;
   mobileMenuVisible = signal(false);
   userMenuVisible = signal(false);
   userMenuItems = signal<MenuItem[]>([]);
@@ -155,29 +157,27 @@ export class Topbar implements OnInit, OnDestroy {
   }
   
   openLoginDialog() {
-    this.showLoginDialog.set(true);
+    this.authUiService.openLoginDialog();
   }
   
   openRegisterDialog() {
-    this.showRegisterDialog.set(true);
+    this.authUiService.openRegisterDialog();
   }
   
   onLoginDialogClose() {
-    this.showLoginDialog.set(false);
+    this.authUiService.closeLoginDialog();
   }
   
   onRegisterDialogClose() {
-    this.showRegisterDialog.set(false);
+    this.authUiService.closeRegisterDialog();
   }
   
   onOpenRegisterFromLogin() {
-    this.showLoginDialog.set(false);
-    this.showRegisterDialog.set(true);
+    this.authUiService.openRegisterDialog();
   }
   
   onOpenLoginFromRegister() {
-    this.showRegisterDialog.set(false);
-    this.showLoginDialog.set(true);
+    this.authUiService.openLoginDialog();
   }
   
   toggleMobileMenu() {
