@@ -2,3 +2,30 @@
 @use "tailwindcss";
 @use "primeicons/primeicons.css";
 @plugin "tailwindcss-primeui";
+
+/* Custom Font - Monoid */
+@font-face {
+  font-family: 'Monoid';
+  src: url('/fonts/Monoid-a0-a1-a3-al-ad-aa.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* TailwindCSS 4.x Theme Configuration */
+@theme {
+  /* Override default font families */
+  --font-sans: 'Monoid', ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji;
+  --font-mono: 'Monoid', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace;
+  --font-serif: 'Monoid', ui-serif, Georgia, Cambria, Times New Roman, Times, serif;
+}
+
+/* Global Font Application */
+html, body {
+  font-family: 'Monoid', 'Courier New', 'Monaco', 'Lucida Console', 'Liberation Mono', 'DejaVu Sans Mono', 'Bitstream Vera Sans Mono', monospace;
+}
+
+/* Ensure PrimeNG components inherit the custom font */
+.p-component {
+  font-family: inherit;
+}
