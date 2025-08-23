@@ -1,4 +1,5 @@
-import { Component } from '@angular/core';
+import { Component, inject, PLATFORM_ID } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
 import { SpeedDial } from 'primeng/speeddial';
 import { MenuItem } from 'primeng/api';
 
@@ -9,17 +10,23 @@ import { MenuItem } from 'primeng/api';
   styleUrl: './social-speed-dial.scss'
 })
 export class SocialSpeedDial {
+  private platformId = inject(PLATFORM_ID);
+
   items: MenuItem[] = [
     {
       icon: 'pi pi-instagram',
       command: () => {
-        window.open('https://instagram.com', '_blank');
+        if (isPlatformBrowser(this.platformId)) {
+          window.open('https://www.instagram.com/ragestudiosmx/', '_blank');
+        }
       }
     },
     {
       icon: 'pi pi-whatsapp',
       command: () => {
-        window.open('https://wa.me/', '_blank');
+        if (isPlatformBrowser(this.platformId)) {
+          window.open('https://wa.me/528715817065', '_blank');
+        }
       }
     }
   ];
