@@ -1,4 +1,5 @@
 import { Component, signal, OnInit, OnDestroy, inject, ViewChild } from '@angular/core';
+import { UpperCasePipe } from '@angular/common';
 import { RouterModule, Router } from '@angular/router';
 import { Button } from 'primeng/button';
 import { Drawer } from 'primeng/drawer';
@@ -37,6 +38,7 @@ interface Profile {
   selector: 'app-topbar',
   standalone: true,
    imports: [
+    UpperCasePipe,
     RouterModule, 
     Button, 
     Drawer, 

@@ -18,12 +18,12 @@
       @for (item of leftMenuItems(); track item.routerLink || item.sectionId) {
         @if (item.action === 'scroll') {
           <a (click)="onNavItemClick(item, $event)" class="nav-item cursor-pointer">
-            <span>{{ item.label }}</span>
+            <span>{{ item.label | uppercase }}</span>
             <div class="nav-underline"></div>
           </a>
         } @else {
           <a [routerLink]="item.routerLink" class="nav-item">
-            <span>{{ item.label }}</span>
+            <span>{{ item.label | uppercase }}</span>
             <div class="nav-underline"></div>
           </a>
         }
@@ -40,12 +40,12 @@
       @for (item of rightMenuItems(); track item.routerLink || item.sectionId) {
         @if (item.action === 'scroll') {
           <a (click)="onNavItemClick(item, $event)" class="nav-item cursor-pointer">
-            <span>{{ item.label }}</span>
+            <span>{{ item.label | uppercase }}</span>
             <div class="nav-underline"></div>
           </a>
         } @else {
           <a [routerLink]="item.routerLink" class="nav-item">
-            <span>{{ item.label }}</span>
+            <span>{{ item.label | uppercase }}</span>
             <div class="nav-underline"></div>
           </a>
         }
