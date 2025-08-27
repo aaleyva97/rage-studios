@@ -131,6 +131,8 @@
             label="Siguiente" 
             icon="pi pi-arrow-right" 
             iconPos="right"
+            variant="outlined" 
+            severity="contrast"
             [disabled]="!selectedTime()"
             (onClick)="nextStep()">
           </p-button>
@@ -208,11 +210,14 @@
           <p-button 
             label="Anterior" 
             icon="pi pi-arrow-left"
-            severity="secondary"
+            variant="outlined" 
+            severity="contrast"
             (onClick)="prevStep()">
           </p-button>
           <p-button 
             label="Siguiente" 
+            variant="outlined" 
+            severity="contrast"
             icon="pi pi-arrow-right" 
             iconPos="right"
             (onClick)="nextStep()">
@@ -306,14 +311,16 @@
           <p-button 
             label="Anterior" 
             icon="pi pi-arrow-left"
-            severity="secondary"
+            variant="outlined" 
+            severity="contrast"
             (onClick)="prevStep()">
           </p-button>
           <p-button 
             label="Confirmar Reserva" 
             icon="pi pi-check" 
             iconPos="right"
-            severity="success"
+            variant="outlined" 
+            severity="contrast"
             [disabled]="selectedBeds().length !== (companions().length + 1)"
             (onClick)="confirmBooking()">
           </p-button>
