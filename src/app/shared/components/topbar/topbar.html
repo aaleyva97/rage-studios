@@ -54,7 +54,8 @@
       @if (!isLoggedIn()) {
         <p-button 
           label="Iniciar Sesión" 
-          severity="primary" 
+          variant="outlined" 
+          severity="contrast" 
           size="small"
           (onClick)="openLoginDialog()"
           styleClass="ml-4">
@@ -173,7 +174,8 @@
       @if (!isLoggedIn()) {
         <p-button 
           label="Iniciar Sesión" 
-          severity="primary" 
+          variant="outlined" 
+          severity="contrast" 
           size="small"
           class="w-full"
           (onClick)="onLoginFromMobile()">
