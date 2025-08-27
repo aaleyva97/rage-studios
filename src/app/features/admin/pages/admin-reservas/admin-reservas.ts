@@ -152,13 +152,13 @@ export class AdminReservas implements OnInit {
   }
   
   async cancelBooking(booking: any) {
-    const result = await this.bookingService.cancelBookingWithRefund(booking.id, booking.user_id);
+    const result = await this.bookingService.cancelBookingAsAdmin(booking.id);
     
     if (result.success) {
       this.messageService.add({
         severity: 'success',
         summary: 'Éxito',
-        detail: 'Reserva cancelada correctamente'
+        detail: 'Reserva cancelada y créditos devueltos correctamente'
       });
       
       // Reload bookings
