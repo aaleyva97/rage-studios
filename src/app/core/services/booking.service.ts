@@ -305,4 +305,105 @@ export class BookingService {
       return { success: false, error: error.message };
     }
   }
+
+  // Método exclusivo para que administradores cancelen reservas de otros usuarios
+  async cancelBookingAsAdmin(
+    bookingId: string
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      // Obtener la reserva sin filtrar por user_id (admin puede cancelar cualquiera)
+      const { data: booking, error: bookingError } = await this.supabaseClient
+        .from('bookings')
+        .select('*')
+        .eq('id', bookingId)
+        .single();
+
+      if (bookingError || !booking) {
+        return { success: false, error: 'Reserva no encontrada' };
+      }
+
+      // Los admins pueden cancelar sin restricción de tiempo
+      
+      // Cancelar la reserva
+      const { error: cancelError } = await this.supabaseClient
+        .from('bookings')
+        .update({
+          status: 'cancelled',
+          cancelled_at: new Date().toISOString(),
+        })
+        .eq('id', bookingId);
+
+      if (cancelError) {
+        return { success: false, error: 'Error al cancelar la reserva' };
+      }
+
+      // Devolver créditos usando la lógica del PaymentService
+      try {
+        await this.adminRefundCredits(booking.user_id, bookingId, booking.credits_used);
+      } catch (refundError) {
+        console.error('Error refunding credits:', refundError);
+        // No fallar toda la operación si el refund falla
+      }
+
+      return { success: true };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Método privado para devolver créditos desde administración
+  private async adminRefundCredits(
+    userId: string,
+    bookingId: string,
+    amount: number
+  ): Promise<void> {
+    // Buscar el batch original de donde se usaron los créditos
+    const { data: history, error: historyError } = await this.supabaseClient
+      .from('credit_history')
+      .select('credit_batch_id')
+      .eq('booking_id', bookingId)
+      .eq('type', 'used')
+      .single();
+
+    if (historyError || !history) {
+      throw new Error('No se encontró el historial de créditos');
+    }
+
+    // Obtener el batch
+    const { data: batch, error: batchError } = await this.supabaseClient
+      .from('credit_batches')
+      .select('*')
+      .eq('id', history.credit_batch_id)
+      .single();
+
+    if (batchError || !batch) {
+      throw new Error('No se encontró el lote de créditos');
+    }
+
+    // Verificar si el batch no ha expirado (opcional para admins)
+    if (batch.expiration_date) {
+      const expDate = new Date(batch.expiration_date);
+      if (expDate < new Date()) {
+        console.warn('Los créditos han expirado, pero devolviendo por cancelación administrativa');
+      }
+    }
+
+    // Devolver los créditos
+    await this.supabaseClient
+      .from('credit_batches')
+      .update({
+        credits_remaining: batch.credits_remaining + amount,
+      })
+      .eq('id', batch.id);
+
+    // Registrar en historial
+    await this.supabaseClient.from('credit_history').insert({
+      user_id: userId,
+      credit_batch_id: batch.id,
+      type: 'refunded',
+      amount: amount,
+      description: 'Créditos devueltos por cancelación administrativa',
+      booking_id: bookingId,
+    });
+  }
 }
