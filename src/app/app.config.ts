@@ -3,7 +3,7 @@ import {
   importProvidersFrom,
   provideBrowserGlobalErrorListeners,
   provideZonelessChangeDetection,
-  LOCALE_ID,
+  LOCALE_ID, isDevMode,
 } from '@angular/core';
 import { registerLocaleData } from '@angular/common';
 import localeEs from '@angular/common/locales/es';
@@ -20,6 +20,7 @@ import {
 } from '@angular/platform-browser';
 import { NgxStripeModule } from 'ngx-stripe';
 import { environment } from '../environments/environment';
+import { provideServiceWorker } from '@angular/service-worker';
 
 // Registrar locale español
 registerLocaleData(localeEs, 'es');
@@ -48,6 +49,10 @@ export const appConfig: ApplicationConfig = {
     importProvidersFrom(
       NgxStripeModule.forRoot(environment.STRIPE_PUBLISHABLE_KEY)
     ),
-    { provide: LOCALE_ID, useValue: 'es' }
+    { provide: LOCALE_ID, useValue: 'es' },
+    provideServiceWorker('ngsw-worker.js', {
+      enabled: !isDevMode(),
+      registrationStrategy: 'registerWhenStable:30000'
+    })
   ],
 };
