@@ -38,7 +38,7 @@ interface StatusOption {
     CardModule,
     TooltipModule
   ],
-  providers: [MessageService, ConfirmationService],
+  providers: [ConfirmationService],
   templateUrl: './admin-reservas.html',
   styleUrl: './admin-reservas.scss'
 })
@@ -188,24 +188,24 @@ export class AdminReservas implements OnInit {
         
         // Crear notificación inmediata de cancelación administrativa
         const scheduleData = {
-          bookingId: booking.id,
-          userId: booking.user_id, // ⚠️ CRÍTICO: Notificar al usuario afectado, NO al admin
-          notificationType: 'cancellation_admin' as const,
-          scheduledFor: new Date().toISOString(),
+          booking_id: booking.id,
+          user_id: booking.user_id, // ⚠️ CRÍTICO: Notificar al usuario afectado, NO al admin
+          notification_type: 'cancellation_admin' as const,
+          scheduled_for: new Date().toISOString(),
           status: 'scheduled' as const,
           priority: 5, // Alta prioridad para cancelaciones administrativas
-          messagePayload: await this.buildAdminCancellationPayload(adminCancellationData),
-          deliveryChannels: ['push'],
-          expiresAt: new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString(), // 4h expiry
-          sessionData: {
+          message_payload: await this.buildAdminCancellationPayload(adminCancellationData),
+          delivery_channels: ['push'],
+          expires_at: new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString(), // 4h expiry
+          session_data: {
             originalBookingId: booking.id,
             cancellationType: 'admin_cancellation',
             cancelledBy: 'admin', // Identificar que fue cancelado por admin
             refundAmount: booking.credits_used,
             adminUserId: this.supabaseService.getUser()?.id
           },
-          userPreferences: {
-            allowAdminOverride: true // Bypass user preferences para notificaciones críticas
+          user_preferences: {
+            allow_admin_override: true // Bypass user preferences para notificaciones críticas
           }
         };
         

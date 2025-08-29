@@ -38,7 +38,7 @@ export class NotificationService {
   readonly canSendNotifications = computed(() => 
     this._permissionStatus() === 'granted' && 
     this._pushToken() !== null &&
-    this._preferences()?.notificationsEnabled === true
+    this._preferences()?.notifications_enabled === true
   );
   
   readonly isNotificationSupported = computed(() => 
@@ -216,42 +216,14 @@ export class NotificationService {
     try {
       console.log('📱 Registering push token...');
       
-      const registration = await navigator.serviceWorker.ready;
-      console.log('✅ Service worker ready');
+      // 🚨 TIMEOUT CRÍTICO: Máximo 8 segundos para registro completo
+      const timeoutPromise = new Promise<never>((_, reject) => 
+        setTimeout(() => reject(new Error('Push token registration timeout')), 8000)
+      );
+
+      const registrationPromise = this.performTokenRegistration();
       
-      // Check if already subscribed
-      let subscription = await registration.pushManager.getSubscription();
-      
-      if (!subscription) {
-        console.log('🔔 Creating new push subscription...');
-        
-        // Create new subscription with VAPID key
-        subscription = await registration.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: this.getVapidPublicKey()
-        });
-        
-        console.log('✅ New push subscription created');
-      } else {
-        console.log('✅ Using existing push subscription');
-      }
-      
-      const token = this.extractTokenFromSubscription(subscription);
-      const deviceInfo = this.getDeviceInfo();
-      
-      // Store in Supabase database
-      await this.storeTokenInDatabase(token, deviceInfo);
-      
-      this._pushToken.set(token);
-      
-      console.log('🎉 Push token registered and stored successfully');
-      
-      await this.logEvent('token_registered', {
-        deviceType: 'web',
-        deviceInfo
-      });
-      
-      return token;
+      return await Promise.race([registrationPromise, timeoutPromise]);
       
     } catch (error) {
       console.error('❌ Error registering push token:', error);
@@ -260,6 +232,67 @@ export class NotificationService {
       });
       throw error;
     }
+  }
+
+  private async performTokenRegistration(): Promise<string> {
+    console.log('📱 Starting push token registration process...');
+    
+    // Timeout individual para service worker ready: 3 segundos
+    const swReadyPromise = navigator.serviceWorker.ready;
+    const swTimeoutPromise = new Promise<never>((_, reject) => 
+      setTimeout(() => reject(new Error('Service worker ready timeout')), 3000)
+    );
+    
+    const registration = await Promise.race([swReadyPromise, swTimeoutPromise]);
+    console.log('✅ Service worker ready');
+    
+    // Check if already subscribed
+    let subscription = await registration.pushManager.getSubscription();
+    
+    if (!subscription) {
+      console.log('🔔 Creating new push subscription...');
+      
+      // Timeout para crear subscripción: 3 segundos
+      const vapidKey = this.getVapidPublicKey();
+      const subscribePromise = registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: vapidKey.length > 0 ? vapidKey as BufferSource : undefined
+      });
+      
+      const subscribeTimeoutPromise = new Promise<never>((_, reject) => 
+        setTimeout(() => reject(new Error('Push subscription creation timeout')), 3000)
+      );
+      
+      subscription = await Promise.race([subscribePromise, subscribeTimeoutPromise]);
+      console.log('✅ New push subscription created');
+    } else {
+      console.log('✅ Using existing push subscription');
+    }
+    
+    const token = this.extractTokenFromSubscription(subscription);
+    const deviceInfo = this.getDeviceInfo();
+    
+    // Store in Supabase database con timeout
+    const dbPromise = this.storeTokenInDatabase(token, deviceInfo);
+    const dbTimeoutPromise = new Promise<never>((_, reject) => 
+      setTimeout(() => reject(new Error('Database storage timeout')), 2000)
+    );
+    
+    await Promise.race([dbPromise, dbTimeoutPromise]);
+    
+    this._pushToken.set(token);
+    
+    console.log('🎉 Push token registered and stored successfully');
+    
+    // Log event de forma asíncrona (no bloquear)
+    this.logEvent('token_registered', {
+      deviceType: 'web',
+      deviceInfo
+    }).catch(() => {
+      // Ignore logging errors
+    });
+    
+    return token;
   }
 
   private extractTokenFromSubscription(subscription: PushSubscription): string {
@@ -393,32 +426,32 @@ export class NotificationService {
     if (!user) return;
 
     const defaultPrefs: Partial<UserNotificationPreferences> = {
-      userId: user.id,
-      notificationsEnabled: true,
-      timezoneIdentifier: Intl.DateTimeFormat().resolvedOptions().timeZone,
-      preferredLanguage: navigator.language.startsWith('es') ? 'es-MX' : 'en-US',
-      bookingConfirmationEnabled: true,
-      reminder24hEnabled: true,
-      reminder1hEnabled: true,
-      cancellationNotificationsEnabled: true,
-      classUpdateNotificationsEnabled: true,
-      marketingNotificationsEnabled: false,
-      pushNotificationsEnabled: true,
-      emailNotificationsEnabled: false,
-      smsNotificationsEnabled: false,
-      quietHoursEnabled: false,
-      quietHoursStart: '22:00:00',
-      quietHoursEnd: '08:00:00',
-      quietHoursTimezone: 'America/Mexico_City',
-      messageStyle: 'standard',
-      includeCoachInfo: true,
-      includeLocationInfo: true,
-      includeQuickActions: true,
-      shareAttendanceStatus: false,
-      allowAdminOverride: true,
-      notificationSound: 'default',
-      vibrationPattern: 'default',
-      customSettings: {}
+      user_id: user.id,
+      notifications_enabled: true,
+      timezone_identifier: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      preferred_language: navigator.language.startsWith('es') ? 'es-MX' : 'en-US',
+      booking_confirmation_enabled: true,
+      reminder_24h_enabled: true,
+      reminder_1h_enabled: true,
+      cancellation_notifications_enabled: true,
+      class_update_notifications_enabled: true,
+      marketing_notifications_enabled: false,
+      push_notifications_enabled: true,
+      email_notifications_enabled: false,
+      sms_notifications_enabled: false,
+      quiet_hours_enabled: false,
+      quiet_hours_start: '22:00:00',
+      quiet_hours_end: '08:00:00',
+      quiet_hours_timezone: 'America/Mexico_City',
+      message_style: 'standard',
+      include_coach_info: true,
+      include_location_info: true,
+      include_quick_actions: true,
+      share_attendance_status: false,
+      allow_admin_override: true,
+      notification_sound: 'default',
+      vibration_pattern: 'default',
+      custom_settings: {}
     };
 
     try {
@@ -488,10 +521,14 @@ export class NotificationService {
   }
 
   // 📅 BOOKING INTEGRATION - CRITICAL FOR PWA NOTIFICATIONS
-  async scheduleBookingNotifications(booking: any): Promise<void> {
-    if (!this.canSendNotifications()) {
-      console.warn('⚠️ Cannot schedule notifications: missing permissions or preferences');
-      return;
+  async scheduleBookingNotifications(booking: any): Promise<{ success: boolean; reason?: string; count?: number }> {
+    const canSend = this.canSendNotifications();
+    const status = this.getStatus();
+    
+    if (!canSend) {
+      const reason = `Missing requirements - Permission: ${status.permission}, HasToken: ${status.hasToken}, Preferences: ${status.hasPreferences}`;
+      console.warn('⚠️ Cannot schedule notifications:', reason);
+      return { success: false, reason };
     }
 
     try {
@@ -508,61 +545,61 @@ export class NotificationService {
       const now = new Date();
 
       // 1. 🎉 Booking Confirmation (immediate)
-      if (preferences.bookingConfirmationEnabled) {
+      if (preferences.booking_confirmation_enabled) {
         notifications.push({
-          bookingId: booking.id,
-          userId: user.id,
-          notificationType: 'booking_confirmation',
-          scheduledFor: now.toISOString(),
+          booking_id: booking.id,
+          user_id: user.id,
+          notification_type: 'booking_confirmation',
+          scheduled_for: now.toISOString(),
           status: 'scheduled',
           priority: 5, // Highest priority
-          messagePayload: await this.buildNotificationPayload('booking_confirmation', booking),
-          pushToken: this._pushToken() || undefined,
-          deliveryChannels: ['push'],
-          expiresAt: new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString(), // 24h expiry
-          sessionData: this.extractSessionData(booking),
-          userPreferences: { messageStyle: preferences.messageStyle }
+          message_payload: await this.buildNotificationPayload('booking_confirmation', booking),
+          push_token: this._pushToken() || undefined,
+          delivery_channels: ['push'],
+          expires_at: new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString(), // 24h expiry
+          session_data: this.extractSessionData(booking),
+          user_preferences: { message_style: preferences.message_style }
         });
       }
 
       // 2. 📅 24 Hour Reminder
-      if (preferences.reminder24hEnabled) {
+      if (preferences.reminder_24h_enabled) {
         const reminder24h = new Date(bookingDateTime.getTime() - 24 * 60 * 60 * 1000);
         if (reminder24h > now) {
           notifications.push({
-            bookingId: booking.id,
-            userId: user.id,
-            notificationType: 'reminder_24h',
-            scheduledFor: reminder24h.toISOString(),
+            booking_id: booking.id,
+            user_id: user.id,
+            notification_type: 'reminder_24h',
+            scheduled_for: reminder24h.toISOString(),
             status: 'scheduled',
             priority: 4,
-            messagePayload: await this.buildNotificationPayload('reminder_24h', booking),
-            pushToken: this._pushToken() || undefined,
-            deliveryChannels: ['push'],
-            expiresAt: new Date(bookingDateTime.getTime() + 60 * 60 * 1000).toISOString(), // Expires 1h after class
-            sessionData: this.extractSessionData(booking),
-            userPreferences: { messageStyle: preferences.messageStyle }
+            message_payload: await this.buildNotificationPayload('reminder_24h', booking),
+            push_token: this._pushToken() || undefined,
+            delivery_channels: ['push'],
+            expires_at: new Date(bookingDateTime.getTime() + 60 * 60 * 1000).toISOString(), // Expires 1h after class
+            session_data: this.extractSessionData(booking),
+            user_preferences: { message_style: preferences.message_style }
           });
         }
       }
 
       // 3. ⏰ 1 Hour Reminder - MOST CRITICAL
-      if (preferences.reminder1hEnabled) {
+      if (preferences.reminder_1h_enabled) {
         const reminder1h = new Date(bookingDateTime.getTime() - 60 * 60 * 1000);
         if (reminder1h > now) {
           notifications.push({
-            bookingId: booking.id,
-            userId: user.id,
-            notificationType: 'reminder_1h',
-            scheduledFor: reminder1h.toISOString(),
+            booking_id: booking.id,
+            user_id: user.id,
+            notification_type: 'reminder_1h',
+            scheduled_for: reminder1h.toISOString(),
             status: 'scheduled',
             priority: 5, // Highest priority
-            messagePayload: await this.buildNotificationPayload('reminder_1h', booking),
-            pushToken: this._pushToken() || undefined,
-            deliveryChannels: ['push'],
-            expiresAt: new Date(bookingDateTime.getTime() + 30 * 60 * 1000).toISOString(), // Expires 30min after class
-            sessionData: this.extractSessionData(booking),
-            userPreferences: { messageStyle: preferences.messageStyle }
+            message_payload: await this.buildNotificationPayload('reminder_1h', booking),
+            push_token: this._pushToken() || undefined,
+            delivery_channels: ['push'],
+            expires_at: new Date(bookingDateTime.getTime() + 30 * 60 * 1000).toISOString(), // Expires 30min after class
+            session_data: this.extractSessionData(booking),
+            user_preferences: { message_style: preferences.message_style }
           });
         }
       }
@@ -584,11 +621,14 @@ export class NotificationService {
         await this.logEvent('notifications_scheduled', {
           bookingId: booking.id,
           count: notifications.length,
-          types: notifications.map(n => n.notificationType),
-          scheduledTimes: notifications.map(n => n.scheduledFor)
+          types: notifications.map(n => n.notification_type),
+          scheduledTimes: notifications.map(n => n.scheduled_for)
         });
+        
+        return { success: true, count: notifications.length };
       } else {
         console.log('ℹ️ No notifications scheduled (all disabled or past due)');
+        return { success: true, count: 0, reason: 'All notifications disabled or past due' };
       }
 
     } catch (error) {
@@ -597,7 +637,7 @@ export class NotificationService {
         bookingId: booking.id,
         error: error instanceof Error ? error.message : String(error)
       });
-      throw error;
+      return { success: false, reason: error instanceof Error ? error.message : String(error) };
     }
   }
 
@@ -824,13 +864,13 @@ export class NotificationService {
       if (!user) return; // Don't log for anonymous users
 
       const logEntry: Partial<NotificationLog> = {
-        userId: user.id,
-        logType: 'user_interaction',
+        user_id: user.id,
+        log_type: 'user_interaction',
         success: true,
-        userAction: eventType,
-        actionData: data,
-        deviceInfo: this.getDeviceInfo(),
-        createdAt: new Date().toISOString()
+        user_action: eventType,
+        action_data: data,
+        device_info: this.getDeviceInfo(),
+        created_at: new Date().toISOString()
       };
 
       await this.supabase.client

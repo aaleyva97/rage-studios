@@ -10,6 +10,7 @@ import localeEs from '@angular/common/locales/es';
 import { provideRouter } from '@angular/router';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
 import { providePrimeNG } from 'primeng/config';
+import { MessageService } from 'primeng/api';
 import Aura from '@primeuix/themes/aura';
 import { PRIMENG_SPANISH_LOCALE } from './core/constants/primeng-spanish-locale';
 
@@ -50,6 +51,7 @@ export const appConfig: ApplicationConfig = {
       NgxStripeModule.forRoot(environment.STRIPE_PUBLISHABLE_KEY)
     ),
     { provide: LOCALE_ID, useValue: 'es' },
+    MessageService, // Global MessageService for PrimeNG Toast
     provideServiceWorker('ngsw-worker.js', {
       enabled: !isDevMode(),
       registrationStrategy: 'registerWhenStable:30000'
