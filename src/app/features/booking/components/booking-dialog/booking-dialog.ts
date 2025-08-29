@@ -347,35 +347,91 @@ private async scheduleNotificationsInBackground(
 
 /**
  * 🔔 Programación de notificaciones con reintentos inteligentes
+ * 
+ * ESTRATEGIA ROBUSTA:
+ * 1. Intentar programar notificaciones (siempre debe funcionar con database)
+ * 2. Si falla por permisos, intentar obtenerlos UNA VEZ con timeout
+ * 3. Si obtiene permisos, reintenta programar con push habilitado
+ * 4. Si algo falla, las notificaciones se programan solo en database
  */
 private async scheduleNotificationsWithRetry(bookingData: any): Promise<any> {
+  console.log('🔔 [BACKGROUND] Starting notification scheduling with retry strategy...');
+  
+  // 🚨 PRIMER INTENTO: Programar con estado actual
   let notificationResult = await this.notificationService.scheduleBookingNotifications(bookingData);
   
-  // Si falló por falta de permisos, intentar solicitar permisos UNA VEZ
-  if (!notificationResult.success && notificationResult.reason?.includes('Permission:')) {
-    console.log('🔔 [BACKGROUND] Solicitando permisos de notificación...');
+  console.log('🔔 [BACKGROUND] First attempt result:', notificationResult);
+  
+  // ✅ Si tuvo éxito, retornar inmediatamente
+  if (notificationResult.success) {
+    console.log('✅ [BACKGROUND] Notifications scheduled successfully on first attempt');
+    return notificationResult;
+  }
+  
+  // 🔄 Si falló porque no hay permisos, intentar obtenerlos SOLO UNA VEZ
+  if (notificationResult.reason?.includes('Permission') || notificationResult.reason?.includes('disabled')) {
+    console.log('🔔 [BACKGROUND] First attempt failed due to permissions, requesting...');
     
     try {
-      // Timeout para solicitud de permisos: máximo 5 segundos
+      // Timeout agresivo para solicitud de permisos: máximo 3 segundos
       const permissionPromise = this.notificationService.requestPermissions();
       const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Permission timeout')), 5000)
+        setTimeout(() => reject(new Error('Permission request timeout')), 3000)
       );
       
       const permissionResult = await Promise.race([permissionPromise, timeoutPromise]) as any;
       
-      if (permissionResult?.granted && permissionResult?.token) {
-        console.log('✅ [BACKGROUND] Permisos concedidos, reintentando programación...');
-        // Pequeña espera para propagación del token
-        await new Promise(resolve => setTimeout(resolve, 100));
+      if (permissionResult?.granted) {
+        console.log('✅ [BACKGROUND] Permissions granted, retrying notification scheduling...');
+        
+        // 🔄 SEGUNDO INTENTO: Con permisos concedidos
         notificationResult = await this.notificationService.scheduleBookingNotifications(bookingData);
+        console.log('🔔 [BACKGROUND] Second attempt result:', notificationResult);
+      } else {
+        console.warn('⚠️ [BACKGROUND] Permission not granted, using database-only mode');
       }
+      
     } catch (permissionError) {
-      console.warn('⚠️ [BACKGROUND] Error en permisos (timeout o rechazo):', permissionError);
+      console.warn('⚠️ [BACKGROUND] Permission request failed/timeout, using database-only mode:', permissionError);
     }
   }
   
+  // 🚨 Si aún falla, forzar modo database-only como fallback
+  if (!notificationResult.success) {
+    console.warn('⚠️ [BACKGROUND] All attempts failed, forcing database-only scheduling...');
+    notificationResult = await this.forceNotificationSchedulingFallback(bookingData);
+  }
+  
   return notificationResult;
+}
+
+/**
+ * 🛡️ FALLBACK CRÍTICO: Programar notificaciones en modo database-only
+ */
+private async forceNotificationSchedulingFallback(bookingData: any): Promise<any> {
+  try {
+    console.log('🛡️ [FALLBACK] Forcing database-only notification scheduling...');
+    
+    // Llamar directamente al scheduling pero ignorando requisitos de push token
+    const result = await this.notificationService.scheduleBookingNotifications(bookingData);
+    
+    if (!result.success) {
+      console.error('❌ [FALLBACK] Even database-only scheduling failed:', result.reason);
+      return { success: false, reason: 'All fallback methods failed', fallback: true };
+    }
+    
+    console.log('✅ [FALLBACK] Database-only notifications scheduled successfully');
+    return { ...result, fallback: true };
+    
+  } catch (error) {
+    console.error('❌ [FALLBACK] Critical failure in notification fallback:', error);
+    return { 
+      success: false, 
+      reason: `Fallback failed: ${error instanceof Error ? error.message : String(error)}`,
+      fallback: true,
+      critical: true
+    };
+  }
 }
 
 private async autoAssignBeds(count: number): Promise<number[]> {

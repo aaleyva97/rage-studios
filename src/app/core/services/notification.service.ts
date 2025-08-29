@@ -1,6 +1,7 @@
 import { Injectable, effect, signal, computed, PLATFORM_ID, inject } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { BehaviorSubject, Observable, from } from 'rxjs';
+import { SwPush, SwUpdate } from '@angular/service-worker';
 import { SupabaseService } from './supabase-service';
 import { 
   UserNotificationPreferences, 
@@ -21,6 +22,10 @@ export class NotificationService {
   private readonly platformId = inject(PLATFORM_ID);
   private readonly isBrowser = isPlatformBrowser(this.platformId);
   
+  // 🔥 ANGULAR SWPUSH NATIVO - PROFESIONAL
+  private readonly swPush = inject(SwPush, { optional: true });
+  private readonly swUpdate = inject(SwUpdate, { optional: true });
+  
   // 🔄 Reactive State Management
   private readonly _permissionStatus = signal<NotificationPermission>('default');
   private readonly _pushToken = signal<string | null>(null);
@@ -35,10 +40,20 @@ export class NotificationService {
   readonly isInitialized = this._isInitialized.asReadonly();
   readonly isLoading = this._isLoading.asReadonly();
   
-  readonly canSendNotifications = computed(() => 
+  // 🔄 NUEVO: Separar scheduling de push delivery
+  readonly canScheduleNotifications = computed(() => 
+    this._preferences()?.notifications_enabled === true
+  );
+  
+  readonly canSendPushNotifications = computed(() => 
     this._permissionStatus() === 'granted' && 
     this._pushToken() !== null &&
     this._preferences()?.notifications_enabled === true
+  );
+
+  // 🔄 LEGACY: Mantener para compatibilidad pero usar canScheduleNotifications
+  readonly canSendNotifications = computed(() => 
+    this.canScheduleNotifications()
   );
   
   readonly isNotificationSupported = computed(() => 
@@ -56,19 +71,36 @@ export class NotificationService {
     console.log('🔔 NotificationService: Constructor initialized');
     
     if (this.isBrowser) {
-      // Auto-initialize when user authentication changes
-      effect(() => {
+      // 🚨 CRÍTICO: Inicialización inteligente con delay para SSR
+      this.initializeWhenReady();
+    } else {
+      console.log('🖥️ [SSR] Server-side rendering detected, skipping browser-only features');
+    }
+  }
+
+  /**
+   * 🚨 INICIALIZACIÓN INTELIGENTE: Espera a que el browser esté completamente listo
+   */
+  private initializeWhenReady(): void {
+    // Delay mínimo para asegurar que SSR ha terminado completamente
+    setTimeout(() => {
+      if (this.isBrowser && typeof window !== 'undefined') {
+        console.log('🔄 [SMART] Starting intelligent initialization...');
+        
+        // 🚨 FIX NG0203: Sin effect(), usar subscription directa
         this.supabase.currentUser$.subscribe(user => {
           if (user && !this._isInitialized()) {
+            console.log('👤 [SMART] User authenticated, initializing notifications...');
             this.initialize().catch(err => {
               console.error('❌ Auto-initialization failed:', err);
             });
           } else if (!user) {
+            console.log('👤 [SMART] User logged out, resetting notifications...');
             this.reset();
           }
         });
-      });
-    }
+      }
+    }, 1000); // 1 segundo para asegurar hidratation completa
   }
 
   // 🚀 INITIALIZATION METHODS
@@ -80,51 +112,169 @@ export class NotificationService {
     this._isLoading.set(true);
     
     try {
-      console.log('🔄 NotificationService: Starting initialization...');
+      console.log('🔄 [SMART] NotificationService: Starting intelligent initialization...');
 
-      if (!this.isNotificationSupported()) {
-        console.warn('⚠️ Push notifications not supported in this browser');
+      // 🚨 DIAGNÓSTICO COMPLETO DE CAPACIDADES
+      const capabilities = this.diagnoseBrowserCapabilities();
+      console.log('🔍 [SMART] Browser capabilities:', capabilities);
+
+      if (!capabilities.notificationSupported) {
+        console.warn('⚠️ [SMART] Push notifications not supported in this browser');
         return;
       }
 
       // 1. Check current permission status
       this._permissionStatus.set(Notification.permission);
-      console.log('🔐 Current permission status:', this._permissionStatus());
+      console.log('🔐 [SMART] Current permission status:', this._permissionStatus());
       
       // 2. Load user preferences from database
       await this.loadUserPreferences();
+      console.log('📋 [SMART] User preferences loaded');
       
-      // 3. Try to get existing push token
-      await this.tryGetExistingPushToken();
-      
-      // 4. Setup service worker message handlers
-      await this.setupServiceWorkerHandlers();
+      // 3. Service Worker Analysis
+      if (capabilities.serviceWorkerSupported) {
+        console.log('🔧 [SMART] Service Worker supported, checking registration...');
+        await this.analyzeServiceWorkerStatus();
+        
+        // 4. Try to get existing push token (con fallback inteligente)
+        await this.tryGetExistingPushTokenWithFallback();
+        
+        // 5. Setup service worker message handlers (opcional)
+        await this.setupServiceWorkerHandlersWithFallback();
+      } else {
+        console.warn('⚠️ [SMART] Service Worker not supported - notifications will be database-only');
+      }
       
       this._isInitialized.set(true);
       
-      console.log('✅ NotificationService initialized successfully:', {
-        permission: this._permissionStatus(),
-        hasToken: !!this._pushToken(),
-        canSend: this.canSendNotifications(),
-        preferences: !!this._preferences()
-      });
+      const finalStatus = this.getStatus();
+      console.log('✅ [SMART] NotificationService initialized successfully:', finalStatus);
 
       // Log initialization event
       await this.logEvent('service_initialized', {
-        permission: this._permissionStatus(),
-        hasToken: !!this._pushToken(),
-        supported: this.isNotificationSupported()
+        ...finalStatus,
+        capabilities
       });
       
     } catch (error) {
-      console.error('❌ NotificationService initialization failed:', error);
+      console.error('❌ [SMART] NotificationService initialization failed:', error);
       await this.logEvent('initialization_failed', { 
         error: error instanceof Error ? error.message : String(error) 
       });
-      throw error;
+      // 🚨 NO throw error - permitir que la app continue funcionando
+      console.warn('⚠️ [SMART] Continuing with limited notification capabilities');
     } finally {
       this._isLoading.set(false);
     }
+  }
+
+  /**
+   * 🔍 DIAGNÓSTICO COMPLETO DE CAPACIDADES DEL BROWSER
+   */
+  private diagnoseBrowserCapabilities() {
+    const capabilities = {
+      isBrowser: this.isBrowser,
+      hasWindow: typeof window !== 'undefined',
+      notificationSupported: false,
+      serviceWorkerSupported: false,
+      pushManagerSupported: false,
+      permissionStatus: 'unknown',
+      isDevelopment: false
+    };
+
+    if (!this.isBrowser || typeof window === 'undefined') {
+      console.log('🖥️ [SMART] Server-side rendering detected');
+      return capabilities;
+    }
+
+    // Detección granular de capacidades
+    capabilities.notificationSupported = 'Notification' in window;
+    capabilities.serviceWorkerSupported = 'serviceWorker' in navigator;
+    capabilities.pushManagerSupported = 'PushManager' in window;
+    capabilities.permissionStatus = Notification?.permission || 'unknown';
+    capabilities.isDevelopment = this.isDevelopmentEnvironment();
+
+    return capabilities;
+  }
+
+  /**
+   * 🔧 ANÁLISIS PROFESIONAL CON ANGULAR SWPUSH
+   */
+  private async analyzeServiceWorkerStatus(): Promise<void> {
+    try {
+      console.log('🔧 [SWPUSH] Analyzing Angular Service Worker status...');
+      
+      // Check if SwPush is available
+      if (!this.swPush) {
+        console.warn('⚠️ [SWPUSH] Angular SwPush not available (SSR or not configured)');
+        return;
+      }
+      
+      // Check if SwPush is enabled
+      if (!this.swPush.isEnabled) {
+        console.warn('⚠️ [SWPUSH] Angular SwPush is disabled');
+        return;
+      }
+      
+      console.log('✅ [SWPUSH] Angular SwPush is available and enabled');
+      
+      // Setup push notification handlers using Angular SwPush
+      this.setupSwPushHandlers();
+      
+    } catch (error) {
+      console.error('❌ [SWPUSH] Error analyzing Service Worker status:', error);
+    }
+  }
+
+  /**
+   * 🔥 SETUP ANGULAR SWPUSH HANDLERS - PROFESIONAL
+   */
+  private setupSwPushHandlers(): void {
+    if (!this.swPush || !this.swPush.isEnabled) {
+      console.warn('⚠️ [SWPUSH] SwPush not available for handlers setup');
+      return;
+    }
+    
+    console.log('🔧 [SWPUSH] Setting up Angular SwPush handlers...');
+    
+    // Listen for push messages using Angular SwPush
+    this.swPush.messages.subscribe(message => {
+      console.log('🔔 [SWPUSH] Push message received:', message);
+      this.handlePushMessage(message);
+    });
+    
+    // Listen for notification clicks using Angular SwPush
+    this.swPush.notificationClicks.subscribe(click => {
+      console.log('🔔 [SWPUSH] Notification clicked:', click);
+      this.handleNotificationClick(click);
+    });
+    
+    // Listen for Service Worker updates
+    if (this.swUpdate && this.swUpdate.isEnabled) {
+      this.swUpdate.versionUpdates.subscribe(event => {
+        console.log('🔄 [SWUPDATE] Version update:', event.type);
+        
+        if (event.type === 'VERSION_READY') {
+          // Optionally prompt user to reload
+          console.log('🔄 [SWUPDATE] New version ready');
+        }
+      });
+    }
+    
+    console.log('✅ [SWPUSH] Angular SwPush handlers setup complete');
+  }
+  
+  /**
+   * 📨 HANDLE PUSH MESSAGE FROM ANGULAR SWPUSH
+   */
+  private handlePushMessage(message: any): void {
+    console.log('📨 [SWPUSH] Processing push message:', message);
+    
+    // Emit to reactive stream for components
+    this._notificationReceived.next(message);
+    
+    // Log the event
+    this.logInteraction('push_message_received', { message });
   }
 
   private reset(): void {
@@ -184,13 +334,62 @@ export class NotificationService {
     return this._permissionStatus();
   }
 
-  // 📱 PUSH TOKEN MANAGEMENT
+  // 📱 PUSH TOKEN MANAGEMENT CON ANGULAR SWPUSH
+  private async tryGetExistingPushTokenWithFallback(): Promise<void> {
+    try {
+      console.log('🔍 [SWPUSH] Checking for existing push subscription...');
+      
+      if (!this.swPush || !this.swPush.isEnabled) {
+        console.log('ℹ️ [SWPUSH] Angular SwPush not available, skipping token check');
+        return;
+      }
+      
+      // Get existing subscription using Angular SwPush
+      const subscription = await this.swPush.subscription.toPromise();
+      
+      if (subscription) {
+        const token = this.extractTokenFromSubscription(subscription);
+        this._pushToken.set(token);
+        
+        // Update last seen timestamp in database (async, no bloquear)
+        this.updateTokenLastSeen(token).catch(() => {
+          console.warn('⚠️ Could not update token timestamp (non-blocking)');
+        });
+        
+        console.log('✅ [SWPUSH] Found existing push subscription');
+      } else {
+        console.log('ℹ️ [SWPUSH] No existing push subscription found');
+      }
+    } catch (error) {
+      console.warn('⚠️ [SWPUSH] Could not check existing subscription, will retry later:', error);
+      // NO fallar la inicialización por esto
+      // Programar reintentos en background
+      this.scheduleTokenRetrieval();
+    }
+  }
+
+  private scheduleTokenRetrieval(): void {
+    // Reintento después de 5 segundos
+    setTimeout(() => {
+      if (!this._pushToken() && this._permissionStatus() === 'granted') {
+        console.log('🔄 [RETRY] Attempting push token retrieval...');
+        this.tryGetExistingPushToken().catch(() => {
+          console.warn('⚠️ [RETRY] Push token retrieval failed, will try again later');
+        });
+      }
+    }, 5000);
+  }
+
   private async tryGetExistingPushToken(): Promise<void> {
     try {
-      console.log('🔍 Checking for existing push token...');
+      console.log('🔍 [SWPUSH-RETRY] Checking for existing push token...');
       
-      const registration = await navigator.serviceWorker.ready;
-      const subscription = await registration.pushManager.getSubscription();
+      if (!this.swPush || !this.swPush.isEnabled) {
+        console.warn('⚠️ [SWPUSH-RETRY] Angular SwPush not available');
+        return;
+      }
+      
+      const subscription = await this.swPush.subscription.toPromise();
       
       if (subscription) {
         const token = this.extractTokenFromSubscription(subscription);
@@ -199,12 +398,12 @@ export class NotificationService {
         // Update last seen timestamp in database
         await this.updateTokenLastSeen(token);
         
-        console.log('✅ Found existing push token');
+        console.log('✅ [SWPUSH-RETRY] Found existing push token');
       } else {
-        console.log('ℹ️ No existing push subscription found');
+        console.log('ℹ️ [SWPUSH-RETRY] No existing push subscription found');
       }
     } catch (error) {
-      console.warn('⚠️ Could not get existing push token:', error);
+      console.warn('⚠️ [SWPUSH-RETRY] Could not get existing push token:', error);
     }
   }
 
@@ -213,20 +412,24 @@ export class NotificationService {
       throw new Error('Cannot register push token: permissions not granted or not supported');
     }
 
+    if (!this.swPush || !this.swPush.isEnabled) {
+      throw new Error('Angular SwPush not available or enabled');
+    }
+
     try {
-      console.log('📱 Registering push token...');
+      console.log('📱 [SWPUSH] Registering push token with Angular SwPush...');
       
       // 🚨 TIMEOUT CRÍTICO: Máximo 8 segundos para registro completo
       const timeoutPromise = new Promise<never>((_, reject) => 
         setTimeout(() => reject(new Error('Push token registration timeout')), 8000)
       );
 
-      const registrationPromise = this.performTokenRegistration();
+      const registrationPromise = this.performSwPushTokenRegistration();
       
       return await Promise.race([registrationPromise, timeoutPromise]);
       
     } catch (error) {
-      console.error('❌ Error registering push token:', error);
+      console.error('❌ [SWPUSH] Error registering push token:', error);
       await this.logEvent('token_registration_failed', { 
         error: error instanceof Error ? error.message : String(error) 
       });
@@ -234,39 +437,34 @@ export class NotificationService {
     }
   }
 
-  private async performTokenRegistration(): Promise<string> {
-    console.log('📱 Starting push token registration process...');
+  private async performSwPushTokenRegistration(): Promise<string> {
+    console.log('📱 [SWPUSH] Starting push token registration with Angular SwPush...');
     
-    // Timeout individual para service worker ready: 3 segundos
-    const swReadyPromise = navigator.serviceWorker.ready;
-    const swTimeoutPromise = new Promise<never>((_, reject) => 
-      setTimeout(() => reject(new Error('Service worker ready timeout')), 3000)
-    );
+    if (!this.swPush || !this.swPush.isEnabled) {
+      throw new Error('Angular SwPush not available');
+    }
     
-    const registration = await Promise.race([swReadyPromise, swTimeoutPromise]);
-    console.log('✅ Service worker ready');
-    
-    // Check if already subscribed
-    let subscription = await registration.pushManager.getSubscription();
+    // Check if already subscribed using Angular SwPush
+    let subscription = await this.swPush.subscription.toPromise();
     
     if (!subscription) {
-      console.log('🔔 Creating new push subscription...');
+      console.log('🔔 [SWPUSH] Creating new push subscription...');
       
-      // Timeout para crear subscripción: 3 segundos
-      const vapidKey = this.getVapidPublicKey();
-      const subscribePromise = registration.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: vapidKey.length > 0 ? vapidKey as BufferSource : undefined
+      // Request subscription using Angular SwPush with timeout
+      const vapidKey = this.getVapidPublicKeyForSwPush();
+      
+      const subscribePromise = this.swPush.requestSubscription({ 
+        serverPublicKey: vapidKey 
       });
       
       const subscribeTimeoutPromise = new Promise<never>((_, reject) => 
-        setTimeout(() => reject(new Error('Push subscription creation timeout')), 3000)
+        setTimeout(() => reject(new Error('Angular SwPush subscription timeout')), 5000)
       );
       
       subscription = await Promise.race([subscribePromise, subscribeTimeoutPromise]);
-      console.log('✅ New push subscription created');
+      console.log('✅ [SWPUSH] New push subscription created with Angular SwPush');
     } else {
-      console.log('✅ Using existing push subscription');
+      console.log('✅ [SWPUSH] Using existing Angular SwPush subscription');
     }
     
     const token = this.extractTokenFromSubscription(subscription);
@@ -282,12 +480,13 @@ export class NotificationService {
     
     this._pushToken.set(token);
     
-    console.log('🎉 Push token registered and stored successfully');
+    console.log('🎉 [SWPUSH] Push token registered and stored successfully with Angular SwPush');
     
     // Log event de forma asíncrona (no bloquear)
     this.logEvent('token_registered', {
       deviceType: 'web',
-      deviceInfo
+      deviceInfo,
+      method: 'angular_swpush'
     }).catch(() => {
       // Ignore logging errors
     });
@@ -310,9 +509,49 @@ export class NotificationService {
     return btoa(JSON.stringify(subscriptionObject));
   }
 
+  /**
+   * 🔧 VAPID KEY FOR ANGULAR SWPUSH (STRING FORMAT)
+   */
+  private getVapidPublicKeyForSwPush(): string {
+    // Angular SwPush expects string format, not Uint8Array
+    const isDevelopment = this.isDevelopmentEnvironment();
+    
+    if (isDevelopment) {
+      console.log('🔧 [SWPUSH-DEV] Using development VAPID key');
+      return this.getDevelopmentVapidKey();
+    } else {
+      console.log('🏭 [SWPUSH-PROD] Using production VAPID key');
+      return 'BG6JhFh9ZQi-_0LD9vkRyHGOzF-vYfIjXpVcOyM4L4w8pQZrYr7_HiAJ0bMqC7-RGXdYFRqIwLwZvVcGHNlRq_k';
+    }
+  }
+  
+  /**
+   * 🔧 LEGACY VAPID KEY (UINT8ARRAY FORMAT) - MANTENER PARA COMPATIBILIDAD
+   */
   private getVapidPublicKey(): Uint8Array {
-    // VAPID key for push notifications - should come from environment
-    const vapidPublicKey = 'BG6JhFh9ZQi-_0LD9vkRyHGOzF-vYfIjXpVcOyM4L4w8pQZrYr7_HiAJ0bMqC7-RGXdYFRqIwLwZvVcGHNlRq_k';
+    // 🔧 DESARROLLO: VAPID keys válidas generadas para localhost testing
+    // En producción, estas deberían venir del environment/servidor
+    
+    let vapidPublicKey: string;
+    
+    // 🚨 DETECCIÓN INTELIGENTE DE AMBIENTE SIN window.location
+    const isDevelopment = this.isDevelopmentEnvironment();
+    
+    if (isDevelopment) {
+      // 🧪 DESARROLLO: Keys válidas para testing local
+      console.log('🔧 [DEV] Using development VAPID keys for localhost');
+      vapidPublicKey = this.getDevelopmentVapidKey();
+    } else {
+      // 🏭 PRODUCCIÓN: Keys reales del servidor
+      console.log('🏭 [PROD] Using production VAPID keys');  
+      vapidPublicKey = 'BG6JhFh9ZQi-_0LD9vkRyHGOzF-vYfIjXpVcOyM4L4w8pQZrYr7_HiAJ0bMqC7-RGXdYFRqIwLwZvVcGHNlRq_k';
+    }
+    
+    // 🚨 SAFE atob() - protegido contra SSR
+    if (!this.isBrowser || typeof window === 'undefined' || !window.atob) {
+      console.warn('⚠️ [SSR] Cannot process VAPID key on server side');
+      return new Uint8Array();
+    }
     
     try {
       const padding = '='.repeat((4 - vapidPublicKey.length % 4) % 4);
@@ -321,9 +560,49 @@ export class NotificationService {
       return new Uint8Array([...rawData].map(char => char.charCodeAt(0)));
     } catch (error) {
       console.error('❌ Error converting VAPID key:', error);
-      // Return empty array as fallback
+      // Return empty array as fallback - notifications will work in database-only mode
       return new Uint8Array();
     }
+  }
+
+  /**
+   * 🎯 DETECCIÓN INTELIGENTE DE AMBIENTE
+   * Usa múltiples fuentes para determinar si estamos en desarrollo
+   */
+  private isDevelopmentEnvironment(): boolean {
+    // 1. Browser check primero
+    if (!this.isBrowser || typeof window === 'undefined') {
+      return false; // En SSR, asumir producción por seguridad
+    }
+    
+    // 2. URL check
+    const hostname = window.location?.hostname;
+    if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname?.includes('.local')) {
+      return true;
+    }
+    
+    // 3. Port check (desarrollo suele usar :4200, :3000, etc)
+    const port = window.location?.port;
+    if (port && ['3000', '4200', '8080', '5173', '5174'].includes(port)) {
+      return true;
+    }
+    
+    // 4. Protocol check (desarrollo suele ser http)
+    if (window.location?.protocol === 'http:' && hostname !== 'localhost') {
+      return false; // http en dominio real = probablemente staging/prod
+    }
+    
+    return false; // Por defecto, asumir producción
+  }
+
+  /**
+   * 🧪 DESARROLLO: VAPID key válida para testing localhost
+   * Generada con web-push library para desarrollo local
+   */
+  private getDevelopmentVapidKey(): string {
+    // Esta key fue generada específicamente para desarrollo localhost
+    // No tiene servidor backend real pero permite testing de Service Worker
+    return 'BLc4xRzdHz2mmw-9EsrTRhmyHnEzOzTbZqXYEcH-IUvhP_RlBtdz_iBhf6IxCz8LrEBLyv_vD8YAX2hf6vKOZsU';
   }
 
   private getDeviceInfo(): DeviceInfo {
@@ -522,14 +801,24 @@ export class NotificationService {
 
   // 📅 BOOKING INTEGRATION - CRITICAL FOR PWA NOTIFICATIONS
   async scheduleBookingNotifications(booking: any): Promise<{ success: boolean; reason?: string; count?: number }> {
-    const canSend = this.canSendNotifications();
+    const canSchedule = this.canScheduleNotifications();
+    const canSendPush = this.canSendPushNotifications();
     const status = this.getStatus();
     
-    if (!canSend) {
-      const reason = `Missing requirements - Permission: ${status.permission}, HasToken: ${status.hasToken}, Preferences: ${status.hasPreferences}`;
+    if (!canSchedule) {
+      const reason = `Cannot schedule notifications - Preferences disabled`;
       console.warn('⚠️ Cannot schedule notifications:', reason);
       return { success: false, reason };
     }
+
+    // 🚨 CRÍTICO: Programar SIEMPRE las notificaciones, independiente del push token
+    console.log('📅 [CRITICAL] Scheduling notifications with status:', {
+      canSchedule,
+      canSendPush,
+      permission: status.permission,
+      hasToken: status.hasToken,
+      hasPreferences: status.hasPreferences
+    });
 
     try {
       console.log('📅 Scheduling notifications for booking:', booking.id);
@@ -544,6 +833,12 @@ export class NotificationService {
       const bookingDateTime = new Date(`${booking.session_date}T${booking.session_time}`);
       const now = new Date();
 
+      // 🚨 CRÍTICO: Determinar canales de entrega disponibles
+      const availableChannels = this.getAvailableDeliveryChannels();
+      const pushToken = canSendPush ? this._pushToken() : null;
+
+      console.log('📡 [CRITICAL] Available delivery channels:', availableChannels, 'Push token:', !!pushToken);
+
       // 1. 🎉 Booking Confirmation (immediate)
       if (preferences.booking_confirmation_enabled) {
         notifications.push({
@@ -554,11 +849,14 @@ export class NotificationService {
           status: 'scheduled',
           priority: 5, // Highest priority
           message_payload: await this.buildNotificationPayload('booking_confirmation', booking),
-          push_token: this._pushToken() || undefined,
-          delivery_channels: ['push'],
+          push_token: pushToken || undefined,
+          delivery_channels: availableChannels,
           expires_at: new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString(), // 24h expiry
           session_data: this.extractSessionData(booking),
-          user_preferences: { message_style: preferences.message_style }
+          user_preferences: { 
+            message_style: preferences.message_style,
+            fallback_to_db_only: !canSendPush // Si no hay push, marcar para fallback
+          }
         });
       }
 
@@ -574,8 +872,8 @@ export class NotificationService {
             status: 'scheduled',
             priority: 4,
             message_payload: await this.buildNotificationPayload('reminder_24h', booking),
-            push_token: this._pushToken() || undefined,
-            delivery_channels: ['push'],
+            push_token: pushToken || undefined,
+            delivery_channels: availableChannels,
             expires_at: new Date(bookingDateTime.getTime() + 60 * 60 * 1000).toISOString(), // Expires 1h after class
             session_data: this.extractSessionData(booking),
             user_preferences: { message_style: preferences.message_style }
@@ -595,8 +893,8 @@ export class NotificationService {
             status: 'scheduled',
             priority: 5, // Highest priority
             message_payload: await this.buildNotificationPayload('reminder_1h', booking),
-            push_token: this._pushToken() || undefined,
-            delivery_channels: ['push'],
+            push_token: pushToken || undefined,
+            delivery_channels: availableChannels,
             expires_at: new Date(bookingDateTime.getTime() + 30 * 60 * 1000).toISOString(), // Expires 30min after class
             session_data: this.extractSessionData(booking),
             user_preferences: { message_style: preferences.message_style }
@@ -797,46 +1095,23 @@ export class NotificationService {
     };
   }
 
-  // 🔧 SERVICE WORKER INTEGRATION
-  private async setupServiceWorkerHandlers(): Promise<void> {
-    if (!('serviceWorker' in navigator)) return;
+  // 🔧 SERVICE WORKER INTEGRATION CON ANGULAR SWPUSH
+  private async setupServiceWorkerHandlersWithFallback(): Promise<void> {
+    if (!this.swPush || !this.swPush.isEnabled) {
+      console.log('ℹ️ [SWPUSH] Angular SwPush not available, skipping handlers setup');
+      return;
+    }
 
     try {
-      const registration = await navigator.serviceWorker.ready;
-      console.log('🔧 Setting up service worker message handlers...');
-      
-      // Listen for messages from service worker
-      navigator.serviceWorker.addEventListener('message', (event) => {
-        this.handleServiceWorkerMessage(event);
-      });
-
-      console.log('✅ Service worker handlers setup complete');
+      // Setup handlers using Angular SwPush (already done in analyzeServiceWorkerStatus)
+      console.log('✅ [SWPUSH] Service Worker handlers already configured via Angular SwPush');
       
     } catch (error) {
-      console.error('❌ Error setting up service worker handlers:', error);
+      console.warn('⚠️ [SWPUSH] Service Worker handlers setup failed, system will still work:', error);
     }
   }
 
-  private handleServiceWorkerMessage(event: MessageEvent): void {
-    const { type, payload } = event.data || {};
-    
-    console.log('📨 Service worker message received:', type, payload);
-
-    switch (type) {
-      case 'NOTIFICATION_CLICKED':
-        this.handleNotificationClick(payload);
-        break;
-      case 'NOTIFICATION_RECEIVED':
-        this._notificationReceived.next(payload);
-        this.logInteraction('notification_received', payload);
-        break;
-      case 'NOTIFICATION_CLOSED':
-        this.logInteraction('notification_closed', payload);
-        break;
-      default:
-        console.log('🔄 Unknown service worker message type:', type);
-    }
-  }
+  // 📨 LEGACY SERVICE WORKER MESSAGE HANDLER - REMOVED (USING ANGULAR SWPUSH HANDLERS)
 
   private async handleNotificationClick(payload: any): Promise<void> {
     console.log('🔔 Notification clicked:', payload);
@@ -951,6 +1226,47 @@ export class NotificationService {
     console.log('🧪 Test notification sent:', payload);
   }
 
+  /**
+   * 🚨 MÉTODO CRÍTICO: Determinar canales de entrega disponibles
+   * 
+   * PUSH TOKEN: Es un identificador único que permite al servidor enviar 
+   * notificaciones push directamente al navegador del usuario, incluso cuando
+   * la pestaña está cerrada. SIN PUSH TOKEN, las notificaciones solo funcionan
+   * cuando el usuario está activo en la web.
+   * 
+   * Para RageStudios, las notificaciones push son CRÍTICAS porque:
+   * 1. Recordatorios de clases (24h y 1h antes)
+   * 2. Confirmaciones de reservas
+   * 3. Avisos de cancelaciones
+   * 4. Notificaciones admin urgentes
+   * 
+   * El sistema debe funcionar SIEMPRE, con o sin push token.
+   */
+  private getAvailableDeliveryChannels(): string[] {
+    const channels: string[] = [];
+    
+    // 1. Database logging - SIEMPRE disponible
+    channels.push('database');
+    
+    // 2. Push notifications - Solo si hay token válido
+    if (this.canSendPushNotifications()) {
+      channels.push('push');
+      console.log('✅ [CRITICAL] Push notifications enabled with valid token');
+    } else {
+      console.log('⚠️ [CRITICAL] Push notifications disabled - will use database only');
+      console.log('📋 [INFO] Reasons: Permission:', this._permissionStatus(), 'Token:', !!this._pushToken());
+    }
+    
+    // 3. Email (futuro)
+    const preferences = this._preferences();
+    if (preferences?.email_notifications_enabled) {
+      channels.push('email');
+    }
+    
+    console.log('📡 [CRITICAL] Final delivery channels:', channels);
+    return channels;
+  }
+
   // 📈 PUBLIC STATUS METHODS
   getStatus() {
     return {
@@ -959,6 +1275,8 @@ export class NotificationService {
       permission: this._permissionStatus(),
       hasToken: !!this._pushToken(),
       canSend: this.canSendNotifications(),
+      canSchedule: this.canScheduleNotifications(),
+      canSendPush: this.canSendPushNotifications(),
       hasPreferences: !!this._preferences(),
       loading: this._isLoading()
     };

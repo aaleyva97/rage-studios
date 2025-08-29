@@ -3,7 +3,7 @@ import {
   importProvidersFrom,
   provideBrowserGlobalErrorListeners,
   provideZonelessChangeDetection,
-  LOCALE_ID, isDevMode,
+  LOCALE_ID,
 } from '@angular/core';
 import { registerLocaleData } from '@angular/common';
 import localeEs from '@angular/common/locales/es';
@@ -52,9 +52,12 @@ export const appConfig: ApplicationConfig = {
     ),
     { provide: LOCALE_ID, useValue: 'es' },
     MessageService, // Global MessageService for PrimeNG Toast
-    provideServiceWorker('ngsw-worker.js', {
-      enabled: !isDevMode(),
-      registrationStrategy: 'registerWhenStable:30000'
+    // 🔥 SOLUCIÓN PROFESIONAL: Angular SwPush nativo con Service Worker custom
+    provideServiceWorker('sw-push.js', {
+      enabled: true, // Habilitado en desarrollo para testing
+      registrationStrategy: 'registerImmediately', // Inmediato para desarrollo
+      scope: '/',
+      updateViaCache: 'none' // Sin cache para desarrollo
     })
   ],
 };
