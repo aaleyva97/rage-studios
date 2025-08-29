@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, OnDestroy, effect, PLATFORM_ID } from '@angular/core';
+import { Component, inject, OnInit, OnDestroy, effect, PLATFORM_ID, Injector } from '@angular/core';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { ConfirmDialogModule } from 'primeng/confirmdialog';
 import { ButtonModule } from 'primeng/button';
@@ -95,6 +95,19 @@ export class PwaInstallDialogComponent implements OnInit, OnDestroy {
   private readonly messageService = inject(MessageService);
   private readonly platformId = inject(PLATFORM_ID);
   private readonly isBrowser = isPlatformBrowser(this.platformId);
+  private readonly injector = inject(Injector);
+
+  constructor() {
+    // Setup effect in constructor for proper injection context
+    if (this.isBrowser) {
+      effect(() => {
+        const show = this.pwaInstallService.showInstallDialog();
+        if (show) {
+          this.showInstallConfirmation();
+        }
+      }, { injector: this.injector });
+    }
+  }
 
   get dialogStyle() {
     const state = this.pwaInstallService.installabilityState();
@@ -107,16 +120,7 @@ export class PwaInstallDialogComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
-    // Only setup effects in browser environment
-    if (this.isBrowser) {
-      // Listen for dialog state changes using effect
-      effect(() => {
-        const show = this.pwaInstallService.showInstallDialog();
-        if (show) {
-          this.showInstallConfirmation();
-        }
-      });
-    }
+    // Effects now handled in constructor
   }
 
   ngOnDestroy(): void {

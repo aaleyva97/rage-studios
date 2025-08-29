@@ -27,7 +27,7 @@ import { NotificationService } from '../../../../core/services/notification.serv
     SkeletonModule,
     PaginatorModule
   ],
-  providers: [MessageService, ConfirmationService],
+  providers: [ConfirmationService],
   templateUrl: './my-bookings.html',
   styleUrl: './my-bookings.scss'
 })
@@ -131,16 +131,16 @@ export class MyBookings implements OnInit {
         
         // Crear notificación inmediata de cancelación exitosa
         const scheduleData = {
-          bookingId: booking.id,
-          userId: user.id,
-          notificationType: 'cancellation_user' as const,
-          scheduledFor: new Date().toISOString(),
+          booking_id: booking.id,
+          user_id: user.id,
+          notification_type: 'cancellation_user' as const,
+          scheduled_for: new Date().toISOString(),
           status: 'scheduled' as const,
           priority: 4,
-          messagePayload: await this.buildCancellationPayload(cancellationBookingData),
-          deliveryChannels: ['push'],
-          expiresAt: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(), // 2h expiry
-          sessionData: {
+          message_payload: await this.buildCancellationPayload(cancellationBookingData),
+          delivery_channels: ['push'],
+          expires_at: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(), // 2h expiry
+          session_data: {
             originalBookingId: booking.id,
             cancellationType: 'user_self_cancellation',
             refundAmount: booking.credits_used

@@ -1,187 +1,211 @@
+// ===== EXACT SUPABASE SCHEMA MATCH =====
+// This interface MUST match the exact column names in Supabase
+
 export interface UserNotificationPreferences {
   id: string;
-  userId: string;
-  notificationsEnabled: boolean;
-  timezoneIdentifier: string;
-  preferredLanguage: string;
+  user_id: string; // matches DB column
+  notifications_enabled: boolean;
+  timezone_identifier?: string;
+  preferred_language?: string;
   
   // Notification type preferences
-  bookingConfirmationEnabled: boolean;
-  reminder24hEnabled: boolean;
-  reminder1hEnabled: boolean;
-  cancellationNotificationsEnabled: boolean;
-  classUpdateNotificationsEnabled: boolean;
-  marketingNotificationsEnabled: boolean;
+  booking_confirmation_enabled?: boolean;
+  reminder_24h_enabled?: boolean;
+  reminder_1h_enabled?: boolean;
+  cancellation_notifications_enabled?: boolean;
+  class_update_notifications_enabled?: boolean;
+  marketing_notifications_enabled?: boolean;
   
   // Channel preferences
-  pushNotificationsEnabled: boolean;
-  emailNotificationsEnabled: boolean;
-  smsNotificationsEnabled: boolean;
+  push_notifications_enabled?: boolean;
+  email_notifications_enabled?: boolean;
+  sms_notifications_enabled?: boolean;
   
   // Do Not Disturb
-  quietHoursEnabled: boolean;
-  quietHoursStart: string;
-  quietHoursEnd: string;
-  quietHoursTimezone: string;
+  quiet_hours_enabled?: boolean;
+  quiet_hours_start?: string; // time format
+  quiet_hours_end?: string; // time format  
+  quiet_hours_timezone?: string;
   
-  // Push tokens
-  pushTokens: PushToken[];
-  primaryDeviceToken?: string;
-  lastTokenUpdatedAt?: string;
+  // Reminder advance time (JSONB field)
+  reminder_advance_time?: {
+    booking_confirmation?: number;
+    reminder_24h?: number;
+    reminder_1h?: number;
+    custom_reminder_1?: number | null;
+    custom_reminder_2?: number | null;
+  };
+  
+  // Push tokens (JSONB array)
+  push_tokens?: PushToken[];
+  primary_device_token?: string;
+  last_token_updated_at?: string;
   
   // Content preferences
-  messageStyle: 'minimal' | 'standard' | 'detailed';
-  includeCoachInfo: boolean;
-  includeLocationInfo: boolean;
-  includeQuickActions: boolean;
+  message_style?: 'minimal' | 'standard' | 'detailed';
+  include_coach_info?: boolean;
+  include_location_info?: boolean;
+  include_quick_actions?: boolean;
   
   // Privacy settings
-  shareAttendanceStatus: boolean;
-  allowAdminOverride: boolean;
+  share_attendance_status?: boolean;
+  allow_admin_override?: boolean; // matches DB column exactly
   
   // Metadata
-  notificationSound: string;
-  vibrationPattern: string;
-  customSettings: Record<string, any>;
+  notification_sound?: string;
+  vibration_pattern?: string;
+  custom_settings?: Record<string, any>; // JSONB field
   
   // Timestamps
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface PushToken {
-  token: string;
-  deviceType: 'web' | 'android' | 'ios';
-  deviceName: string;
-  registeredAt: string;
-  lastSeen: string;
-  isActive: boolean;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface NotificationSchedule {
   id: string;
-  bookingId: string;
-  userId: string;
-  notificationType: NotificationType;
-  scheduledFor: string;
-  timezoneOffset: number;
+  booking_id: string; // matches DB column
+  user_id: string; // matches DB column
+  notification_type: NotificationType;
+  scheduled_for: string;
+  timezone_offset?: number;
   
   status: 'scheduled' | 'processing' | 'sent' | 'failed' | 'cancelled' | 'expired';
   priority: number;
-  retryCount: number;
-  maxRetries: number;
-  nextRetryAt?: string;
-  lastError?: string;
+  retry_count: number;
+  max_retries: number;
+  next_retry_at?: string;
+  last_error?: string;
   
-  sentAt?: string;
-  cancelledAt?: string;
-  expiresAt?: string;
+  sent_at?: string;
+  cancelled_at?: string;
+  expires_at?: string;
   
-  pushToken?: string;
-  messagePayload: NotificationPayload;
-  deliveryChannels: string[];
+  push_token?: string;
+  message_payload: NotificationPayload; // JSONB field
+  delivery_channels?: string[];
+  session_data?: Record<string, any>; // JSONB field  
+  user_preferences?: Record<string, any>; // JSONB field
   
-  sessionData?: Record<string, any>;
-  userPreferences?: Record<string, any>;
-  
-  createdAt: string;
-  updatedAt: string;
+  // Timestamps
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface NotificationLog {
   id: string;
-  scheduleId?: string;
-  userId: string;
-  bookingId?: string;
-  
-  logType: 'scheduled' | 'sent_success' | 'sent_failure' | 'delivery_confirmed' | 
+  schedule_id?: string;
+  user_id: string;
+  booking_id?: string;
+  log_type: 'scheduled' | 'sent_success' | 'sent_failure' | 'delivery_confirmed' | 
            'delivery_failed' | 'user_interaction' | 'cancelled' | 'retry_attempt' | 
            'expired' | 'token_invalid' | 'preference_blocked';
+  notification_type?: NotificationType;
+  channel_used?: string;
+  provider_used?: string;
   
-  notificationType?: NotificationType;
-  channelUsed?: string;
-  providerUsed?: string;
+  // Message details
+  message_title?: string;
+  message_body?: string;
+  push_token_used?: string;
   
-  messageTitle?: string;
-  messageBody?: string;
-  pushTokenUsed?: string;
-  
+  // Status and response
   success: boolean;
-  httpStatusCode?: number;
-  providerResponse?: Record<string, any>;
-  errorCode?: string;
-  errorMessage?: string;
+  http_status_code?: number;
+  provider_response?: Record<string, any>; // JSONB field
+  error_code?: string;
+  error_message?: string;
   
-  processingTimeMs?: number;
-  deliveryTimeMs?: number;
-  scheduledFor?: string;
-  sentAt?: string;
-  deliveredAt?: string;
+  // Performance metrics
+  processing_time_ms?: number;
+  delivery_time_ms?: number;
   
-  userAction?: string;
-  actionData?: Record<string, any>;
-  interactionAt?: string;
+  // Timestamps
+  scheduled_for?: string;
+  sent_at?: string;
+  delivered_at?: string;
   
-  deviceInfo?: DeviceInfo;
-  sessionId?: string;
-  ipAddress?: string;
-  userAgent?: string;
+  // User interaction
+  user_action?: string;
+  action_data?: Record<string, any>; // JSONB field
+  interaction_at?: string;
   
-  campaignId?: string;
-  abTestGroup?: string;
-  businessContext?: Record<string, any>;
+  // Device and session
+  device_info?: Record<string, any>; // JSONB field
+  session_id?: string;
+  ip_address?: string; // inet type
+  user_agent?: string;
   
-  createdAt: string;
+  // Analytics
+  campaign_id?: string;
+  a_b_test_group?: string;
+  business_context?: Record<string, any>; // JSONB field
+  
+  created_at?: string;
 }
 
 export interface NotificationTemplate {
   id: string;
-  templateKey: string;
-  templateName: string;
-  notificationType: NotificationType;
-  category: string;
-  priorityLevel: number;
+  template_key: string;
+  template_name: string;
+  notification_type: NotificationType;
+  category?: string;
+  priority_level?: number;
+  language_code: string;
+  country_code?: string;
   
-  languageCode: string;
-  countryCode: string;
+  // Template content
+  title_template: string;
+  body_template: string;
+  action_text?: string;
+  action_url?: string;
   
-  titleTemplate: string;
-  bodyTemplate: string;
-  actionText?: string;
-  actionUrl?: string;
+  // Configuration
+  channel_config?: Record<string, any>; // JSONB field
+  required_variables?: string[];
+  optional_variables?: string[];
+  variable_validation?: Record<string, any>; // JSONB field
+  send_conditions?: Record<string, any>; // JSONB field
+  rate_limiting?: Record<string, any>; // JSONB field
   
-  channelConfig: Record<string, any>;
-  requiredVariables: string[];
-  optionalVariables: string[];
-  variableValidation: Record<string, any>;
+  // A/B Testing
+  test_variant?: string;
+  test_group_percentage?: number;
   
-  sendConditions: Record<string, any>;
-  rateLimiting: Record<string, any>;
+  // Timing
+  advance_time_minutes?: number;
+  expiration_minutes?: number;
+  retry_config?: Record<string, any>; // JSONB field
   
-  testVariant: string;
-  testGroupPercentage: number;
+  // Status and versioning
+  is_active?: boolean;
+  version?: number;
+  parent_template_id?: string;
   
-  advanceTimeMinutes?: number;
-  expirationMinutes: number;
-  retryConfig: Record<string, any>;
-  
-  isActive: boolean;
-  version: number;
-  parentTemplateId?: string;
-  
+  // Metadata
   description?: string;
-  usageNotes?: string;
-  tags: string[];
+  usage_notes?: string;
+  tags?: string[];
   
-  usageCount: number;
-  successRate?: number;
-  clickThroughRate?: number;
-  lastUsedAt?: string;
+  // Analytics
+  usage_count?: number;
+  success_rate?: number;
+  click_through_rate?: number;
+  last_used_at?: string;
   
-  createdBy?: string;
-  createdAt: string;
-  updatedAt: string;
+  // Audit
+  created_by?: string;
+  created_at?: string;
+  updated_at?: string;
 }
+
+// Supporting interfaces remain the same
+export type NotificationType = 
+  | 'booking_confirmation'
+  | 'reminder_24h' 
+  | 'reminder_1h'
+  | 'cancellation_user'
+  | 'cancellation_admin'
+  | 'class_update';
 
 export interface NotificationPayload {
   title: string;
@@ -191,6 +215,12 @@ export interface NotificationPayload {
   image?: string;
   data?: Record<string, any>;
   actions?: NotificationAction[];
+  requireInteraction?: boolean;
+  silent?: boolean;
+  timestamp?: number;
+  tag?: string;
+  renotify?: boolean;
+  vibrate?: number[];
 }
 
 export interface NotificationAction {
@@ -198,14 +228,6 @@ export interface NotificationAction {
   title: string;
   icon?: string;
 }
-
-export type NotificationType = 
-  | 'booking_confirmation'
-  | 'reminder_24h' 
-  | 'reminder_1h'
-  | 'cancellation_user'
-  | 'cancellation_admin'
-  | 'class_update';
 
 export interface DeviceInfo {
   platform: string;
@@ -221,9 +243,11 @@ export interface NotificationPermissionResult {
   token?: string;
 }
 
-export interface NotificationServiceConfig {
-  vapidPublicKey?: string;
-  swUrl?: string;
-  enableLogging?: boolean;
-  retryAttempts?: number;
+export interface PushToken {
+  token: string;
+  deviceType: 'web' | 'android' | 'ios';
+  deviceName?: string;
+  isActive: boolean;
+  lastUsedAt: string;
+  createdAt: string;
 }

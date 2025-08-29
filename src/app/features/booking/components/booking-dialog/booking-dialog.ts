@@ -59,6 +59,9 @@ export class BookingDialog {
   availableSlots = signal<any[]>([]);
   occupiedBeds = signal<number[]>([]);
   isLoading = signal(false);
+  
+  // 🚨 PROTECCIÓN CRÍTICA CONTRA MÚLTIPLES CLICS
+  isBooking = signal(false);
 
   // Fecha mínima (hoy)
   minDate = new Date();
@@ -158,30 +161,42 @@ export class BookingDialog {
   }
 
   async confirmBooking() {
-  const date = this.selectedDate();
-  const time = this.selectedTime();
-  const coach = this.selectedCoach();
-  const beds = this.selectedBeds();
-  const user = this.supabaseService.getUser();
-  
-  if (!date || !time || !coach || !user) return;
-  
-  // Validar créditos disponibles
-  const requiredCredits = this.companions().length + 1;
-  const availableCredits = this.creditsService.totalCredits();
-  
-  if (availableCredits < requiredCredits) {
-    this.messageService.add({
-      severity: 'error',
-      summary: 'Error',
-      detail: `Créditos insuficientes. Necesitas ${requiredCredits} créditos pero solo tienes ${availableCredits}`
-    });
+  // 🚨 PROTECCIÓN CRÍTICA: Prevenir múltiples clics
+  if (this.isBooking()) {
+    console.warn('🚫 Booking already in progress, ignoring click');
     return;
   }
-  
-  this.isLoading.set(true);
-  
+
+  // Activar estado de reserva
+  this.isBooking.set(true);
+
   try {
+    const date = this.selectedDate();
+    const time = this.selectedTime();
+    const coach = this.selectedCoach();
+    const beds = this.selectedBeds();
+    const user = this.supabaseService.getUser();
+    
+    if (!date || !time || !coach || !user) {
+      this.isBooking.set(false);
+      return;
+    }
+  
+    // Validar créditos disponibles
+    const requiredCredits = this.companions().length + 1;
+    const availableCredits = this.creditsService.totalCredits();
+    
+    if (availableCredits < requiredCredits) {
+      this.messageService.add({
+        severity: 'error',
+        summary: 'Error',
+        detail: `Créditos insuficientes. Necesitas ${requiredCredits} créditos pero solo tienes ${availableCredits}`
+      });
+      this.isBooking.set(false);
+      return;
+    }
+    
+    this.isLoading.set(true);
     // Auto-asignar camas si no se seleccionaron
     let finalBeds = beds;
     if (beds.length === 0) {
@@ -229,30 +244,20 @@ export class BookingDialog {
         // Refrescar créditos
         await this.creditsService.refreshCredits();
         
-        // 🔔 Programar notificaciones push para la reserva
-        try {
-          const bookingWithUserData = {
-            ...result.data,
-            ...booking,
-            user: { full_name: user.user_metadata?.['full_name'] || user.email },
-            class_name: this.getClassNameForSession(coach, time) // Obtener nombre de clase
-          };
-          
-          await this.notificationService.scheduleBookingNotifications(bookingWithUserData);
-          console.log('✅ Notificaciones programadas exitosamente');
-        } catch (notificationError) {
-          console.warn('⚠️ Error programando notificaciones (reserva exitosa):', notificationError);
-          // No bloqueamos el flujo si fallan las notificaciones
-        }
-        
+        // 🚨 CRÍTICO: Mostrar éxito inmediatamente, procesar notificaciones en segundo plano
         this.messageService.add({
           severity: 'success',
           summary: 'Éxito',
           detail: 'Reserva realizada correctamente'
         });
         
-        // Cerrar dialog
-        this.closeDialog();
+        // 🚨 CRÍTICO: Cerrar dialog de forma inmediata y robusta
+        setTimeout(() => {
+          this.closeDialog();
+        }, 1000); // Dar tiempo para que el usuario vea el mensaje de éxito
+        
+        // 🔔 Programar notificaciones push de forma asíncrona (NO BLOQUEA)
+        this.scheduleNotificationsInBackground(result.data, booking, user, coach, time);
       } else {
         // Si falla el uso de créditos, cancelar la reserva
         if (result.data.id) {
@@ -273,14 +278,104 @@ export class BookingDialog {
       });
     }
   } catch (error: any) {
+    console.error('❌ Error crítico en confirmBooking:', error);
     this.messageService.add({
       severity: 'error',
       summary: 'Error',
-      detail: error.message || 'Error inesperado'
+      detail: error.message || 'Error inesperado al procesar la reserva'
     });
   } finally {
+    // 🚨 CRÍTICO: Siempre restablecer estado
+    this.isBooking.set(false);
     this.isLoading.set(false);
   }
+}
+
+/**
+ * 🔔 MÉTODO ASÍNCRONO: Procesa notificaciones en segundo plano
+ * NO bloquea el flujo principal de reservas
+ */
+private async scheduleNotificationsInBackground(
+  bookingData: any, 
+  bookingRequest: any, 
+  user: any, 
+  coach: string, 
+  time: string
+): Promise<void> {
+  try {
+    console.log('🔔 [BACKGROUND] Iniciando programación de notificaciones...');
+    
+    const bookingWithUserData = {
+      ...bookingData,
+      ...bookingRequest,
+      user: { full_name: user.user_metadata?.['full_name'] || user.email },
+      class_name: this.getClassNameForSession(coach, time)
+    };
+    
+    // Timeout de seguridad: máximo 10 segundos para notificaciones
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Notification timeout')), 10000)
+    );
+    
+    const notificationPromise = this.scheduleNotificationsWithRetry(bookingWithUserData);
+    
+    const notificationResult = await Promise.race([notificationPromise, timeoutPromise]);
+    
+    if (notificationResult && notificationResult.success) {
+      if (notificationResult.count && notificationResult.count > 0) {
+        console.log(`✅ [BACKGROUND] ${notificationResult.count} notificaciones programadas exitosamente`);
+      } else {
+        console.log('ℹ️ [BACKGROUND] Sin notificaciones programadas:', notificationResult.reason);
+      }
+    } else {
+      console.warn('⚠️ [BACKGROUND] Error en notificaciones:', notificationResult?.reason || 'Unknown error');
+    }
+    
+  } catch (error) {
+    console.warn('⚠️ [BACKGROUND] Error en notificaciones (no afecta reserva):', error);
+    
+    // Log del error para debugging pero NO afecta la reserva
+    await this.notificationService.logEvent('background_notification_failed', {
+      bookingId: bookingData?.id,
+      error: error instanceof Error ? error.message : String(error),
+      timestamp: new Date().toISOString()
+    }).catch(() => {
+      // Incluso si logging falla, no hacer nada - la reserva ya está completa
+    });
+  }
+}
+
+/**
+ * 🔔 Programación de notificaciones con reintentos inteligentes
+ */
+private async scheduleNotificationsWithRetry(bookingData: any): Promise<any> {
+  let notificationResult = await this.notificationService.scheduleBookingNotifications(bookingData);
+  
+  // Si falló por falta de permisos, intentar solicitar permisos UNA VEZ
+  if (!notificationResult.success && notificationResult.reason?.includes('Permission:')) {
+    console.log('🔔 [BACKGROUND] Solicitando permisos de notificación...');
+    
+    try {
+      // Timeout para solicitud de permisos: máximo 5 segundos
+      const permissionPromise = this.notificationService.requestPermissions();
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Permission timeout')), 5000)
+      );
+      
+      const permissionResult = await Promise.race([permissionPromise, timeoutPromise]) as any;
+      
+      if (permissionResult?.granted && permissionResult?.token) {
+        console.log('✅ [BACKGROUND] Permisos concedidos, reintentando programación...');
+        // Pequeña espera para propagación del token
+        await new Promise(resolve => setTimeout(resolve, 100));
+        notificationResult = await this.notificationService.scheduleBookingNotifications(bookingData);
+      }
+    } catch (permissionError) {
+      console.warn('⚠️ [BACKGROUND] Error en permisos (timeout o rechazo):', permissionError);
+    }
+  }
+  
+  return notificationResult;
 }
 
 private async autoAssignBeds(count: number): Promise<number[]> {
@@ -305,27 +400,26 @@ private async cancelBooking(bookingId: string): Promise<void> {
   // Implementar en BookingService
 }
 
+private async useCredits(amount: number): Promise<void> {
+  // Implementaremos esto cuando tengamos el PaymentService actualizado
+  // Por ahora solo lo logueamos
+  console.log(`Usando ${amount} créditos`);
+}
 
-  private async useCredits(amount: number): Promise<void> {
-    // Implementaremos esto cuando tengamos el PaymentService actualizado
-    // Por ahora solo lo logueamos
-    console.log(`Usando ${amount} créditos`);
+private getClassNameForSession(coach: string, time: string): string {
+  // Mapear horario y coach a nombre de clase
+  // Esta lógica se podría mejorar conectando con SessionsService
+  const timeHour = parseInt(time.split(':')[0]);
+  
+  // Incluir coach en el nombre si está disponible
+  const coachInfo = coach ? ` con ${coach}` : '';
+  
+  if (timeHour < 12) {
+    return `Sesión Matutina${coachInfo}`;
+  } else if (timeHour < 18) {
+    return `Sesión Vespertina${coachInfo}`;  
+  } else {
+    return `Sesión Nocturna${coachInfo}`;
   }
-
-  private getClassNameForSession(coach: string, time: string): string {
-    // Mapear horario y coach a nombre de clase
-    // Esta lógica se podría mejorar conectando con SessionsService
-    const timeHour = parseInt(time.split(':')[0]);
-    
-    // Incluir coach en el nombre si está disponible
-    const coachInfo = coach ? ` con ${coach}` : '';
-    
-    if (timeHour < 12) {
-      return `Sesión Matutina${coachInfo}`;
-    } else if (timeHour < 18) {
-      return `Sesión Vespertina${coachInfo}`;  
-    } else {
-      return `Sesión Nocturna${coachInfo}`;
-    }
-  }
+}
 }
