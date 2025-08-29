@@ -8,6 +8,7 @@ import { Footer } from './shared/components/footer/footer';
 import { SocialSpeedDial } from './shared/components/social-speed-dial/social-speed-dial';
 import { PwaInstallDialogComponent } from './shared/components/pwa-install-dialog/pwa-install-dialog';
 import { PwaInstallService } from './core/services/pwa-install.service';
+import { NotificationService } from './core/services/notification.service';
 
 @Component({
   selector: 'app-root',
@@ -21,11 +22,16 @@ export class App implements OnInit {
   protected title = 'rage-studios';
   
   private readonly pwaInstallService = inject(PwaInstallService);
+  private readonly notificationService = inject(NotificationService);
   
   ngOnInit(): void {
     // PWA Install Service is initialized automatically via constructor
     // Set up automatic install prompt detection for new users
     this.setupAutoInstallPrompt();
+    
+    // 🔔 Notification Service initialization happens automatically via constructor
+    // but we ensure it's injected here for app startup
+    console.log('🚀 App initialized - NotificationService status:', this.notificationService.getStatus());
   }
   
   private setupAutoInstallPrompt(): void {

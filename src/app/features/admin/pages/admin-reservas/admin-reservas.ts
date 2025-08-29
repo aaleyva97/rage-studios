@@ -15,6 +15,7 @@ import { MessageService, ConfirmationService } from 'primeng/api';
 import { BookingService } from '../../../../core/services/booking.service';
 import { SupabaseService } from '../../../../core/services/supabase-service';
 import { formatDateForDisplay } from '../../../../core/functions/date-utils';
+import { NotificationService } from '../../../../core/services/notification.service';
 
 interface StatusOption {
   label: string;
@@ -46,6 +47,7 @@ export class AdminReservas implements OnInit {
   private supabaseService = inject(SupabaseService);
   private messageService = inject(MessageService);
   private confirmationService = inject(ConfirmationService);
+  private notificationService = inject(NotificationService);
   
   bookings = signal<any[]>([]);
   isLoading = signal(true);
@@ -152,9 +154,85 @@ export class AdminReservas implements OnInit {
   }
   
   async cancelBooking(booking: any) {
+    try {
+      // 🚫 1. Cancelar notificaciones programadas ANTES de cancelar reserva
+      console.log('🔔 [ADMIN] Cancelando notificaciones programadas para reserva:', booking.id);
+      await this.notificationService.cancelBookingNotifications(booking.id);
+      
+    } catch (notificationError) {
+      console.warn('⚠️ [ADMIN] Error cancelando notificaciones programadas:', notificationError);
+      // No bloquear el flujo principal por errores de notificaciones
+    }
+
     const result = await this.bookingService.cancelBookingAsAdmin(booking.id);
     
     if (result.success) {
+      // 🔔 2. Programar notificación administrativa para el usuario afectado
+      try {
+        console.log('🔔 [ADMIN] Programando notificación de cancelación administrativa');
+        
+        const adminCancellationData = {
+          id: booking.id,
+          class_name: booking.coach_name ? `clase con ${booking.coach_name}` : 'tu clase',
+          session_date: new Date(booking.session_date).toLocaleDateString('es-MX', {
+            weekday: 'long',
+            day: 'numeric', 
+            month: 'long'
+          }),
+          session_time: booking.session_time,
+          reason: 'Por motivos administrativos', // TODO: Permitir razón personalizable
+          user: { 
+            full_name: booking.userDisplayName || booking.user_name || 'Usuario'
+          }
+        };
+        
+        // Crear notificación inmediata de cancelación administrativa
+        const scheduleData = {
+          bookingId: booking.id,
+          userId: booking.user_id, // ⚠️ CRÍTICO: Notificar al usuario afectado, NO al admin
+          notificationType: 'cancellation_admin' as const,
+          scheduledFor: new Date().toISOString(),
+          status: 'scheduled' as const,
+          priority: 5, // Alta prioridad para cancelaciones administrativas
+          messagePayload: await this.buildAdminCancellationPayload(adminCancellationData),
+          deliveryChannels: ['push'],
+          expiresAt: new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString(), // 4h expiry
+          sessionData: {
+            originalBookingId: booking.id,
+            cancellationType: 'admin_cancellation',
+            cancelledBy: 'admin', // Identificar que fue cancelado por admin
+            refundAmount: booking.credits_used,
+            adminUserId: this.supabaseService.getUser()?.id
+          },
+          userPreferences: {
+            allowAdminOverride: true // Bypass user preferences para notificaciones críticas
+          }
+        };
+        
+        // Programar la notificación usando Supabase directamente
+        const { error } = await this.supabaseService.client
+          .from('notification_schedules')
+          .insert([scheduleData]);
+          
+        if (error) {
+          console.error('❌ [ADMIN] Error programando notificación de cancelación:', error);
+        } else {
+          console.log('✅ [ADMIN] Notificación de cancelación administrativa programada exitosamente');
+          
+          // Log adicional para auditoría
+          await this.notificationService.logInteraction('admin_cancellation_scheduled', {
+            bookingId: booking.id,
+            affectedUserId: booking.user_id,
+            adminUserId: this.supabaseService.getUser()?.id,
+            reason: adminCancellationData.reason
+          });
+        }
+        
+      } catch (notificationError) {
+        console.warn('⚠️ [ADMIN] Error programando notificación de cancelación administrativa:', notificationError);
+        // No bloquear el flujo - la cancelación administrativa ya fue exitosa
+      }
+      
       this.messageService.add({
         severity: 'success',
         summary: 'Éxito',
@@ -195,5 +273,89 @@ export class AdminReservas implements OnInit {
   
   getCancelledBookingsCount(): number {
     return this.bookings().filter(booking => booking.status === 'cancelled').length;
+  }
+
+  formatDateForDisplay = formatDateForDisplay;
+
+  private async buildAdminCancellationPayload(bookingData: any): Promise<any> {
+    try {
+      // Variables para el template de cancelación administrativa
+      const variables = {
+        user_name: bookingData.user?.full_name || 'Usuario',
+        class_name: bookingData.class_name,
+        session_date: bookingData.session_date,
+        reason: bookingData.reason || 'Por decisión administrativa'
+      };
+
+      console.log('🏗️ [ADMIN] Procesando template de cancelación administrativa con variables:', variables);
+
+      // Usar el template processor de Supabase para cancelación administrativa
+      const { data, error } = await this.supabaseService.client
+        .rpc('process_notification_template', {
+          p_template_key: 'cancellation_admin_es',
+          p_language_code: 'es-MX',
+          p_variables: variables
+        });
+
+      if (error) {
+        console.error('❌ [ADMIN] Error procesando template de cancelación administrativa:', error);
+        // Fallback payload para cancelación administrativa
+        return {
+          title: 'Cambio en tu reserva 📋',
+          body: `Tu reserva para ${bookingData.class_name} del ${bookingData.session_date} ha sido cancelada por administración. ${bookingData.reason}. Se han reembolsado automáticamente tus créditos.`,
+          icon: '/icons/icon-192x192.png',
+          badge: '/icons/badge-72x72.png',
+          data: { 
+            bookingId: bookingData.id, 
+            type: 'cancellation_admin',
+            actionUrl: '/account/bookings',
+            timestamp: new Date().toISOString(),
+            reason: bookingData.reason,
+            isAdminCancellation: true
+          }
+        };
+      }
+
+      return {
+        title: data.title,
+        body: data.body,
+        icon: '/icons/icon-192x192.png',
+        badge: '/icons/badge-72x72.png',
+        data: { 
+          bookingId: bookingData.id, 
+          type: 'cancellation_admin',
+          actionUrl: data.action_url || '/account/bookings',
+          timestamp: new Date().toISOString(),
+          reason: bookingData.reason,
+          isAdminCancellation: true
+        },
+        actions: data.action_text ? [{
+          action: 'view',
+          title: data.action_text
+        }] : [{
+          action: 'view',
+          title: 'Ver mis reservas'
+        }]
+      };
+
+    } catch (error) {
+      console.error('❌ [ADMIN] Error en buildAdminCancellationPayload:', error);
+      
+      // Fallback básico para cancelación administrativa
+      return {
+        title: 'Cambio en tu reserva 📋',
+        body: 'Tu reserva ha sido cancelada por administración. Se han reembolsado automáticamente tus créditos.',
+        icon: '/icons/icon-192x192.png',
+        badge: '/icons/badge-72x72.png',
+        data: { 
+          bookingId: bookingData.id, 
+          type: 'cancellation_admin',
+          actionUrl: '/account/bookings',
+          timestamp: new Date().toISOString(),
+          fallback: true,
+          isAdminCancellation: true
+        }
+      };
+    }
   }
 }

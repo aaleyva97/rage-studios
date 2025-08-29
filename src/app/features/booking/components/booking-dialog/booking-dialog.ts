@@ -18,6 +18,7 @@ import { SupabaseService } from '../../../../core/services/supabase-service';
 import { MessageService } from 'primeng/api';
 import { ToastModule } from 'primeng/toast';
 import { PaymentService } from '../../../../core/services/payment.service';
+import { NotificationService } from '../../../../core/services/notification.service';
 
 @Component({
   selector: 'app-booking-dialog',
@@ -44,6 +45,7 @@ export class BookingDialog {
   private supabaseService = inject(SupabaseService);
   private paymentService = inject(PaymentService);
   private messageService = inject(MessageService);
+  private notificationService = inject(NotificationService);
 
   // Estados
   currentStep = signal(1);
@@ -227,6 +229,22 @@ export class BookingDialog {
         // Refrescar créditos
         await this.creditsService.refreshCredits();
         
+        // 🔔 Programar notificaciones push para la reserva
+        try {
+          const bookingWithUserData = {
+            ...result.data,
+            ...booking,
+            user: { full_name: user.user_metadata?.['full_name'] || user.email },
+            class_name: this.getClassNameForSession(coach, time) // Obtener nombre de clase
+          };
+          
+          await this.notificationService.scheduleBookingNotifications(bookingWithUserData);
+          console.log('✅ Notificaciones programadas exitosamente');
+        } catch (notificationError) {
+          console.warn('⚠️ Error programando notificaciones (reserva exitosa):', notificationError);
+          // No bloqueamos el flujo si fallan las notificaciones
+        }
+        
         this.messageService.add({
           severity: 'success',
           summary: 'Éxito',
@@ -292,5 +310,22 @@ private async cancelBooking(bookingId: string): Promise<void> {
     // Implementaremos esto cuando tengamos el PaymentService actualizado
     // Por ahora solo lo logueamos
     console.log(`Usando ${amount} créditos`);
+  }
+
+  private getClassNameForSession(coach: string, time: string): string {
+    // Mapear horario y coach a nombre de clase
+    // Esta lógica se podría mejorar conectando con SessionsService
+    const timeHour = parseInt(time.split(':')[0]);
+    
+    // Incluir coach en el nombre si está disponible
+    const coachInfo = coach ? ` con ${coach}` : '';
+    
+    if (timeHour < 12) {
+      return `Sesión Matutina${coachInfo}`;
+    } else if (timeHour < 18) {
+      return `Sesión Vespertina${coachInfo}`;  
+    } else {
+      return `Sesión Nocturna${coachInfo}`;
+    }
   }
 }
