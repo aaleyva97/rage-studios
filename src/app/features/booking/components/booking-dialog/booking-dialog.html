@@ -316,12 +316,13 @@
             (onClick)="prevStep()">
           </p-button>
           <p-button 
-            label="Confirmar Reserva" 
-            icon="pi pi-check" 
+            [label]="isBooking() ? 'Procesando...' : 'Confirmar Reserva'"
+            [icon]="isBooking() ? 'pi pi-spin pi-spinner' : 'pi pi-check'"
             iconPos="right"
             variant="outlined" 
             severity="contrast"
-            [disabled]="selectedBeds().length !== (companions().length + 1)"
+            [disabled]="selectedBeds().length !== (companions().length + 1) || isBooking()"
+            [loading]="isBooking()"
             (onClick)="confirmBooking()">
           </p-button>
         </div>
