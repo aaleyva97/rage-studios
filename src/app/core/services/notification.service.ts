@@ -13,6 +13,7 @@ import {
   PushToken,
   NotificationLog
 } from '../interfaces/notification.interface';
+import { formatDateCustom } from '../functions/date-utils';
 
 @Injectable({
   providedIn: 'root'
@@ -1026,7 +1027,7 @@ export class NotificationService {
       const variables = {
         user_name: booking.user?.full_name || 'Usuario',
         class_name: booking.class_name || 'tu clase',
-        session_date: new Date(booking.session_date).toLocaleDateString('es-MX', {
+        session_date: formatDateCustom(booking.session_date, {
           weekday: 'long',
           year: 'numeric',
           month: 'long',
