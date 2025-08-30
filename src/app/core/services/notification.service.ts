@@ -1,6 +1,6 @@
 import { Injectable, effect, signal, computed, PLATFORM_ID, inject } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
-import { BehaviorSubject, Observable, from } from 'rxjs';
+import { BehaviorSubject, Observable, from, take } from 'rxjs';
 import { SwPush, SwUpdate } from '@angular/service-worker';
 import { SupabaseService } from './supabase-service';
 import { 
@@ -139,6 +139,18 @@ export class NotificationService {
         // 4. Try to get existing push token (con fallback inteligente)
         await this.tryGetExistingPushTokenWithFallback();
         
+        // 🚨 CRÍTICO: Si user ya tiene permisos pero no token, registrar automáticamente
+        if (this._permissionStatus() === 'granted' && !this._pushToken()) {
+          console.log('🔑 [CRITICAL] User has permissions but no token, auto-registering...');
+          try {
+            await this.registerPushToken();
+            console.log('✅ [CRITICAL] Auto-registration successful during initialization');
+          } catch (autoRegError) {
+            console.warn('⚠️ [CRITICAL] Auto-registration failed during init:', autoRegError);
+            // Continue with database-only mode
+          }
+        }
+        
         // 5. Setup service worker message handlers (opcional)
         await this.setupServiceWorkerHandlersWithFallback();
       } else {
@@ -149,6 +161,19 @@ export class NotificationService {
       
       const finalStatus = this.getStatus();
       console.log('✅ [SMART] NotificationService initialized successfully:', finalStatus);
+
+      // 🔧 DEBUG: Exponer método de debug en desarrollo
+      if (this.isDevelopmentEnvironment() && typeof window !== 'undefined') {
+        (window as any).debugNotifications = {
+          forceRegister: () => this.forceRegisterPushToken(),
+          getStatus: () => this.getStatus(),
+          testNotification: () => this.testNotification()
+        };
+        console.log('🔧 [DEBUG] Development debugging tools available:');
+        console.log('🔧 [DEBUG] - window.debugNotifications.forceRegister()');
+        console.log('🔧 [DEBUG] - window.debugNotifications.getStatus()'); 
+        console.log('🔧 [DEBUG] - window.debugNotifications.testNotification()');
+      }
 
       // Log initialization event
       await this.logEvent('service_initialized', {
@@ -303,18 +328,26 @@ export class NotificationService {
       };
 
       if (permission === 'granted') {
-        console.log('✅ Permission granted, registering push token...');
+        console.log('✅ [CRITICAL] Permission granted, registering push token...');
         
-        // Auto-register push token after permission granted
-        result.token = await this.registerPushToken();
+        // 🚨 CRÍTICO: Auto-register push token after permission granted
+        try {
+          result.token = await this.registerPushToken();
+          console.log('🎉 [CRITICAL] Push token registered successfully:', !!result.token);
+        } catch (tokenError) {
+          console.error('❌ [CRITICAL] Push token registration failed, but permissions granted:', tokenError);
+          // Don't fail the whole operation - notifications will work in database-only mode
+          result.token = undefined;
+        }
         
         // Log successful permission
         await this.logEvent('permission_granted', {
           previousPermission: 'default',
-          token: !!result.token
+          token: !!result.token,
+          tokenRegistrationSuccess: !!result.token
         });
         
-        console.log('🎉 Permissions and token setup complete');
+        console.log('🎉 [CRITICAL] Permissions setup complete. Token:', !!result.token);
       } else {
         await this.logEvent('permission_denied', { permission });
         console.log('❌ Permission denied:', permission);
@@ -345,7 +378,7 @@ export class NotificationService {
       }
       
       // Get existing subscription using Angular SwPush
-      const subscription = await this.swPush.subscription.toPromise();
+      const subscription = await this.swPush.subscription.pipe(take(1)).toPromise();
       
       if (subscription) {
         const token = this.extractTokenFromSubscription(subscription);
@@ -389,7 +422,7 @@ export class NotificationService {
         return;
       }
       
-      const subscription = await this.swPush.subscription.toPromise();
+      const subscription = await this.swPush.subscription.pipe(take(1)).toPromise();
       
       if (subscription) {
         const token = this.extractTokenFromSubscription(subscription);
@@ -445,7 +478,7 @@ export class NotificationService {
     }
     
     // Check if already subscribed using Angular SwPush
-    let subscription = await this.swPush.subscription.toPromise();
+    let subscription = await this.swPush.subscription.pipe(take(1)).toPromise();
     
     if (!subscription) {
       console.log('🔔 [SWPUSH] Creating new push subscription...');
@@ -1194,6 +1227,59 @@ export class NotificationService {
         resolve(user);
       });
     });
+  }
+
+  // 🔧 DEBUG: Forzar registro de push token para troubleshooting
+  async forceRegisterPushToken(): Promise<void> {
+    console.log('🚨 [DEBUG] Force registering push token - TROUBLESHOOTING MODE');
+    
+    try {
+      // Log current state
+      const currentStatus = this.getStatus();
+      console.log('📊 [DEBUG] Current status before force registration:', currentStatus);
+      
+      // Check SwPush availability
+      if (!this.swPush) {
+        console.error('❌ [DEBUG] SwPush is null - not injected properly');
+        return;
+      }
+      
+      if (!this.swPush.isEnabled) {
+        console.error('❌ [DEBUG] SwPush is not enabled');
+        return;
+      }
+      
+      console.log('✅ [DEBUG] SwPush is available and enabled');
+      
+      // Check permissions
+      if (this._permissionStatus() !== 'granted') {
+        console.error('❌ [DEBUG] Permissions not granted. Current:', this._permissionStatus());
+        const permissions = await this.requestPermissions();
+        console.log('🔑 [DEBUG] Permission request result:', permissions);
+        return;
+      }
+      
+      // Force register token
+      console.log('🔑 [DEBUG] Forcing push token registration...');
+      const token = await this.registerPushToken();
+      console.log('🎉 [DEBUG] Force registration successful! Token:', !!token);
+      
+      // Log final state
+      const finalStatus = this.getStatus();
+      console.log('📊 [DEBUG] Final status after force registration:', finalStatus);
+      
+    } catch (error) {
+      console.error('❌ [DEBUG] Force registration failed:', error);
+      
+      // Detailed error analysis
+      if (error instanceof Error) {
+        console.error('❌ [DEBUG] Error details:', {
+          name: error.name,
+          message: error.message,
+          stack: error.stack?.split('\n').slice(0, 5)
+        });
+      }
+    }
   }
 
   // 🧪 TESTING & DEBUG METHODS (Remove in production)
