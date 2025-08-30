@@ -32,6 +32,11 @@ export class SupabaseService {
     this.loadUser();
   }
 
+  // Public getter para acceso controlado al client
+  get client() {
+    return this.supabaseClient;
+  }
+
   private async loadUser() {
     const { data: { user } } = await this.supabaseClient.auth.getUser();
     this.currentUser.next(user);
