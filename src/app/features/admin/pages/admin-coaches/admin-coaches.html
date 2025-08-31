@@ -112,14 +112,13 @@
             <!-- Actions Footer -->
             <div class="flex justify-between items-center border-t border-gray-100 pt-3">
               <span class="text-xs text-gray-400">ID: {{ coach.id.substring(0, 8) }}</span>
-              <div class="flex gap-2">
+              <div class="flex gap-3">
                 <p-button 
                   icon="pi pi-pencil" 
                   severity="info"
                   [text]="true"
                   [rounded]="true"
                   size="small"
-                  pTooltip="Editar coach"
                   (onClick)="openEditDialog(coach)">
                 </p-button>
                 <p-button 
@@ -128,7 +127,6 @@
                   [text]="true"
                   [rounded]="true"
                   size="small"
-                  pTooltip="Eliminar coach"
                   (onClick)="confirmDeleteCoach(coach)">
                 </p-button>
               </div>
@@ -221,14 +219,13 @@
                 </p-tag>
               </td>
               <td class="text-center">
-                <div class="flex gap-2 justify-center">
+                <div class="flex gap-3 justify-center">
                   <p-button 
                     icon="pi pi-pencil" 
                     severity="info"
                     [text]="true"
                     [rounded]="true"
                     size="small"
-                    pTooltip="Editar coach"
                     (onClick)="openEditDialog(coach)">
                   </p-button>
                   <p-button 
@@ -237,7 +234,6 @@
                     [text]="true"
                     [rounded]="true"
                     size="small"
-                    pTooltip="Eliminar coach"
                     (onClick)="confirmDeleteCoach(coach)">
                   </p-button>
                 </div>
@@ -277,11 +273,15 @@
         chooseLabel="Seleccionar imagen"
         accept="image/*"
         [maxFileSize]="1000000"
-        (onSelect)="onFileSelect($event)"
+        (onSelect)="onFileSelect($event); onFieldTouch('image')"
         [auto]="false"
-        class="w-full">
+        class="w-full"
+        [class.p-invalid]="isFieldInvalid('image')">
       </p-fileUpload>
-      <small class="text-gray-500">Formatos: JPG, PNG. Máximo 1MB</small>
+      @if (isFieldInvalid('image')) {
+        <small class="text-red-600 block mt-1">{{ formErrors().image }}</small>
+      }
+      <small class="text-gray-500 block mt-1">Formatos: JPG, PNG. Máximo 1MB</small>
     </div>
 
     <!-- Name -->
@@ -291,9 +291,15 @@
         type="text"
         pInputText
         [(ngModel)]="coachForm().name"
+        (ngModelChange)="validateField('name')"
+        (blur)="onFieldTouch('name')"
         placeholder="Nombre del coach"
         class="w-full"
+        [class.p-invalid]="isFieldInvalid('name')"
         required>
+      @if (isFieldInvalid('name')) {
+        <small class="text-red-600 block mt-1">{{ formErrors().name }}</small>
+      }
     </div>
 
     <!-- Description -->
@@ -302,11 +308,17 @@
       <textarea
         pTextarea
         [(ngModel)]="coachForm().description"
+        (ngModelChange)="validateField('description')"
+        (blur)="onFieldTouch('description')"
         placeholder="Descripción del coach y su estilo..."
         rows="4"
         class="w-full"
+        [class.p-invalid]="isFieldInvalid('description')"
         required>
       </textarea>
+      @if (isFieldInvalid('description')) {
+        <small class="text-red-600 block mt-1">{{ formErrors().description }}</small>
+      }
     </div>
 
     <!-- Order Index -->
