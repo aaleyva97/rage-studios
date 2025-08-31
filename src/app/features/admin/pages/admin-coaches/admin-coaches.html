@@ -1,0 +1,352 @@
+<p-toast />
+<p-confirm-dialog />
+
+<div class="admin-coaches-container">
+  <div class="header-section mb-6">
+    <div class="flex justify-between items-center mb-4">
+      <h2 class="text-2xl font-bold">Gestión de Coaches</h2>
+      <p-button 
+        label="Crear Coach" 
+        icon="pi pi-plus" 
+        (onClick)="openCreateDialog()"
+        class="p-button-primary">
+      </p-button>
+    </div>
+    
+    <!-- Summary Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      <p-card class="summary-card">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm font-medium text-gray-600">Total Coaches</p>
+            <p class="text-xl font-bold text-blue-600">{{ coaches().length }}</p>
+          </div>
+          <i class="pi pi-users text-blue-500 text-2xl"></i>
+        </div>
+      </p-card>
+      
+      <p-card class="summary-card">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm font-medium text-gray-600">Activos</p>
+            <p class="text-xl font-bold text-green-600">{{ getActiveCoachesCount() }}</p>
+          </div>
+          <i class="pi pi-check-circle text-green-500 text-2xl"></i>
+        </div>
+      </p-card>
+      
+      <p-card class="summary-card">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm font-medium text-gray-600">Inactivos</p>
+            <p class="text-xl font-bold text-red-600">{{ getInactiveCoachesCount() }}</p>
+          </div>
+          <i class="pi pi-times-circle text-red-500 text-2xl"></i>
+        </div>
+      </p-card>
+    </div>
+  </div>
+  
+  @if (!isLoading() && coaches().length === 0) {
+    <div class="text-center py-12">
+      <i class="pi pi-users text-5xl text-gray-300 mb-4"></i>
+      <p class="text-gray-500 text-lg">No hay coaches registrados</p>
+      <p-button 
+        label="Crear primer coach" 
+        icon="pi pi-plus" 
+        (onClick)="openCreateDialog()"
+        class="mt-4">
+      </p-button>
+    </div>
+  } @else {
+    
+    <!-- Mobile Card Layout -->
+    <div class="block md:hidden">
+      @if (isLoading()) {
+        @for (item of skeletonData; track $index) {
+          <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4">
+            <div class="flex items-start gap-4 mb-3">
+              <p-skeleton width="4rem" height="4rem" styleClass="rounded-full" />
+              <div class="flex-1">
+                <p-skeleton width="70%" height="1.25rem" class="mb-2" />
+                <p-skeleton width="40%" height="1rem" />
+              </div>
+              <p-skeleton width="3rem" height="1.5rem" styleClass="rounded" />
+            </div>
+            <p-skeleton width="100%" height="3rem" class="mb-3" />
+            <div class="flex justify-between items-center">
+              <p-skeleton width="30%" height="1rem" />
+              <div class="flex gap-2">
+                <p-skeleton width="2.5rem" height="2.5rem" styleClass="rounded-full" />
+                <p-skeleton width="2.5rem" height="2.5rem" styleClass="rounded-full" />
+              </div>
+            </div>
+          </div>
+        }
+      } @else {
+        @for (coach of paginatedCoaches; track coach.id) {
+          <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4 hover:shadow-md transition-shadow">
+            <!-- Header: Imagen y datos básicos -->
+            <div class="flex items-start gap-4 mb-3">
+              <img 
+                [src]="coach.image_url" 
+                [alt]="coach.name"
+                class="w-16 h-16 rounded-full object-cover"
+                onerror="this.src='/assets/images/default-coach.png'">
+              <div class="flex-1">
+                <h3 class="text-lg font-semibold text-gray-900">{{ coach.name }}</h3>
+                <p class="text-sm text-gray-600">Orden: {{ coach.order_index }}</p>
+              </div>
+              <p-tag 
+                [value]="coach.is_active ? 'Activo' : 'Inactivo'"
+                [severity]="coach.is_active ? 'success' : 'danger'"
+                [rounded]="true">
+              </p-tag>
+            </div>
+            
+            <!-- Description -->
+            <div class="mb-3">
+              <p class="text-sm text-gray-700 line-clamp-3">{{ coach.description }}</p>
+            </div>
+            
+            <!-- Actions Footer -->
+            <div class="flex justify-between items-center border-t border-gray-100 pt-3">
+              <span class="text-xs text-gray-400">ID: {{ coach.id.substring(0, 8) }}</span>
+              <div class="flex gap-2">
+                <p-button 
+                  icon="pi pi-pencil" 
+                  severity="info"
+                  [text]="true"
+                  [rounded]="true"
+                  size="small"
+                  pTooltip="Editar coach"
+                  (onClick)="openEditDialog(coach)">
+                </p-button>
+                <p-button 
+                  icon="pi pi-trash" 
+                  severity="danger"
+                  [text]="true"
+                  [rounded]="true"
+                  size="small"
+                  pTooltip="Eliminar coach"
+                  (onClick)="confirmDeleteCoach(coach)">
+                </p-button>
+              </div>
+            </div>
+          </div>
+        }
+      }
+      
+      <!-- Mobile Pagination -->
+      @if (!isLoading() && coaches().length > 10) {
+        <div class="mt-6">
+          <p-paginator
+            [rows]="mobileRowsPerPage()"
+            [totalRecords]="coaches().length"
+            [rowsPerPageOptions]="[10, 20, 30]"
+            [showCurrentPageReport]="true"
+            currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} coaches"
+            (onPageChange)="onMobilePageChange($event)">
+          </p-paginator>
+        </div>
+      }
+    </div>
+
+    <!-- Desktop Table Layout -->
+    <div class="hidden md:block">
+      <p-table 
+        [value]="isLoading() ? skeletonData : coaches()"
+        [rows]="15"
+        [paginator]="true"
+        [tableStyle]="{ 'min-width': '60rem' }"
+        [rowHover]="true"
+        dataKey="id"
+        currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} coaches"
+        [showCurrentPageReport]="true"
+        [rowsPerPageOptions]="[15, 25, 50]"
+        class="p-datatable-gridlines">
+        
+        <ng-template pTemplate="header">
+          <tr>
+            <th>Imagen</th>
+            <th>Nombre</th>
+            <th>Descripción</th>
+            <th>Orden</th>
+            <th>Estado</th>
+            <th class="text-center">Acciones</th>
+          </tr>
+        </ng-template>
+        
+        <ng-template pTemplate="body" let-coach>
+          @if (isLoading()) {
+            <tr>
+              <td><p-skeleton width="3rem" height="3rem" styleClass="rounded-full" /></td>
+              <td><p-skeleton width="80%" /></td>
+              <td><p-skeleton width="100%" /></td>
+              <td><p-skeleton width="30%" /></td>
+              <td><p-skeleton width="50%" /></td>
+              <td class="text-center">
+                <div class="flex gap-2 justify-center">
+                  <p-skeleton width="2.5rem" height="2.5rem" styleClass="rounded-full" />
+                  <p-skeleton width="2.5rem" height="2.5rem" styleClass="rounded-full" />
+                </div>
+              </td>
+            </tr>
+          } @else {
+            <tr>
+              <td>
+                <img 
+                  [src]="coach.image_url" 
+                  [alt]="coach.name"
+                  class="w-12 h-12 rounded-full object-cover"
+                  onerror="this.src='/assets/images/default-coach.png'">
+              </td>
+              <td>
+                <div class="font-medium text-gray-900">{{ coach.name }}</div>
+                <div class="text-xs text-gray-500">ID: {{ coach.id.substring(0, 8) }}</div>
+              </td>
+              <td>
+                <div class="max-w-xs">
+                  <p class="text-sm text-gray-700 truncate" [title]="coach.description">
+                    {{ coach.description }}
+                  </p>
+                </div>
+              </td>
+              <td>{{ coach.order_index }}</td>
+              <td>
+                <p-tag 
+                  [value]="coach.is_active ? 'Activo' : 'Inactivo'"
+                  [severity]="coach.is_active ? 'success' : 'danger'"
+                  [rounded]="true">
+                </p-tag>
+              </td>
+              <td class="text-center">
+                <div class="flex gap-2 justify-center">
+                  <p-button 
+                    icon="pi pi-pencil" 
+                    severity="info"
+                    [text]="true"
+                    [rounded]="true"
+                    size="small"
+                    pTooltip="Editar coach"
+                    (onClick)="openEditDialog(coach)">
+                  </p-button>
+                  <p-button 
+                    icon="pi pi-trash" 
+                    severity="danger"
+                    [text]="true"
+                    [rounded]="true"
+                    size="small"
+                    pTooltip="Eliminar coach"
+                    (onClick)="confirmDeleteCoach(coach)">
+                  </p-button>
+                </div>
+              </td>
+            </tr>
+          }
+        </ng-template>
+      </p-table>
+    </div>
+  }
+</div>
+
+<!-- Create/Edit Dialog -->
+<p-dialog 
+  [header]="isEditing() ? 'Editar Coach' : 'Crear Coach'"
+  [(visible)]="displayDialog"
+  [modal]="true"
+  [style]="{ width: '50vw' }"
+  [breakpoints]="{ '960px': '75vw', '641px': '90vw' }"
+  [draggable]="false"
+  [resizable]="false">
+  
+  <div class="grid grid-cols-1 gap-4">
+    <!-- Image Upload -->
+    <div class="field">
+      <label class="font-medium text-gray-700 mb-2 block">Imagen *</label>
+      @if (imagePreview()) {
+        <div class="mb-3">
+          <img 
+            [src]="imagePreview()" 
+            alt="Preview" 
+            class="w-24 h-24 rounded-full object-cover mx-auto border-2 border-gray-200">
+        </div>
+      }
+      <p-fileUpload
+        mode="basic"
+        chooseLabel="Seleccionar imagen"
+        accept="image/*"
+        [maxFileSize]="1000000"
+        (onSelect)="onFileSelect($event)"
+        [auto]="false"
+        class="w-full">
+      </p-fileUpload>
+      <small class="text-gray-500">Formatos: JPG, PNG. Máximo 1MB</small>
+    </div>
+
+    <!-- Name -->
+    <div class="field">
+      <label class="font-medium text-gray-700 mb-2 block">Nombre *</label>
+      <input
+        type="text"
+        pInputText
+        [(ngModel)]="coachForm().name"
+        placeholder="Nombre del coach"
+        class="w-full"
+        required>
+    </div>
+
+    <!-- Description -->
+    <div class="field">
+      <label class="font-medium text-gray-700 mb-2 block">Descripción *</label>
+      <textarea
+        pTextarea
+        [(ngModel)]="coachForm().description"
+        placeholder="Descripción del coach y su estilo..."
+        rows="4"
+        class="w-full"
+        required>
+      </textarea>
+    </div>
+
+    <!-- Order Index -->
+    <div class="field">
+      <label class="font-medium text-gray-700 mb-2 block">Orden</label>
+      <p-inputNumber
+        [(ngModel)]="coachForm().order_index"
+        [min]="1"
+        [max]="100"
+        placeholder="Orden de aparición"
+        class="w-full">
+      </p-inputNumber>
+    </div>
+
+    <!-- Active Status -->
+    <div class="field">
+      <div class="flex items-center">
+        <p-checkbox
+          [(ngModel)]="coachForm().is_active"
+          binary="true"
+          inputId="is_active">
+        </p-checkbox>
+        <label for="is_active" class="ml-2 font-medium text-gray-700">Coach activo</label>
+      </div>
+      <small class="text-gray-500">Los coaches inactivos no se muestran al público</small>
+    </div>
+  </div>
+
+  <ng-template pTemplate="footer">
+    <div class="flex gap-2 justify-end">
+      <p-button 
+        label="Cancelar" 
+        severity="secondary" 
+        (onClick)="displayDialog.set(false)">
+      </p-button>
+      <p-button 
+        [label]="isEditing() ? 'Actualizar' : 'Crear'"
+        [loading]="isUploading()"
+        (onClick)="saveCoach()">
+      </p-button>
+    </div>
+  </ng-template>
+</p-dialog>
