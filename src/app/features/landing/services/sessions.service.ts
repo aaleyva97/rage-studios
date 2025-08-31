@@ -51,19 +51,61 @@ export class SessionsService {
     return data as Session;
   }
 
+  async getAllSessions() {
+    const { data, error } = await this.supabaseClient
+      .from('sessions')
+      .select('*')
+      .order('day_of_week', { ascending: true })
+      .order('order_index', { ascending: true });
+    
+    if (error) {
+      console.error('Error fetching all sessions:', error);
+      throw error;
+    }
+    
+    return data as Session[];
+  }
+
+  async createSession(sessionData: Omit<Session, 'id' | 'created_at' | 'updated_at'>) {
+    const { data, error } = await this.supabaseClient
+      .from('sessions')
+      .insert([{
+        ...sessionData,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }])
+      .select()
+      .single();
+    
+    if (error) throw error;
+    return data as Session;
+  }
+
   async updateSession(id: string, updates: Partial<Session>) {
     const { data, error } = await this.supabaseClient
       .from('sessions')
       .update({ ...updates, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .select()
+      .single();
+    
+    if (error) throw error;
+    return data as Session;
+  }
+
+  async deleteSession(id: string) {
+    const { error } = await this.supabaseClient
+      .from('sessions')
+      .delete()
       .eq('id', id);
     
     if (error) throw error;
-    return data;
+    return { success: true };
   }
 
   async uploadSessionImage(file: File, fileName: string) {
-    const { data, error } = await this.supabaseClient.storage
-      .from('sessions')
+    const { error } = await this.supabaseClient.storage
+      .from('Sesions')
       .upload(fileName, file, {
         cacheControl: '3600',
         upsert: true
@@ -73,7 +115,16 @@ export class SessionsService {
     return this.getPublicUrl(fileName);
   }
 
+  async deleteSessionImage(fileName: string) {
+    const { error } = await this.supabaseClient.storage
+      .from('Sesions')
+      .remove([fileName]);
+    
+    if (error) throw error;
+    return { success: true };
+  }
+
   getPublicUrl(path: string) {
-    return this.supabaseClient.storage.from('sessions').getPublicUrl(path).data.publicUrl;
+    return this.supabaseClient.storage.from('Sesions').getPublicUrl(path).data.publicUrl;
   }
 }

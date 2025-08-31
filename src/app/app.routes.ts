@@ -68,6 +68,10 @@ export const routes: Routes = [
       {
         path: 'coaches',
         loadComponent: () => import('./features/admin/pages/admin-coaches/admin-coaches').then(m => m.AdminCoaches)
+      },
+      {
+        path: 'sessions',
+        loadComponent: () => import('./features/admin/pages/admin-sessions/admin-sessions').then(m => m.AdminSessions)
       }
     ]
   },
