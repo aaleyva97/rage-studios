@@ -68,6 +68,19 @@ export class AdminCoaches implements OnInit {
   selectedFile = signal<File | null>(null);
   imagePreview = signal<string>('');
   
+  // Form validation state
+  formTouched = signal({
+    name: false,
+    description: false,
+    image: false
+  });
+  
+  formErrors = signal({
+    name: '',
+    description: '',
+    image: ''
+  });
+  
   // Mobile pagination
   mobileCurrentPage = signal(0);
   mobileRowsPerPage = signal(10);
@@ -105,6 +118,7 @@ export class AdminCoaches implements OnInit {
     });
     this.selectedFile.set(null);
     this.imagePreview.set('');
+    this.resetFormValidation();
     this.displayDialog.set(true);
   }
   
@@ -120,6 +134,7 @@ export class AdminCoaches implements OnInit {
     });
     this.selectedFile.set(null);
     this.imagePreview.set(coach.image_url);
+    this.resetFormValidation();
     this.displayDialog.set(true);
   }
   
@@ -140,12 +155,8 @@ export class AdminCoaches implements OnInit {
   async saveCoach() {
     const form = this.coachForm();
     
-    if (!form.name || !form.description) {
-      this.messageService.add({
-        severity: 'warn',
-        summary: 'Advertencia',
-        detail: 'Por favor completa todos los campos requeridos'
-      });
+    // Validate form
+    if (!this.validateForm()) {
       return;
     }
     
@@ -259,5 +270,91 @@ export class AdminCoaches implements OnInit {
   
   getInactiveCoachesCount(): number {
     return this.coaches().filter(coach => !coach.is_active).length;
+  }
+  
+  // Form validation methods
+  resetFormValidation() {
+    this.formTouched.set({
+      name: false,
+      description: false,
+      image: false
+    });
+    this.formErrors.set({
+      name: '',
+      description: '',
+      image: ''
+    });
+  }
+  
+  validateForm(): boolean {
+    const form = this.coachForm();
+    let isValid = true;
+    const errors = { name: '', description: '', image: '' };
+    
+    // Mark all fields as touched
+    this.formTouched.set({
+      name: true,
+      description: true,
+      image: true
+    });
+    
+    // Validate name
+    if (!form.name?.trim()) {
+      errors.name = 'Este campo es requerido';
+      isValid = false;
+    }
+    
+    // Validate description  
+    if (!form.description?.trim()) {
+      errors.description = 'Este campo es requerido';
+      isValid = false;
+    }
+    
+    // Validate image (only for create, not edit)
+    if (!this.isEditing() && !form.image_url && !this.selectedFile()) {
+      errors.image = 'La imagen es requerida';
+      isValid = false;
+    }
+    
+    this.formErrors.set(errors);
+    return isValid;
+  }
+  
+  onFieldTouch(fieldName: 'name' | 'description' | 'image') {
+    const touched = this.formTouched();
+    this.formTouched.set({
+      ...touched,
+      [fieldName]: true
+    });
+    this.validateField(fieldName);
+  }
+  
+  validateField(fieldName: 'name' | 'description' | 'image') {
+    const form = this.coachForm();
+    const errors = this.formErrors();
+    
+    switch (fieldName) {
+      case 'name':
+        errors.name = !form.name?.trim() ? 'Este campo es requerido' : '';
+        break;
+      case 'description':
+        errors.description = !form.description?.trim() ? 'Este campo es requerido' : '';
+        break;
+      case 'image':
+        if (!this.isEditing() && !form.image_url && !this.selectedFile()) {
+          errors.image = 'La imagen es requerida';
+        } else {
+          errors.image = '';
+        }
+        break;
+    }
+    
+    this.formErrors.set({ ...errors });
+  }
+  
+  isFieldInvalid(fieldName: 'name' | 'description' | 'image'): boolean {
+    const touched = this.formTouched();
+    const errors = this.formErrors();
+    return touched[fieldName] && !!errors[fieldName];
   }
 }
