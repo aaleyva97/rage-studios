@@ -195,6 +195,22 @@
   }
 }
 
+.mobile-bookings-badge {
+  display: flex;
+  align-items: center;
+
+  ::ng-deep {
+    .mobile-bookings-overlay-badge {
+      .p-badge {
+        min-width: 1.125rem;
+        height: 1.125rem;
+        font-size: 0.7rem;
+        font-weight: 600;
+      }
+    }
+  }
+}
+
 // Mobile credits
 .mobile-credits-container {
   display: flex;

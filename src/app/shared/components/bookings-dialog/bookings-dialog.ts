@@ -1,4 +1,4 @@
-import { Component, model, signal, inject, OnInit } from '@angular/core';
+import { Component, model, signal, inject, OnInit, AfterViewInit, ViewChild, ElementRef } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { DatePipe } from '@angular/common';
 import { DialogModule } from 'primeng/dialog';
@@ -24,8 +24,10 @@ import { formatDateForDisplay } from '../../../core/functions/date-utils';
   templateUrl: './bookings-dialog.html',
   styleUrl: './bookings-dialog.scss'
 })
-export class BookingsDialog implements OnInit {
+export class BookingsDialog implements OnInit, AfterViewInit {
   visible = model<boolean>(false);
+
+  @ViewChild('datePicker') datePicker!: ElementRef;
 
   private bookingService = inject(BookingService);
   private supabaseService = inject(SupabaseService);
@@ -39,7 +41,13 @@ export class BookingsDialog implements OnInit {
   async ngOnInit() {
     await this.loadBookingDates();
     await this.loadBookingsForToday();
-    this.markBookingDatesInCalendar();
+  }
+
+  ngAfterViewInit() {
+    // Marcar fechas después de que la vista se haya inicializado
+    setTimeout(() => {
+      this.markBookingDatesInCalendar();
+    }, 500);
   }
 
   async loadBookingDates() {
@@ -65,7 +73,9 @@ export class BookingsDialog implements OnInit {
     this.selectedDate.set(date);
     await this.loadBookingsForDate(date);
     // Re-marcar fechas después de cambio de vista
-    this.markBookingDatesInCalendar();
+    setTimeout(() => {
+      this.markBookingDatesInCalendar();
+    }, 100);
   }
 
   async loadBookingsForDate(date: Date) {
@@ -107,17 +117,39 @@ export class BookingsDialog implements OnInit {
     // Solo ejecutar en el navegador
     if (typeof document === 'undefined') return;
     
-    // Usar un setTimeout para asegurar que el DOM esté listo
-    setTimeout(() => {
-      const bookingDatesSet = new Set(this.bookingDates());
+    const bookingDatesSet = new Set(this.bookingDates());
+    
+    // Buscar todas las celdas del calendario
+    const calendarCells = document.querySelectorAll('.p-datepicker table td');
+    
+    calendarCells.forEach((cell: any) => {
+      // Remover clases previas
+      cell.classList.remove('has-booking-date');
       
-      const calendarCells = document.querySelectorAll('.p-datepicker-calendar td span');
-      calendarCells.forEach((cell: any) => {
-        const cellDate = cell.getAttribute('data-date');
-        if (cellDate && bookingDatesSet.has(cellDate)) {
-          cell.classList.add('has-booking');
+      // Buscar el span interno que contiene el día
+      const daySpan = cell.querySelector('span');
+      if (daySpan && !cell.classList.contains('p-datepicker-other-month')) {
+        // Obtener la fecha actual del calendario
+        const calendar = cell.closest('.p-datepicker');
+        if (calendar) {
+          const monthYear = calendar.querySelector('.p-datepicker-header .p-datepicker-title');
+          if (monthYear) {
+            const day = daySpan.textContent?.trim();
+            if (day && !isNaN(parseInt(day))) {
+              // Construir la fecha en formato YYYY-MM-DD
+              const currentDate = this.selectedDate();
+              const year = currentDate.getFullYear();
+              const month = currentDate.getMonth();
+              const testDate = new Date(year, month, parseInt(day));
+              const dateStr = testDate.toISOString().split('T')[0];
+              
+              if (bookingDatesSet.has(dateStr)) {
+                cell.classList.add('has-booking-date');
+              }
+            }
+          }
         }
-      });
-    }, 100);
+      }
+    });
   }
 }
