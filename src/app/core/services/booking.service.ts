@@ -29,6 +29,10 @@ export interface Booking {
 })
 export class BookingService {
   private supabaseClient: SupabaseClient;
+  
+  // 🔄 SIGNAL REACTIVO CENTRALIZADO PARA ACTIVE BOOKINGS COUNT
+  private _activeBookingsCount = signal(0);
+  private _currentUserId: string | null = null;
 
   // Schedule EXACTO según la tabla de horarios proporcionada
   private schedule: any = {
@@ -106,6 +110,37 @@ export class BookingService {
       environment.SUPABASE_URL,
       environment.SUPABASE_KEY
     );
+  }
+  
+  // 📊 GETTER PÚBLICO PARA ACTIVE BOOKINGS COUNT (READONLY)
+  get activeBookingsCount() {
+    return this._activeBookingsCount.asReadonly();
+  }
+  
+  // 👤 ESTABLECER USUARIO ACTUAL PARA TRACKING DE RESERVAS
+  setCurrentUser(userId: string | null) {
+    this._currentUserId = userId;
+    if (userId) {
+      this.refreshActiveBookingsCount();
+    } else {
+      this._activeBookingsCount.set(0);
+    }
+  }
+  
+  // 🔄 REFRESCAR COUNT DE RESERVAS ACTIVAS
+  async refreshActiveBookingsCount(): Promise<void> {
+    if (!this._currentUserId) {
+      this._activeBookingsCount.set(0);
+      return;
+    }
+    
+    try {
+      const activeBookings = await this.getUserActiveBookings(this._currentUserId);
+      this._activeBookingsCount.set(activeBookings.length);
+    } catch (error) {
+      console.error('Error refreshing active bookings count:', error);
+      // No resetear el count en caso de error para evitar parpadeo en UI
+    }
   }
 
   getDaySchedule(date: Date | string): TimeSlot[] {
@@ -267,6 +302,9 @@ export class BookingService {
         return { success: false, error: result.error };
       }
 
+      // 🔄 ACTUALIZAR COUNT DE RESERVAS ACTIVAS AUTOMÁTICAMENTE
+      this.refreshActiveBookingsCount();
+
       return { success: true, data: { id: result.booking_id } };
     } catch (error: any) {
       return { success: false, error: error.message };
@@ -301,6 +339,9 @@ export class BookingService {
         .eq('id', bookingId);
 
       if (error) throw error;
+      
+      // 🔄 ACTUALIZAR COUNT DE RESERVAS ACTIVAS AUTOMÁTICAMENTE
+      this.refreshActiveBookingsCount();
     } catch (error) {
       console.error('Error cancelling booking:', error);
     }
@@ -433,6 +474,9 @@ export class BookingService {
         return { success: false, error: 'Error al cancelar la reserva' };
       }
 
+      // 🔄 ACTUALIZAR COUNT DE RESERVAS ACTIVAS AUTOMÁTICAMENTE
+      this.refreshActiveBookingsCount();
+
       return { success: true };
     } catch (error: any) {
       return { success: false, error: error.message };
@@ -477,6 +521,9 @@ export class BookingService {
         console.error('Error refunding credits:', refundError);
         // No fallar toda la operación si el refund falla
       }
+
+      // 🔄 ACTUALIZAR COUNT DE RESERVAS ACTIVAS AUTOMÁTICAMENTE
+      this.refreshActiveBookingsCount();
 
       return { success: true };
     } catch (error: any) {
