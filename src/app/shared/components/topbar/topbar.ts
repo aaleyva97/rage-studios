@@ -83,8 +83,10 @@ export class Topbar implements OnInit, OnDestroy {
   mobileMenuVisible = signal(false);
   userMenuVisible = signal(false);
   userMenuItems = signal<MenuItem[]>([]);
-  activeBookingsCount = signal(0);
   showBookingsDialog = signal(false);
+  
+  // 🔄 USAR SIGNAL REACTIVO CENTRALIZADO DEL BOOKING SERVICE
+  activeBookingsCount = this.bookingService.activeBookingsCount;
   
   private authSubscription?: Subscription;
   
@@ -129,11 +131,13 @@ export class Topbar implements OnInit, OnDestroy {
       
       if (user && !this.profileLoadAttempted()) {
         this.loadUserProfile(user.id);
-        this.loadActiveBookingsCount(user.id);
+        // 🔄 ESTABLECER USUARIO EN BOOKING SERVICE PARA TRACKING REACTIVO
+        this.bookingService.setCurrentUser(user.id);
       } else if (!user) {
         this.userProfile.set(null);
         this.profileLoadAttempted.set(false);
-        this.activeBookingsCount.set(0);
+        // 🔄 LIMPIAR USUARIO EN BOOKING SERVICE
+        this.bookingService.setCurrentUser(null);
       }
       
       this.updateMenuItems();
@@ -310,15 +314,7 @@ export class Topbar implements OnInit, OnDestroy {
     this.bookingUiService.openBookingDialog();
   }
 
-  private async loadActiveBookingsCount(userId: string) {
-    try {
-      const activeBookings = await this.bookingService.getUserActiveBookings(userId);
-      this.activeBookingsCount.set(activeBookings.length);
-    } catch (error) {
-      console.error('Error loading active bookings count:', error);
-      this.activeBookingsCount.set(0);
-    }
-  }
+  // ✅ MÉTODO ELIMINADO - Ahora usa el signal reactivo del BookingService
 
   async openBookingsDialog() {
     // Usar el método del componente BookingsDialog para evitar bucles
@@ -329,11 +325,8 @@ export class Topbar implements OnInit, OnDestroy {
       this.showBookingsDialog.set(true);
     }
     
-    // Refrescar el contador cuando se abre el dialog
-    const user = this.currentUser();
-    if (user) {
-      await this.loadActiveBookingsCount(user.id);
-    }
+    // 🔄 REFRESCAR AUTOMÁTICAMENTE EL CONTADOR (SIGNAL REACTIVO)
+    await this.bookingService.refreshActiveBookingsCount();
   }
 
   closeBookingsDialog() {
