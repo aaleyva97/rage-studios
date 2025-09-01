@@ -1,17 +1,31 @@
 <p-toast />
 <nav class="topbar">
   <div class="topbar-container">
-    <!-- Mobile: Hamburger menu on left -->
-    <p-button 
-      icon="pi pi-bars" 
-      severity="secondary" 
-      [text]="true"
-      size="large"
-      class="md:hidden"
-      (onClick)="toggleMobileMenu()"
-      [attr.aria-expanded]="mobileMenuVisible()"
-      [attr.aria-controls]="mobileMenuVisible() ? 'mobile-menu-drawer' : null">
-    </p-button>
+    <!-- Mobile: Hamburger menu and bookings badge on left -->
+    <div class="flex items-center gap-2 md:hidden">
+      <p-button 
+        icon="pi pi-bars" 
+        severity="secondary" 
+        [text]="true"
+        size="large"
+        (onClick)="toggleMobileMenu()"
+        [attr.aria-expanded]="mobileMenuVisible()"
+        [attr.aria-controls]="mobileMenuVisible() ? 'mobile-menu-drawer' : null">
+      </p-button>
+      
+      @if (isLoggedIn()) {
+        <!-- Badge de reservas activas móvil -->
+        <div class="mobile-bookings-badge" pTooltip="{{ getActiveBookingsTooltip() }}" tooltipPosition="bottom">
+          <p-overlaybadge 
+            [value]="activeBookingsCount() || '0'" 
+            severity="info"
+            styleClass="mobile-bookings-overlay-badge"
+            (click)="openBookingsDialog()">
+            <i class="pi pi-clock text-lg text-gray-600 cursor-pointer"></i>
+          </p-overlaybadge>
+        </div>
+      }
+    </div>
     
     <!-- Desktop: Left navigation items -->
     <div class="nav-section-left">
@@ -27,6 +41,19 @@
             <div class="nav-underline"></div>
           </a>
         }
+      }
+      
+      @if (isLoggedIn()) {
+        <!-- Badge de reservas activas -->
+        <div class="bookings-badge" pTooltip="{{ getActiveBookingsTooltip() }}" tooltipPosition="bottom">
+          <p-overlaybadge 
+            [value]="activeBookingsCount() || '0'" 
+            severity="info"
+            styleClass="bookings-overlay-badge"
+            (click)="openBookingsDialog()">
+            <i class="pi pi-clock text-xl text-gray-600 cursor-pointer"></i>
+          </p-overlaybadge>
+        </div>
       }
     </div>
     
@@ -214,3 +241,8 @@
 <app-booking-dialog 
   [(visible)]="showBookingDialog">
 </app-booking-dialog>
+
+<app-bookings-dialog 
+  #bookingsDialog
+  [(visible)]="showBookingsDialog">
+</app-bookings-dialog>

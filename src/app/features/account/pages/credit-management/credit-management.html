@@ -1,0 +1,274 @@
+<div class="credit-management-container">
+  <!-- Header -->
+  <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
+    <div>
+      <h2 class="text-2xl font-bold mb-2">Gestión de Créditos</h2>
+      <p class="text-gray-600">Administra tus compras y créditos disponibles</p>
+    </div>
+    <p-button
+      icon="pi pi-refresh"
+      label="Actualizar"
+      [text]="true"
+      severity="secondary"
+      (onClick)="refreshData()"
+      [loading]="isLoading()">
+    </p-button>
+  </div>
+
+  <!-- Packages Section -->
+  <p-panel header="Paquetes Disponibles" [collapsed]="true" [toggleable]="true" class="mb-6">
+    @if (packages().length > 0) {
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        @for (pkg of packages(); track pkg.id) {
+          <div class="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+            <h4 class="text-lg font-semibold text-gray-900 mb-2">{{ pkg.title }}</h4>
+            <div class="space-y-2 text-sm">
+              @if (pkg.is_unlimited) {
+                <p class="text-indigo-600 font-semibold">
+                  <i class="pi pi-infinity mr-1"></i>
+                  Créditos ilimitados
+                </p>
+              } @else {
+                <p class="text-gray-700">
+                  <i class="pi pi-ticket mr-1"></i>
+                  {{ pkg.credits_count }} créditos
+                </p>
+              }
+              <p class="text-gray-700">
+                <i class="pi pi-calendar mr-1"></i>
+                {{ pkg.validity_days }} días de vigencia
+              </p>
+              <p class="text-xl font-bold text-indigo-600 mt-3">
+                {{ formatCurrency(pkg.price) }}
+              </p>
+            </div>
+          </div>
+        }
+      </div>
+    } @else {
+      <div class="text-center py-4 text-gray-500">
+        No hay paquetes disponibles
+      </div>
+    }
+  </p-panel>
+
+  <!-- Credit Batches Section Title -->
+  <h3 class="text-lg font-semibold text-gray-900 mb-4">Tus Compras de Créditos</h3>
+
+  @if (!isLoading() && creditBatches().length === 0) {
+    <!-- Empty State -->
+    <div class="text-center py-12">
+      <i class="pi pi-shopping-cart text-5xl text-gray-300 mb-4"></i>
+      <p class="text-gray-500 text-lg mb-2">No tienes compras de créditos</p>
+      <p class="text-gray-400 text-sm">Tus compras aparecerán aquí una vez que adquieras un paquete</p>
+    </div>
+  } @else {
+    
+    <!-- Mobile Card Layout -->
+    <div class="block md:hidden">
+      @if (isLoading()) {
+        @for (item of skeletonData; track $index) {
+          <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4">
+            <div class="flex justify-between items-start mb-4">
+              <div class="flex-1">
+                <p-skeleton width="60%" height="1.25rem" class="mb-2" />
+                <p-skeleton width="40%" height="1rem" />
+              </div>
+              <p-skeleton width="4rem" height="1.5rem" shape="rounded" />
+            </div>
+            
+            <div class="grid grid-cols-2 gap-4 mb-4">
+              <div>
+                <p-skeleton width="100%" height="0.875rem" class="mb-1" />
+                <p-skeleton width="80%" height="1.25rem" />
+              </div>
+              <div>
+                <p-skeleton width="100%" height="0.875rem" class="mb-1" />
+                <p-skeleton width="70%" height="1.25rem" />
+              </div>
+            </div>
+            
+            <div class="mb-3">
+              <p-skeleton width="50%" height="0.875rem" class="mb-1" />
+              <p-skeleton width="60%" height="1rem" />
+            </div>
+            
+            <div class="pt-3 border-t border-gray-100">
+              <p-skeleton width="30%" height="0.75rem" />
+            </div>
+          </div>
+        }
+      } @else {
+        @for (batch of paginatedCreditBatches; track batch.id) {
+          <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4 hover:shadow-md transition-shadow">
+            <!-- Header: Package and Status -->
+            <div class="flex justify-between items-start mb-4">
+              <div>
+                <h4 class="text-lg font-semibold text-gray-900">{{ getPackageTitle(batch) }}</h4>
+                <p class="text-sm text-gray-600">{{ formatDate(batch.created_at) }}</p>
+              </div>
+              <p-tag 
+                [value]="getStatusLabel(batch)" 
+                [severity]="getStatusSeverity(batch)"
+                [rounded]="true">
+              </p-tag>
+            </div>
+            
+            <!-- Credits Info -->
+            <div class="grid grid-cols-2 gap-4 mb-4">
+              <div>
+                <span class="text-xs text-gray-500 uppercase tracking-wider block mb-1">Créditos</span>
+                @if (batch.is_unlimited) {
+                  <p class="text-lg font-bold text-indigo-600">∞ Ilimitados</p>
+                } @else {
+                  <p class="text-lg font-bold text-gray-900">
+                    {{ batch.credits_remaining }} / {{ batch.credits_total }}
+                  </p>
+                }
+              </div>
+              
+              <div>
+                <span class="text-xs text-gray-500 uppercase tracking-wider block mb-1">Precio</span>
+                <p class="text-lg font-bold text-green-600">
+                  {{ formatCurrency(getPurchaseAmount(batch)) }}
+                </p>
+              </div>
+            </div>
+            
+            <!-- Expiration Info -->
+            @if (batch.expiration_activated && !batch.is_unlimited) {
+              <div class="mb-3">
+                <span class="text-xs text-gray-500 uppercase tracking-wider block mb-1">Vencimiento</span>
+                <p-tag 
+                  [value]="getExpirationText(batch)"
+                  [severity]="getExpirationSeverity(batch)"
+                  size="small">
+                </p-tag>
+                @if (batch.expiration_date) {
+                  <p class="text-xs text-gray-500 mt-1">
+                    Expira: {{ formatDate(batch.expiration_date) }}
+                  </p>
+                }
+              </div>
+            }
+            
+            <!-- Footer: ID -->
+            <div class="pt-3 border-t border-gray-100">
+              <span class="text-xs text-gray-400">ID: #{{ batch.id.substring(0, 8) }}</span>
+            </div>
+          </div>
+        }
+      }
+      
+      <!-- Mobile Pagination -->
+      @if (!isLoading() && creditBatches().length > 10) {
+        <div class="mt-4">
+          <p-paginator
+            [rows]="mobileRowsPerPage()"
+            [totalRecords]="creditBatches().length"
+            [rowsPerPageOptions]="[10, 20, 30]"
+            [showCurrentPageReport]="true"
+            currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} compras"
+            (onPageChange)="onMobilePageChange($event)">
+          </p-paginator>
+        </div>
+      }
+    </div>
+
+    <!-- Desktop Table Layout -->
+    <div class="hidden md:block bg-white rounded-lg shadow-sm border border-gray-200">
+      <p-table 
+        [value]="isLoading() ? skeletonData : creditBatches()"
+        [rows]="10"
+        [paginator]="true"
+        [tableStyle]="{ 'min-width': '60rem' }"
+        [rowHover]="true"
+        dataKey="id"
+        currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} compras"
+        [showCurrentPageReport]="true"
+        [rowsPerPageOptions]="[10, 20, 30]"
+        class="p-datatable-gridlines">
+        
+        <ng-template pTemplate="header">
+          <tr>
+            <th style="width: 20%">Fecha de Compra</th>
+            <th style="width: 20%">Paquete</th>
+            <th style="width: 15%" class="text-center">Créditos</th>
+            <th style="width: 15%" class="text-center">Precio</th>
+            <th style="width: 15%" class="text-center">Estado</th>
+            <th style="width: 15%" class="text-center">Vencimiento</th>
+          </tr>
+        </ng-template>
+        
+        <ng-template pTemplate="body" let-batch>
+          @if (isLoading()) {
+            <tr>
+              <td><p-skeleton width="80%" /></td>
+              <td><p-skeleton width="90%" /></td>
+              <td class="text-center"><p-skeleton width="70%" /></td>
+              <td class="text-center"><p-skeleton width="80%" /></td>
+              <td class="text-center"><p-skeleton width="60%" /></td>
+              <td class="text-center"><p-skeleton width="80%" /></td>
+            </tr>
+          } @else {
+            <tr>
+              <td>
+                <div>
+                  <div class="font-medium">{{ formatDate(batch.created_at) }}</div>
+                  <div class="text-sm text-gray-500">ID: #{{ batch.id.substring(0, 8) }}</div>
+                </div>
+              </td>
+              <td>
+                <div class="font-medium">{{ getPackageTitle(batch) }}</div>
+              </td>
+              <td class="text-center">
+                @if (batch.is_unlimited) {
+                  <span class="text-indigo-600 font-bold">∞</span>
+                } @else {
+                  <div>
+                    <div class="font-semibold">{{ batch.credits_remaining }} / {{ batch.credits_total }}</div>
+                    @if (batch.credits_remaining !== batch.credits_total) {
+                      <div class="text-xs text-gray-500">
+                        {{ batch.credits_total - batch.credits_remaining }} usados
+                      </div>
+                    }
+                  </div>
+                }
+              </td>
+              <td class="text-center">
+                <span class="font-semibold text-green-600">
+                  {{ formatCurrency(getPurchaseAmount(batch)) }}
+                </span>
+              </td>
+              <td class="text-center">
+                <p-tag 
+                  [value]="getStatusLabel(batch)" 
+                  [severity]="getStatusSeverity(batch)"
+                  [rounded]="true">
+                </p-tag>
+              </td>
+              <td class="text-center">
+                @if (batch.expiration_activated && !batch.is_unlimited) {
+                  <div>
+                    <p-tag 
+                      [value]="getExpirationText(batch)"
+                      [severity]="getExpirationSeverity(batch)"
+                      size="small">
+                    </p-tag>
+                    @if (batch.expiration_date) {
+                      <div class="text-xs text-gray-500 mt-1">
+                        {{ formatDate(batch.expiration_date) }}
+                      </div>
+                    }
+                  </div>
+                } @else {
+                  <span class="text-gray-500">Sin vencimiento</span>
+                }
+              </td>
+            </tr>
+          }
+        </ng-template>
+      </p-table>
+    </div>
+  }
+</div>

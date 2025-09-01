@@ -1,0 +1,464 @@
+<p-toast />
+<p-confirm-dialog />
+
+<div class="admin-sessions-container">
+  <div class="header-section mb-6">
+    <div class="flex justify-between items-center mb-4">
+      <h2 class="text-2xl font-bold">Gestión de Sesiones</h2>
+      <p-button 
+        label="Crear Sesión" 
+        icon="pi pi-plus" 
+        (onClick)="openCreateDialog()"
+        class="p-button-primary">
+      </p-button>
+    </div>
+    
+    <!-- Summary Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      <p-card class="summary-card">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm font-medium text-gray-600">Total Sesiones</p>
+            <p class="text-xl font-bold text-blue-600">{{ sessions().length }}</p>
+          </div>
+          <i class="pi pi-calendar text-blue-500 text-2xl"></i>
+        </div>
+      </p-card>
+      
+      <p-card class="summary-card">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm font-medium text-gray-600">Activas</p>
+            <p class="text-xl font-bold text-green-600">{{ getActiveSessionsCount() }}</p>
+          </div>
+          <i class="pi pi-check-circle text-green-500 text-2xl"></i>
+        </div>
+      </p-card>
+      
+      <p-card class="summary-card">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm font-medium text-gray-600">Inactivas</p>
+            <p class="text-xl font-bold text-red-600">{{ getInactiveSessionsCount() }}</p>
+          </div>
+          <i class="pi pi-times-circle text-red-500 text-2xl"></i>
+        </div>
+      </p-card>
+    </div>
+  </div>
+  
+  @if (!isLoading() && sessions().length === 0) {
+    <div class="text-center py-12">
+      <i class="pi pi-calendar text-5xl text-gray-300 mb-4"></i>
+      <p class="text-gray-500 text-lg">No hay sesiones registradas</p>
+      <p-button 
+        label="Crear primera sesión" 
+        icon="pi pi-plus" 
+        (onClick)="openCreateDialog()"
+        class="mt-4">
+      </p-button>
+    </div>
+  } @else {
+    
+    <!-- Mobile Card Layout -->
+    <div class="block md:hidden">
+      @if (isLoading()) {
+        @for (item of skeletonData; track $index) {
+          <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4">
+            <div class="flex items-start gap-4 mb-3">
+              <p-skeleton width="4rem" height="4rem" class="rounded-lg" />
+              <div class="flex-1">
+                <p-skeleton width="70%" height="1.25rem" class="mb-2" />
+                <p-skeleton width="40%" height="1rem" />
+              </div>
+              <p-skeleton width="3rem" height="1.5rem" class="rounded" />
+            </div>
+            <p-skeleton width="100%" height="3rem" class="mb-3" />
+            <div class="grid grid-cols-3 gap-2 mb-3">
+              <p-skeleton width="100%" height="1rem" />
+              <p-skeleton width="100%" height="1rem" />
+              <p-skeleton width="100%" height="1rem" />
+            </div>
+            <div class="flex justify-between items-center">
+              <p-skeleton width="30%" height="1rem" />
+              <div class="flex gap-3">
+                <p-skeleton width="2.5rem" height="2.5rem" class="rounded-full" />
+                <p-skeleton width="2.5rem" height="2.5rem" class="rounded-full" />
+              </div>
+            </div>
+          </div>
+        }
+      } @else {
+        @for (session of paginatedSessions; track session.id) {
+          <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4 hover:shadow-md transition-shadow">
+            <!-- Header: Imagen y datos básicos -->
+            <div class="flex items-start gap-4 mb-3">
+              <img 
+                [src]="session.image_url" 
+                [alt]="session.class_name"
+                class="w-16 h-16 rounded-lg object-cover"
+                onerror="this.src='/assets/images/default-session.png'">
+              <div class="flex-1">
+                <h3 class="text-lg font-semibold text-gray-900">{{ session.class_name }}</h3>
+                <p class="text-sm text-gray-600">{{ session.day_name }} - Orden: {{ session.order_index }}</p>
+              </div>
+              <p-tag 
+                [value]="session.is_active ? 'Activa' : 'Inactiva'"
+                [severity]="session.is_active ? 'success' : 'danger'"
+                [rounded]="true">
+              </p-tag>
+            </div>
+            
+            <!-- Subtitle and Description -->
+            @if (session.class_subtitle) {
+              <p class="text-sm font-medium text-gray-800 mb-2">{{ session.class_subtitle }}</p>
+            }
+            @if (session.description) {
+              <p class="text-sm text-gray-700 line-clamp-2 mb-3">{{ session.description }}</p>
+            }
+            
+            <!-- Details Grid -->
+            <div class="grid grid-cols-3 gap-2 mb-3">
+              <div class="text-center">
+                <span class="text-xs text-gray-500 block">Duración</span>
+                <p class="text-sm font-medium">{{ session.duration || 'N/A' }}</p>
+              </div>
+              <div class="text-center">
+                <span class="text-xs text-gray-500 block">Nivel</span>
+                <p class="text-sm font-medium">{{ session.level || 'N/A' }}</p>
+              </div>
+              <div class="text-center">
+                <span class="text-xs text-gray-500 block">Cupos</span>
+                <p class="text-sm font-medium">{{ session.max_spots || 'N/A' }}</p>
+              </div>
+            </div>
+            
+            <!-- Actions Footer -->
+            <div class="flex justify-between items-center border-t border-gray-100 pt-3">
+              <span class="text-xs text-gray-400">ID: {{ session.id.substring(0, 8) }}</span>
+              <div class="flex gap-3">
+                <p-button 
+                  icon="pi pi-pencil" 
+                  severity="info"
+                  [text]="true"
+                  [rounded]="true"
+                  size="small"
+                  (onClick)="openEditDialog(session)">
+                </p-button>
+                <p-button 
+                  icon="pi pi-trash" 
+                  severity="danger"
+                  [text]="true"
+                  [rounded]="true"
+                  size="small"
+                  (onClick)="confirmDeleteSession(session)">
+                </p-button>
+              </div>
+            </div>
+          </div>
+        }
+      }
+      
+      <!-- Mobile Pagination -->
+      @if (!isLoading() && sessions().length > 10) {
+        <div class="mt-6">
+          <p-paginator
+            [rows]="mobileRowsPerPage()"
+            [totalRecords]="sessions().length"
+            [rowsPerPageOptions]="[10, 20, 30]"
+            [showCurrentPageReport]="true"
+            currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} sesiones"
+            (onPageChange)="onMobilePageChange($event)">
+          </p-paginator>
+        </div>
+      }
+    </div>
+
+    <!-- Desktop Table Layout -->
+    <div class="hidden md:block">
+      <p-table 
+        [value]="isLoading() ? skeletonData : sessions()"
+        [rows]="15"
+        [paginator]="true"
+        [tableStyle]="{ 'min-width': '80rem' }"
+        [rowHover]="true"
+        dataKey="id"
+        currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} sesiones"
+        [showCurrentPageReport]="true"
+        [rowsPerPageOptions]="[15, 25, 50]"
+        class="p-datatable-gridlines">
+        
+        <ng-template pTemplate="header">
+          <tr>
+            <th>Imagen</th>
+            <th>Clase</th>
+            <th>Día</th>
+            <th>Duración</th>
+            <th>Nivel</th>
+            <th>Cupos</th>
+            <th>Orden</th>
+            <th>Estado</th>
+            <th class="text-center">Acciones</th>
+          </tr>
+        </ng-template>
+        
+        <ng-template pTemplate="body" let-session>
+          @if (isLoading()) {
+            <tr>
+              <td><p-skeleton width="3rem" height="3rem" class="rounded-lg" /></td>
+              <td><p-skeleton width="80%" /></td>
+              <td><p-skeleton width="70%" /></td>
+              <td><p-skeleton width="60%" /></td>
+              <td><p-skeleton width="70%" /></td>
+              <td><p-skeleton width="40%" /></td>
+              <td><p-skeleton width="30%" /></td>
+              <td><p-skeleton width="50%" /></td>
+              <td class="text-center">
+                <div class="flex gap-3 justify-center">
+                  <p-skeleton width="2.5rem" height="2.5rem" class="rounded-full" />
+                  <p-skeleton width="2.5rem" height="2.5rem" class="rounded-full" />
+                </div>
+              </td>
+            </tr>
+          } @else {
+            <tr>
+              <td>
+                <img 
+                  [src]="session.image_url" 
+                  [alt]="session.class_name"
+                  class="w-12 h-12 rounded-lg object-cover"
+                  onerror="this.src='/assets/images/default-session.png'">
+              </td>
+              <td>
+                <div>
+                  <div class="font-medium text-gray-900">{{ session.class_name }}</div>
+                  @if (session.class_subtitle) {
+                    <div class="text-sm text-gray-600">{{ session.class_subtitle }}</div>
+                  }
+                  <div class="text-xs text-gray-500">ID: {{ session.id.substring(0, 8) }}</div>
+                </div>
+              </td>
+              <td>
+                <div class="font-medium">{{ session.day_name }}</div>
+                <div class="text-xs text-gray-500">Día {{ session.day_of_week }}</div>
+              </td>
+              <td>{{ session.duration || 'N/A' }}</td>
+              <td>{{ session.level || 'N/A' }}</td>
+              <td class="text-center">{{ session.max_spots || 'N/A' }}</td>
+              <td class="text-center">{{ session.order_index }}</td>
+              <td>
+                <p-tag 
+                  [value]="session.is_active ? 'Activa' : 'Inactiva'"
+                  [severity]="session.is_active ? 'success' : 'danger'"
+                  [rounded]="true">
+                </p-tag>
+              </td>
+              <td class="text-center">
+                <div class="flex gap-3 justify-center">
+                  <p-button 
+                    icon="pi pi-pencil" 
+                    severity="info"
+                    [text]="true"
+                    [rounded]="true"
+                    size="small"
+                    (onClick)="openEditDialog(session)">
+                  </p-button>
+                  <p-button 
+                    icon="pi pi-trash" 
+                    severity="danger"
+                    [text]="true"
+                    [rounded]="true"
+                    size="small"
+                    (onClick)="confirmDeleteSession(session)">
+                  </p-button>
+                </div>
+              </td>
+            </tr>
+          }
+        </ng-template>
+      </p-table>
+    </div>
+  }
+</div>
+
+<!-- Create/Edit Dialog -->
+<p-dialog 
+  [header]="isEditing() ? 'Editar Sesión' : 'Crear Sesión'"
+  [(visible)]="displayDialog"
+  [modal]="true"
+  [style]="{ width: '60vw' }"
+  [breakpoints]="{ '960px': '80vw', '641px': '95vw' }"
+  [draggable]="false"
+  [resizable]="false">
+  
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <!-- Left Column -->
+    <div class="space-y-4">
+      <!-- Image Upload -->
+      <div class="field">
+        <label class="font-medium text-gray-700 mb-2 block">Imagen de la clase *</label>
+        @if (imagePreview()) {
+          <div class="mb-3">
+            <img 
+              [src]="imagePreview()" 
+              alt="Preview" 
+              class="w-32 h-24 rounded-lg object-cover mx-auto border-2 border-gray-200">
+          </div>
+        }
+        <p-fileUpload
+          mode="basic"
+          chooseLabel="Seleccionar imagen"
+          accept="image/*"
+          [maxFileSize]="1000000"
+          (onSelect)="onFileSelect($event)"
+          [auto]="false"
+          class="w-full"
+          [class.p-invalid]="isFieldInvalid('image')">
+        </p-fileUpload>
+        @if (isFieldInvalid('image')) {
+          <small class="text-red-600 block mt-1">{{ formErrors().image }}</small>
+        }
+        <small class="text-gray-500 block mt-1">Formatos: JPG, PNG. Máximo 1MB</small>
+      </div>
+
+      <!-- Class Name -->
+      <div class="field">
+        <label class="font-medium text-gray-700 mb-2 block">Nombre de la clase *</label>
+        <input
+          type="text"
+          pInputText
+          [(ngModel)]="sessionForm().class_name"
+          (ngModelChange)="validateField('class_name')"
+          (blur)="onFieldTouch('class_name')"
+          placeholder="Ej: FULL BODY, CORE ELEMENTS..."
+          class="w-full"
+          [class.p-invalid]="isFieldInvalid('class_name')"
+          required>
+        @if (isFieldInvalid('class_name')) {
+          <small class="text-red-600 block mt-1">{{ formErrors().class_name }}</small>
+        }
+      </div>
+
+      <!-- Class Subtitle -->
+      <div class="field">
+        <label class="font-medium text-gray-700 mb-2 block">Subtítulo de la clase</label>
+        <input
+          type="text"
+          pInputText
+          [(ngModel)]="sessionForm().class_subtitle"
+          placeholder="Ej: Entrenamiento completo"
+          class="w-full">
+        <small class="text-gray-500">Opcional - Descripción corta de la clase</small>
+      </div>
+
+      <!-- Day Selection -->
+      <div class="field">
+        <label class="font-medium text-gray-700 mb-2 block">Día de la semana *</label>
+        <p-select
+          [(ngModel)]="sessionForm().day_of_week"
+          [options]="dayOptions"
+          optionLabel="label"
+          optionValue="value"
+          placeholder="Seleccionar día"
+          class="w-full"
+          [class.p-invalid]="isFieldInvalid('day_of_week')"
+          (onChange)="onDayChange($event.value); onFieldTouch('day_of_week')">
+        </p-select>
+        @if (isFieldInvalid('day_of_week')) {
+          <small class="text-red-600 block mt-1">{{ formErrors().day_of_week }}</small>
+        }
+      </div>
+    </div>
+
+    <!-- Right Column -->
+    <div class="space-y-4">
+      <!-- Description -->
+      <div class="field">
+        <label class="font-medium text-gray-700 mb-2 block">Descripción</label>
+        <textarea
+          pTextarea
+          [(ngModel)]="sessionForm().description"
+          placeholder="Descripción detallada de la clase..."
+          rows="4"
+          class="w-full">
+        </textarea>
+        <small class="text-gray-500">Opcional - Descripción detallada</small>
+      </div>
+
+      <!-- Duration -->
+      <div class="field">
+        <label class="font-medium text-gray-700 mb-2 block">Duración</label>
+        <p-select
+          [(ngModel)]="sessionForm().duration"
+          [options]="durationOptions"
+          placeholder="Seleccionar duración"
+          class="w-full">
+        </p-select>
+      </div>
+
+      <!-- Level -->
+      <div class="field">
+        <label class="font-medium text-gray-700 mb-2 block">Nivel</label>
+        <p-select
+          [(ngModel)]="sessionForm().level"
+          [options]="levelOptions"
+          placeholder="Seleccionar nivel"
+          class="w-full">
+        </p-select>
+      </div>
+
+      <!-- Max Spots -->
+      <div class="field">
+        <label class="font-medium text-gray-700 mb-2 block">Cupos máximos</label>
+        <p-inputNumber
+          [(ngModel)]="sessionForm().max_spots"
+          [min]="1"
+          [max]="50"
+          placeholder="Número de cupos"
+          class="w-full">
+        </p-inputNumber>
+        <small class="text-gray-500">Número máximo de participantes</small>
+      </div>
+
+      <!-- Order Index -->
+      <div class="field">
+        <label class="font-medium text-gray-700 mb-2 block">Orden</label>
+        <p-inputNumber
+          [(ngModel)]="sessionForm().order_index"
+          [min]="1"
+          [max]="100"
+          placeholder="Orden de aparición"
+          class="w-full">
+        </p-inputNumber>
+      </div>
+
+      <!-- Active Status -->
+      <div class="field">
+        <div class="flex items-center">
+          <p-checkbox
+            [(ngModel)]="sessionForm().is_active"
+            binary="true"
+            inputId="is_active">
+          </p-checkbox>
+          <label for="is_active" class="ml-2 font-medium text-gray-700">Sesión activa</label>
+        </div>
+        <small class="text-gray-500">Las sesiones inactivas no se muestran al público</small>
+      </div>
+    </div>
+  </div>
+
+  <ng-template pTemplate="footer">
+    <div class="flex gap-2 justify-end">
+      <p-button 
+        label="Cancelar" 
+        severity="secondary" 
+        (onClick)="displayDialog.set(false)">
+      </p-button>
+      <p-button 
+        [label]="isEditing() ? 'Actualizar' : 'Crear'"
+        [loading]="isUploading()"
+        (onClick)="saveSession()">
+      </p-button>
+    </div>
+  </ng-template>
+</p-dialog>

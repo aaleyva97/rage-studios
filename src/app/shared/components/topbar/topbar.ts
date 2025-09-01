@@ -17,6 +17,8 @@ import { OverlayBadge } from 'primeng/overlaybadge';
 import { Tooltip } from 'primeng/tooltip'
 import { CreditsService } from '../../../core/services/credits.service';
 import { BookingDialog } from '../../../features/booking/components/booking-dialog/booking-dialog';
+import { BookingService } from '../../../core/services/booking.service';
+import { BookingsDialog } from '../bookings-dialog/bookings-dialog';
 
 interface NavItem {
   label: string;
@@ -48,7 +50,8 @@ interface Profile {
     ToastModule,
     OverlayBadge,
     Tooltip,
-    BookingDialog
+    BookingDialog,
+    BookingsDialog
   ],
   providers: [MessageService],
   templateUrl: './topbar.html',
@@ -56,6 +59,7 @@ interface Profile {
 })
 export class Topbar implements OnInit, OnDestroy {
   @ViewChild('userMenu') userMenu!: Menu;
+  @ViewChild('bookingsDialog') bookingsDialog!: any;
   
   private supabaseService = inject(SupabaseService);
   private messageService = inject(MessageService);
@@ -64,6 +68,7 @@ export class Topbar implements OnInit, OnDestroy {
   private bookingUiService = inject(BookingUiService);
   private router = inject(Router);
   protected creditsService = inject(CreditsService);
+  private bookingService = inject(BookingService);
   
   isLoggedIn = signal(false);
   currentUser = signal<any>(null);
@@ -78,6 +83,8 @@ export class Topbar implements OnInit, OnDestroy {
   mobileMenuVisible = signal(false);
   userMenuVisible = signal(false);
   userMenuItems = signal<MenuItem[]>([]);
+  activeBookingsCount = signal(0);
+  showBookingsDialog = signal(false);
   
   private authSubscription?: Subscription;
   
@@ -122,9 +129,11 @@ export class Topbar implements OnInit, OnDestroy {
       
       if (user && !this.profileLoadAttempted()) {
         this.loadUserProfile(user.id);
+        this.loadActiveBookingsCount(user.id);
       } else if (!user) {
         this.userProfile.set(null);
         this.profileLoadAttempted.set(false);
+        this.activeBookingsCount.set(0);
       }
       
       this.updateMenuItems();
@@ -299,5 +308,42 @@ export class Topbar implements OnInit, OnDestroy {
 
   openBookingDialog() {
     this.bookingUiService.openBookingDialog();
+  }
+
+  private async loadActiveBookingsCount(userId: string) {
+    try {
+      const activeBookings = await this.bookingService.getUserActiveBookings(userId);
+      this.activeBookingsCount.set(activeBookings.length);
+    } catch (error) {
+      console.error('Error loading active bookings count:', error);
+      this.activeBookingsCount.set(0);
+    }
+  }
+
+  async openBookingsDialog() {
+    // Usar el método del componente BookingsDialog para evitar bucles
+    if (this.bookingsDialog) {
+      await this.bookingsDialog.openDialog();
+    } else {
+      // Fallback si no hay referencia
+      this.showBookingsDialog.set(true);
+    }
+    
+    // Refrescar el contador cuando se abre el dialog
+    const user = this.currentUser();
+    if (user) {
+      await this.loadActiveBookingsCount(user.id);
+    }
+  }
+
+  closeBookingsDialog() {
+    this.showBookingsDialog.set(false);
+  }
+
+  getActiveBookingsTooltip(): string {
+    const count = this.activeBookingsCount();
+    if (count === 0) return 'No tienes reservas activas';
+    if (count === 1) return '1 reserva activa';
+    return `${count} reservas activas`;
   }
 }
