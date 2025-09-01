@@ -555,7 +555,7 @@ export class NotificationService {
       return this.getDevelopmentVapidKey();
     } else {
       console.log('🏭 [SWPUSH-PROD] Using production VAPID key');
-      return 'BG6JhFh9ZQi-_0LD9vkRyHGOzF-vYfIjXpVcOyM4L4w8pQZrYr7_HiAJ0bMqC7-RGXdYFRqIwLwZvVcGHNlRq_k';
+      return 'BAZuWOr2cwR2etuTiZ6Xyxi8fYOTzpcfZUX3p0qugWGvI2jVkbckMi8Ltq6mHBDkc-5sSmQK2L_gXfonstfSDlM';
     }
   }
   
@@ -636,7 +636,7 @@ export class NotificationService {
   private getDevelopmentVapidKey(): string {
     // Esta key fue generada específicamente para desarrollo localhost
     // No tiene servidor backend real pero permite testing de Service Worker
-    return 'BLc4xRzdHz2mmw-9EsrTRhmyHnEzOzTbZqXYEcH-IUvhP_RlBtdz_iBhf6IxCz8LrEBLyv_vD8YAX2hf6vKOZsU';
+    return 'BAZuWOr2cwR2etuTiZ6Xyxi8fYOTzpcfZUX3p0qugWGvI2jVkbckMi8Ltq6mHBDkc-5sSmQK2L_gXfonstfSDlM';
   }
 
   private getDeviceInfo(): DeviceInfo {
