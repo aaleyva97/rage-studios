@@ -44,6 +44,13 @@ export class AccountDashboard {
       color: 'green'
     },
     {
+      title: 'Gestión de Créditos',
+      description: 'Administra tus compras y créditos',
+      icon: 'pi pi-credit-card',
+      route: '/mi-cuenta/gestion-creditos',
+      color: 'indigo'
+    },
+    {
       title: 'Historial de Créditos',
       description: 'Revisa tus movimientos de créditos',
       icon: 'pi pi-wallet',
