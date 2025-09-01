@@ -17,8 +17,19 @@
         [inline]="true"
         [minDate]="minDate"
         dateFormat="dd/mm/yy"
-        (onSelect)="onDateSelect($event)"
-        (onViewDateChange)="markBookingDatesInCalendar()">
+        (onSelect)="onDateSelect($event)">
+        
+        <!-- Template para customizar días con reservas -->
+        <ng-template #date let-date>
+          @if (hasBookingOnDate(date)) {
+            <span class="booking-day">
+              {{ date.day }}
+            </span>
+          } @else {
+            {{ date.day }}
+          }
+        </ng-template>
+        
       </p-datepicker>
     </div>
     

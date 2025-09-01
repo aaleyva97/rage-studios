@@ -1,4 +1,4 @@
-import { Component, model, signal, inject, OnInit, AfterViewInit, ViewChild, ElementRef } from '@angular/core';
+import { Component, model, signal, inject, OnInit, OnDestroy, ViewChild, ElementRef, effect } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { DatePipe } from '@angular/common';
 import { DialogModule } from 'primeng/dialog';
@@ -9,6 +9,7 @@ import { TagModule } from 'primeng/tag';
 import { BookingService } from '../../../core/services/booking.service';
 import { SupabaseService } from '../../../core/services/supabase-service';
 import { formatDateForDisplay } from '../../../core/functions/date-utils';
+import { Subscription } from 'rxjs';
 
 @Component({
   selector: 'app-bookings-dialog',
@@ -24,7 +25,7 @@ import { formatDateForDisplay } from '../../../core/functions/date-utils';
   templateUrl: './bookings-dialog.html',
   styleUrl: './bookings-dialog.scss'
 })
-export class BookingsDialog implements OnInit, AfterViewInit {
+export class BookingsDialog implements OnInit, OnDestroy {
   visible = model<boolean>(false);
 
   @ViewChild('datePicker') datePicker!: ElementRef;
@@ -37,25 +38,52 @@ export class BookingsDialog implements OnInit, AfterViewInit {
   bookingDates = signal<string[]>([]);
   isLoading = signal(true);
   minDate = new Date();
+  
+  private authSubscription?: Subscription;
+  private currentUserId: string | null = null;
+  
+  constructor() {
+    // Removido el effect problemático que causa bucle infinito
+  }
 
   async ngOnInit() {
+    // Solo obtener usuario una vez, no suscribirse
+    this.authSubscription = this.supabaseService.currentUser$.subscribe(user => {
+      this.currentUserId = user?.id || null;
+    });
+  }
+  
+  ngOnDestroy() {
+    this.authSubscription?.unsubscribe();
+  }
+  
+  async initializeDialogData() {
+    if (!this.currentUserId) {
+      return;
+    }
+    
     await this.loadBookingDates();
+    // Auto-cargar reservas del día actual
     await this.loadBookingsForToday();
   }
 
-  ngAfterViewInit() {
-    // Marcar fechas después de que la vista se haya inicializado
+  // Método público para inicializar desde el componente padre
+  public async openDialog() {
+    this.visible.set(true);
+    // Esperar un tick para que el dialog se abra
     setTimeout(() => {
-      this.markBookingDatesInCalendar();
-    }, 500);
+      this.initializeDialogData();
+    }, 100);
   }
 
   async loadBookingDates() {
-    const user = this.supabaseService.getUser();
-    if (!user) return;
+    if (!this.currentUserId) {
+      this.bookingDates.set([]);
+      return;
+    }
 
     try {
-      const dates = await this.bookingService.getUserBookingDates(user.id);
+      const dates = await this.bookingService.getUserBookingDates(this.currentUserId);
       this.bookingDates.set(dates);
     } catch (error) {
       console.error('Error loading booking dates:', error);
@@ -66,29 +94,27 @@ export class BookingsDialog implements OnInit, AfterViewInit {
   async loadBookingsForToday() {
     const today = new Date();
     this.selectedDate.set(today);
+    // Cargar reservas del día actual inmediatamente
     await this.loadBookingsForDate(today);
   }
 
   async onDateSelect(date: Date) {
     this.selectedDate.set(date);
     await this.loadBookingsForDate(date);
-    // Re-marcar fechas después de cambio de vista
-    setTimeout(() => {
-      this.markBookingDatesInCalendar();
-    }, 100);
   }
 
   async loadBookingsForDate(date: Date) {
     this.isLoading.set(true);
-    const user = this.supabaseService.getUser();
-    if (!user) {
+    const dateStr = date.toISOString().split('T')[0];
+    
+    if (!this.currentUserId) {
       this.isLoading.set(false);
+      this.bookingsForDate.set([]);
       return;
     }
 
     try {
-      const dateStr = date.toISOString().split('T')[0];
-      const bookings = await this.bookingService.getUserBookingsForDate(user.id, dateStr);
+      const bookings = await this.bookingService.getUserBookingsForDate(this.currentUserId, dateStr);
       
       // Formatear bookings
       const formattedBookings = bookings.map(booking => ({
@@ -113,43 +139,18 @@ export class BookingsDialog implements OnInit, AfterViewInit {
     this.visible.set(false);
   }
 
-  markBookingDatesInCalendar() {
-    // Solo ejecutar en el navegador
-    if (typeof document === 'undefined') return;
+  // Función para verificar si una fecha tiene reservas
+  hasBookingOnDate(date: any): boolean {
+    if (!date || !date.year || !date.month || !date.day) {
+      return false;
+    }
     
-    const bookingDatesSet = new Set(this.bookingDates());
+    // Construir fecha en formato YYYY-MM-DD
+    const year = date.year;
+    const month = (date.month + 1).toString().padStart(2, '0'); // month viene 0-indexed
+    const day = date.day.toString().padStart(2, '0');
+    const dateStr = `${year}-${month}-${day}`;
     
-    // Buscar todas las celdas del calendario
-    const calendarCells = document.querySelectorAll('.p-datepicker table td');
-    
-    calendarCells.forEach((cell: any) => {
-      // Remover clases previas
-      cell.classList.remove('has-booking-date');
-      
-      // Buscar el span interno que contiene el día
-      const daySpan = cell.querySelector('span');
-      if (daySpan && !cell.classList.contains('p-datepicker-other-month')) {
-        // Obtener la fecha actual del calendario
-        const calendar = cell.closest('.p-datepicker');
-        if (calendar) {
-          const monthYear = calendar.querySelector('.p-datepicker-header .p-datepicker-title');
-          if (monthYear) {
-            const day = daySpan.textContent?.trim();
-            if (day && !isNaN(parseInt(day))) {
-              // Construir la fecha en formato YYYY-MM-DD
-              const currentDate = this.selectedDate();
-              const year = currentDate.getFullYear();
-              const month = currentDate.getMonth();
-              const testDate = new Date(year, month, parseInt(day));
-              const dateStr = testDate.toISOString().split('T')[0];
-              
-              if (bookingDatesSet.has(dateStr)) {
-                cell.classList.add('has-booking-date');
-              }
-            }
-          }
-        }
-      }
-    });
+    return this.bookingDates().includes(dateStr);
   }
 }

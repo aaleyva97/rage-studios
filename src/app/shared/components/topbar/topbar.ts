@@ -59,6 +59,7 @@ interface Profile {
 })
 export class Topbar implements OnInit, OnDestroy {
   @ViewChild('userMenu') userMenu!: Menu;
+  @ViewChild('bookingsDialog') bookingsDialog!: any;
   
   private supabaseService = inject(SupabaseService);
   private messageService = inject(MessageService);
@@ -320,7 +321,14 @@ export class Topbar implements OnInit, OnDestroy {
   }
 
   async openBookingsDialog() {
-    this.showBookingsDialog.set(true);
+    // Usar el método del componente BookingsDialog para evitar bucles
+    if (this.bookingsDialog) {
+      await this.bookingsDialog.openDialog();
+    } else {
+      // Fallback si no hay referencia
+      this.showBookingsDialog.set(true);
+    }
+    
     // Refrescar el contador cuando se abre el dialog
     const user = this.currentUser();
     if (user) {
