@@ -12,6 +12,13 @@ export interface Profile {
   updated_at: string;
 }
 
+export interface UserSearchResult {
+  id: string;
+  full_name: string;
+  phone: string;
+  role: string;
+}
+
 export interface AdminStats {
   totalReservas: number;
   reservasHoy: number;
@@ -306,6 +313,43 @@ async getAllBookingsStats(): Promise<{
     return stats;
   } catch (error) {
     console.error('Error fetching booking stats:', error);
+    throw error;
+  }
+}
+
+// Admin Credits Management
+async searchUsers(query: string): Promise<UserSearchResult[]> {
+  if (!query || query.trim().length < 2) {
+    return [];
+  }
+
+  try {
+    const { data, error } = await this.supabaseClient
+      .from('profiles')
+      .select('id, full_name, phone, role')
+      .or(`full_name.ilike.%${query}%,phone.ilike.%${query}%`)
+      .limit(10)
+      .order('full_name', { ascending: true });
+
+    if (error) throw error;
+    return data as UserSearchResult[] || [];
+  } catch (error) {
+    console.error('Error searching users:', error);
+    throw error;
+  }
+}
+
+async getAllUsers(): Promise<UserSearchResult[]> {
+  try {
+    const { data, error } = await this.supabaseClient
+      .from('profiles')
+      .select('id, full_name, phone, role')
+      .order('full_name', { ascending: true });
+
+    if (error) throw error;
+    return data as UserSearchResult[] || [];
+  } catch (error) {
+    console.error('Error fetching all users:', error);
     throw error;
   }
 }
