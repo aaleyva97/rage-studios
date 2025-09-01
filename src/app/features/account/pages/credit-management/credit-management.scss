@@ -1,0 +1,108 @@
+.credit-management-container {
+  padding: 1rem;
+  
+  @media (min-width: 768px) {
+    padding: 1.5rem;
+  }
+}
+
+// Custom styles for the table
+:host ::ng-deep {
+  .p-datatable {
+    .p-datatable-thead > tr > th {
+      background-color: #f8fafc;
+      border-color: #e2e8f0;
+      font-weight: 600;
+      color: #475569;
+      font-size: 0.875rem;
+    }
+    
+    .p-datatable-tbody > tr {
+      &:nth-child(even) {
+        background-color: #fefefe;
+      }
+      
+      &:hover {
+        background-color: #f1f5f9 !important;
+      }
+    }
+  }
+  
+  // Panel styles
+  .p-panel .p-panel-header {
+    background-color: #f8fafc;
+    border-color: #e2e8f0;
+    
+    .p-panel-title {
+      font-weight: 600;
+      color: #475569;
+    }
+  }
+  
+  // Tag styles
+  .p-tag {
+    &.p-tag-success {
+      background-color: #dcfce7;
+      color: #166534;
+      border: 1px solid #bbf7d0;
+    }
+    
+    &.p-tag-warning {
+      background-color: #fef3c7;
+      color: #92400e;
+      border: 1px solid #fed7aa;
+    }
+    
+    &.p-tag-danger {
+      background-color: #fee2e2;
+      color: #991b1b;
+      border: 1px solid #fecaca;
+    }
+    
+    &.p-tag-info {
+      background-color: #dbeafe;
+      color: #1e40af;
+      border: 1px solid #bfdbfe;
+    }
+    
+    &.p-tag-secondary {
+      background-color: #f1f5f9;
+      color: #475569;
+      border: 1px solid #cbd5e1;
+    }
+  }
+}
+
+// Mobile specific styles
+@media (max-width: 767px) {
+  .credit-management-container {
+    padding: 0.75rem;
+  }
+  
+  :host ::ng-deep .p-panel .p-panel-header {
+    padding: 0.75rem 1rem;
+  }
+  
+  :host ::ng-deep .p-panel .p-panel-content {
+    padding: 1rem;
+  }
+}
+
+// Package cards hover effect
+.hover\:shadow-md:hover {
+  transition: box-shadow 0.2s ease-in-out;
+}
+
+// Custom gradient backgrounds
+.bg-gradient-to-br {
+  background-image: linear-gradient(to bottom right, var(--tw-gradient-stops));
+}
+
+.from-blue-50 {
+  --tw-gradient-from: #eff6ff;
+  --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to, rgba(239, 246, 255, 0));
+}
+
+.to-indigo-50 {
+  --tw-gradient-to: #eef2ff;
+}
