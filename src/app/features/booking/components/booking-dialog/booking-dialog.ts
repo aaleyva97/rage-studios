@@ -62,6 +62,10 @@ export class BookingDialog {
   
   // 🚨 PROTECCIÓN CRÍTICA CONTRA MÚLTIPLES CLICS
   isBooking = signal(false);
+  
+  // 🔄 REFRESCO AUTOMÁTICO DE DISPONIBILIDAD
+  private refreshInterval: any = null;
+  private lastRefresh = signal<Date | null>(null);
 
   // Fecha mínima (hoy)
   minDate = new Date();
@@ -88,6 +92,9 @@ export class BookingDialog {
     this.selectedTime.set(slot.time);
     this.selectedCoach.set(slot.coach);
     this.loadOccupiedBeds();
+    
+    // 🔄 INICIAR REFRESCO AUTOMÁTICO cada 10 segundos
+    this.startAutoRefresh();
   }
 
   async loadOccupiedBeds() {
@@ -102,6 +109,50 @@ export class BookingDialog {
       time + ':00'
     );
     this.occupiedBeds.set(occupied);
+    
+    // 🕒 TIMESTAMP del último refresco
+    this.lastRefresh.set(new Date());
+    
+    // 🔄 Validar si camas seleccionadas siguen disponibles
+    this.validateSelectedBeds();
+  }
+  
+  // 🔄 INICIAR REFRESCO AUTOMÁTICO
+  private startAutoRefresh() {
+    this.stopAutoRefresh(); // Limpiar interval anterior
+    
+    this.refreshInterval = setInterval(() => {
+      this.loadOccupiedBeds();
+    }, 10000); // Cada 10 segundos
+  }
+  
+  // 🛑 PARAR REFRESCO AUTOMÁTICO  
+  private stopAutoRefresh() {
+    if (this.refreshInterval) {
+      clearInterval(this.refreshInterval);
+      this.refreshInterval = null;
+    }
+  }
+  
+  // ✅ VALIDAR CAMAS SELECCIONADAS
+  private validateSelectedBeds() {
+    const selected = this.selectedBeds();
+    const occupied = this.occupiedBeds();
+    
+    const nowOccupied = selected.filter(bed => occupied.includes(bed));
+    
+    if (nowOccupied.length > 0) {
+      // Remover camas que ahora están ocupadas
+      const stillAvailable = selected.filter(bed => !occupied.includes(bed));
+      this.selectedBeds.set(stillAvailable);
+      
+      // Notificar al usuario
+      this.messageService.add({
+        severity: 'warn',
+        summary: 'Camas no disponibles',
+        detail: `Las camas ${nowOccupied.join(', ')} ya no están disponibles y fueron removidas de tu selección`
+      });
+    }
   }
 
   toggleBed(bedNumber: number) {
@@ -128,6 +179,9 @@ export class BookingDialog {
   }
 
   closeDialog() {
+    // 🛑 PARAR REFRESCO AUTOMÁTICO
+    this.stopAutoRefresh();
+    
     this.visible.set(false);
     this.resetForm();
   }
@@ -197,6 +251,9 @@ export class BookingDialog {
     }
     
     this.isLoading.set(true);
+    // 🔄 VALIDACIÓN FINAL: Recargar disponibilidad justo antes de reservar
+    await this.loadOccupiedBeds();
+    
     // Auto-asignar camas si no se seleccionaron
     let finalBeds = beds;
     if (beds.length === 0) {
@@ -208,6 +265,26 @@ export class BookingDialog {
           detail: 'No hay suficientes camas disponibles'
         });
         this.isLoading.set(false);
+        this.isBooking.set(false);
+        return;
+      }
+    } else {
+      // ✅ VALIDACIÓN CRÍTICA: Verificar que camas seleccionadas siguen disponibles
+      const occupiedNow = this.occupiedBeds();
+      const conflictingBeds = finalBeds.filter(bed => occupiedNow.includes(bed));
+      
+      if (conflictingBeds.length > 0) {
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Camas no disponibles',
+          detail: `Las camas ${conflictingBeds.join(', ')} ya no están disponibles. Por favor selecciona otras camas.`
+        });
+        this.isLoading.set(false);
+        this.isBooking.set(false);
+        
+        // Remover camas conflictivas de la selección
+        const stillAvailable = finalBeds.filter(bed => !occupiedNow.includes(bed));
+        this.selectedBeds.set(stillAvailable);
         return;
       }
     }
@@ -435,6 +512,9 @@ private async forceNotificationSchedulingFallback(bookingData: any): Promise<any
 }
 
 private async autoAssignBeds(count: number): Promise<number[]> {
+  // 🔄 REVALIDAR disponibilidad EN TIEMPO REAL antes de asignar
+  await this.loadOccupiedBeds();
+  
   const occupied = this.occupiedBeds();
   const availableBeds = [];
   
@@ -448,19 +528,7 @@ private async autoAssignBeds(count: number): Promise<number[]> {
   return availableBeds.slice(0, count);
 }
 
-private async updateBookingBatchId(bookingId: string, batchId: string): Promise<void> {
-  // Implementar en BookingService
-}
-
-private async cancelBooking(bookingId: string): Promise<void> {
-  // Implementar en BookingService
-}
-
-private async useCredits(amount: number): Promise<void> {
-  // Implementaremos esto cuando tengamos el PaymentService actualizado
-  // Por ahora solo lo logueamos
-  console.log(`Usando ${amount} créditos`);
-}
+// Métodos removidos - ya están implementados en BookingService
 
 private getClassNameForSession(coach: string, time: string): string {
   // Mapear horario y coach a nombre de clase
