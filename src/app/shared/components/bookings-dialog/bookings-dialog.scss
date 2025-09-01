@@ -1,23 +1,31 @@
 // Estilos para el calendario con fechas marcadas
 :host ::ng-deep {
-  .p-datepicker-calendar {
-    .has-booking {
-      background-color: var(--p-primary-color) !important;
-      color: var(--p-primary-contrast-color) !important;
-      border-radius: 50%;
-      font-weight: 600;
+  .p-datepicker {
+    .has-booking-date {
       position: relative;
       
-      &::after {
-        content: '';
-        position: absolute;
-        top: -2px;
-        right: -2px;
-        width: 6px;
-        height: 6px;
-        background-color: var(--p-green-500);
-        border-radius: 50%;
-        border: 1px solid white;
+      span {
+        background-color: var(--p-primary-color) !important;
+        color: var(--p-primary-contrast-color) !important;
+        border-radius: 4px;
+        font-weight: 600;
+        position: relative;
+        
+        &::after {
+          content: '';
+          position: absolute;
+          top: -2px;
+          right: -2px;
+          width: 6px;
+          height: 6px;
+          background-color: var(--p-green-500);
+          border-radius: 50%;
+          border: 1px solid white;
+        }
+      }
+      
+      &:hover span {
+        background-color: var(--p-primary-600) !important;
       }
     }
   }

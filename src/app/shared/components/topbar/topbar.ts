@@ -319,8 +319,13 @@ export class Topbar implements OnInit, OnDestroy {
     }
   }
 
-  openBookingsDialog() {
+  async openBookingsDialog() {
     this.showBookingsDialog.set(true);
+    // Refrescar el contador cuando se abre el dialog
+    const user = this.currentUser();
+    if (user) {
+      await this.loadActiveBookingsCount(user.id);
+    }
   }
 
   closeBookingsDialog() {
