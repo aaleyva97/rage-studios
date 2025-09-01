@@ -261,6 +261,67 @@ export class BookingService {
     return data || [];
   }
 
+  // Obtener reservas activas del usuario desde hoy en adelante
+  async getUserActiveBookings(userId: string): Promise<any[]> {
+    const today = new Date().toISOString().split('T')[0];
+    
+    const { data, error } = await this.supabaseClient
+      .from('bookings')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('status', 'active')
+      .gte('session_date', today)
+      .order('session_date', { ascending: true })
+      .order('session_time', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching user active bookings:', error);
+      return [];
+    }
+
+    return data || [];
+  }
+
+  // Obtener reservas activas para una fecha específica
+  async getUserBookingsForDate(userId: string, date: string): Promise<any[]> {
+    const { data, error } = await this.supabaseClient
+      .from('bookings')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('status', 'active')
+      .eq('session_date', date)
+      .order('session_time', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching user bookings for date:', error);
+      return [];
+    }
+
+    return data || [];
+  }
+
+  // Obtener todas las fechas que tienen reservas activas para el usuario desde hoy en adelante
+  async getUserBookingDates(userId: string): Promise<string[]> {
+    const today = new Date().toISOString().split('T')[0];
+    
+    const { data, error } = await this.supabaseClient
+      .from('bookings')
+      .select('session_date')
+      .eq('user_id', userId)
+      .eq('status', 'active')
+      .gte('session_date', today)
+      .order('session_date', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching user booking dates:', error);
+      return [];
+    }
+
+    // Eliminar duplicados y retornar solo las fechas únicas
+    const uniqueDates = [...new Set(data?.map(booking => booking.session_date) || [])];
+    return uniqueDates;
+  }
+
   // Cancelar reserva y devolver créditos
   async cancelBookingWithRefund(
     bookingId: string,
