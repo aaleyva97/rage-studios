@@ -20,6 +20,7 @@ export interface Booking {
   attendees: string[];
   total_attendees: number;
   credits_used: number;
+  credit_batch_id?: string;
   status: string;
 }
 
@@ -28,6 +29,10 @@ export interface Booking {
 })
 export class BookingService {
   private supabaseClient: SupabaseClient;
+  
+  // 🔄 SIGNAL REACTIVO CENTRALIZADO PARA ACTIVE BOOKINGS COUNT
+  private _activeBookingsCount = signal(0);
+  private _currentUserId: string | null = null;
 
   // Schedule EXACTO según la tabla de horarios proporcionada
   private schedule: any = {
@@ -106,6 +111,37 @@ export class BookingService {
       environment.SUPABASE_KEY
     );
   }
+  
+  // 📊 GETTER PÚBLICO PARA ACTIVE BOOKINGS COUNT (READONLY)
+  get activeBookingsCount() {
+    return this._activeBookingsCount.asReadonly();
+  }
+  
+  // 👤 ESTABLECER USUARIO ACTUAL PARA TRACKING DE RESERVAS
+  setCurrentUser(userId: string | null) {
+    this._currentUserId = userId;
+    if (userId) {
+      this.refreshActiveBookingsCount();
+    } else {
+      this._activeBookingsCount.set(0);
+    }
+  }
+  
+  // 🔄 REFRESCAR COUNT DE RESERVAS ACTIVAS
+  async refreshActiveBookingsCount(): Promise<void> {
+    if (!this._currentUserId) {
+      this._activeBookingsCount.set(0);
+      return;
+    }
+    
+    try {
+      const activeBookings = await this.getUserActiveBookings(this._currentUserId);
+      this._activeBookingsCount.set(activeBookings.length);
+    } catch (error) {
+      console.error('Error refreshing active bookings count:', error);
+      // No resetear el count en caso de error para evitar parpadeo en UI
+    }
+  }
 
   getDaySchedule(date: Date | string): TimeSlot[] {
     const dayNames = [
@@ -165,37 +201,111 @@ export class BookingService {
   }
 
   async getOccupiedBeds(date: string, time: string): Promise<number[]> {
+    try {
+      // 🔥 USAR FUNCIÓN SECURITY DEFINER PARA VER TODAS LAS CAMAS OCUPADAS
+      const { data, error } = await this.supabaseClient
+        .rpc('get_occupied_beds_public', {
+          p_session_date: date,
+          p_session_time: time
+        });
+
+      if (error) {
+        console.error('Error getting occupied beds via function:', error);
+        // Fallback a consulta directa (puede estar filtrada por RLS)
+        return this.getOccupiedBedsFallback(date, time);
+      }
+
+      return Array.isArray(data) ? [...new Set(data)] : [];
+    } catch (error) {
+      console.error('Error in getOccupiedBeds:', error);
+      return this.getOccupiedBedsFallback(date, time);
+    }
+  }
+  
+  // 🛡️ FALLBACK: Consulta directa (filtrada por RLS)
+  private async getOccupiedBedsFallback(date: string, time: string): Promise<number[]> {
     const { data, error } = await this.supabaseClient
       .from('bookings')
       .select('bed_numbers')
       .eq('session_date', date)
       .eq('session_time', time)
-      .eq('status', 'active');
+      .eq('status', 'active')
+      .order('created_at', { ascending: false });
 
     if (error || !data) return [];
 
-    // Flatten array de arrays con tipos correctos
     const allBeds: number[] = [];
     data.forEach((booking: { bed_numbers: number[] }) => {
       allBeds.push(...booking.bed_numbers);
     });
 
-    return allBeds;
+    return [...new Set(allBeds)];
+  }
+  
+  // 🔄 MÉTODO OPTIMIZADO: Obtener snapshot fresco con metadatos
+  async getOccupiedBedsWithMetadata(date: string, time: string): Promise<{
+    beds: number[];
+    totalBookings: number;
+    lastUpdated: Date;
+  }> {
+    const { data, error } = await this.supabaseClient
+      .from('bookings')
+      .select('bed_numbers, created_at, updated_at')
+      .eq('session_date', date)
+      .eq('session_time', time)
+      .eq('status', 'active')
+      .order('updated_at', { ascending: false });
+
+    if (error || !data) {
+      return {
+        beds: [],
+        totalBookings: 0,
+        lastUpdated: new Date()
+      };
+    }
+
+    const allBeds: number[] = [];
+    data.forEach((booking: { bed_numbers: number[] }) => {
+      allBeds.push(...booking.bed_numbers);
+    });
+
+    return {
+      beds: [...new Set(allBeds)],
+      totalBookings: data.length,
+      lastUpdated: new Date()
+    };
   }
 
   async createBooking(
     booking: Booking
   ): Promise<{ success: boolean; data?: any; error?: string }> {
     try {
+      // 🔥 USAR FUNCIÓN ATÓMICA V2 CON BYPASS RLS  
       const { data, error } = await this.supabaseClient
-        .from('bookings')
-        .insert(booking)
-        .select()
-        .single();
+        .rpc('create_booking_atomic_v2', {
+          p_user_id: booking.user_id,
+          p_session_date: booking.session_date,
+          p_session_time: booking.session_time,
+          p_bed_numbers: booking.bed_numbers,
+          p_attendees: booking.attendees || [],
+          p_total_attendees: booking.total_attendees,
+          p_credits_used: booking.credits_used,
+          p_credit_batch_id: booking.credit_batch_id,
+          p_coach_name: booking.coach_name
+        });
 
       if (error) throw error;
 
-      return { success: true, data };
+      const result = data as { success: boolean; error?: string; booking_id?: string };
+
+      if (!result.success) {
+        return { success: false, error: result.error };
+      }
+
+      // 🔄 ACTUALIZAR COUNT DE RESERVAS ACTIVAS AUTOMÁTICAMENTE
+      this.refreshActiveBookingsCount();
+
+      return { success: true, data: { id: result.booking_id } };
     } catch (error: any) {
       return { success: false, error: error.message };
     }
@@ -229,6 +339,9 @@ export class BookingService {
         .eq('id', bookingId);
 
       if (error) throw error;
+      
+      // 🔄 ACTUALIZAR COUNT DE RESERVAS ACTIVAS AUTOMÁTICAMENTE
+      this.refreshActiveBookingsCount();
     } catch (error) {
       console.error('Error cancelling booking:', error);
     }
@@ -361,6 +474,9 @@ export class BookingService {
         return { success: false, error: 'Error al cancelar la reserva' };
       }
 
+      // 🔄 ACTUALIZAR COUNT DE RESERVAS ACTIVAS AUTOMÁTICAMENTE
+      this.refreshActiveBookingsCount();
+
       return { success: true };
     } catch (error: any) {
       return { success: false, error: error.message };
@@ -405,6 +521,9 @@ export class BookingService {
         console.error('Error refunding credits:', refundError);
         // No fallar toda la operación si el refund falla
       }
+
+      // 🔄 ACTUALIZAR COUNT DE RESERVAS ACTIVAS AUTOMÁTICAMENTE
+      this.refreshActiveBookingsCount();
 
       return { success: true };
     } catch (error: any) {
