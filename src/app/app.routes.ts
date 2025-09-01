@@ -72,6 +72,10 @@ export const routes: Routes = [
       {
         path: 'sessions',
         loadComponent: () => import('./features/admin/pages/admin-sessions/admin-sessions').then(m => m.AdminSessions)
+      },
+      {
+        path: 'credits',
+        loadComponent: () => import('./features/admin/pages/admin-credits/admin-credits').then(m => m.AdminCredits)
       }
     ]
   },
