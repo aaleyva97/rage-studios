@@ -2,6 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { environment } from '../../../environments/environment';
 import { signal } from '@angular/core';
+import { ScheduleService } from './schedule.service';
 
 export interface TimeSlot {
   time: string;
@@ -34,76 +35,8 @@ export class BookingService {
   private _activeBookingsCount = signal(0);
   private _currentUserId: string | null = null;
 
-  // Schedule EXACTO según la tabla de horarios proporcionada
-  private schedule: any = {
-    monday: [
-      { time: '06:00', coach: 'ISIDRO' },
-      { time: '07:00', coach: 'ISIDRO' },
-      { time: '08:00', coach: 'ISIDRO' },
-      { time: '09:00', coach: 'ISIDRO' },
-      { time: '10:00', coach: 'ISIDRO' },
-      { time: '16:00', coach: 'CRISTIAN' },
-      { time: '17:00', coach: 'CRISTIAN' },
-      { time: '18:00', coach: 'CRISTIAN' },
-      { time: '19:00', coach: 'CRISTIAN' },
-      { time: '20:00', coach: 'CRISTIAN' },
-    ],
-    tuesday: [
-      { time: '06:00', coach: 'ISIDRO' },
-      { time: '07:00', coach: 'ISIDRO' },
-      { time: '08:00', coach: 'ISIDRO' },
-      { time: '09:00', coach: 'ISIDRO' },
-      { time: '10:00', coach: 'ISIDRO' },
-      { time: '16:00', coach: 'CRISTIAN' },
-      { time: '17:00', coach: 'CRISTIAN' },
-      { time: '18:00', coach: 'CRISTIAN' },
-      { time: '19:00', coach: 'CRISTIAN' },
-      { time: '20:00', coach: 'CRISTIAN' },
-    ],
-    wednesday: [
-      { time: '06:00', coach: 'ISIDRO' },
-      { time: '07:00', coach: 'ISIDRO' },
-      { time: '08:00', coach: 'ISIDRO' },
-      { time: '09:00', coach: 'ISIDRO' },
-      { time: '10:00', coach: 'ISIDRO' },
-      { time: '16:00', coach: 'CRISTIAN' },
-      { time: '17:00', coach: 'CRISTIAN' },
-      { time: '18:00', coach: 'CRISTIAN' },
-      { time: '19:00', coach: 'CRISTIAN' },
-      { time: '20:00', coach: 'CRISTIAN' },
-    ],
-    thursday: [
-      { time: '06:00', coach: 'ISIDRO' },
-      { time: '07:00', coach: 'ISIDRO' },
-      { time: '08:00', coach: 'ISIDRO' },
-      { time: '09:00', coach: 'ISIDRO' },
-      { time: '10:00', coach: 'ISIDRO' },
-      { time: '16:00', coach: 'CRISTIAN' },
-      { time: '17:00', coach: 'CRISTIAN' },
-      { time: '18:00', coach: 'CRISTIAN' },
-      { time: '19:00', coach: 'CRISTIAN' },
-      { time: '20:00', coach: 'CRISTIAN' },
-    ],
-    friday: [
-      { time: '06:00', coach: 'ISIDRO' },
-      { time: '07:00', coach: 'ISIDRO' },
-      { time: '08:00', coach: 'ISIDRO' },
-      { time: '09:00', coach: 'ISIDRO' },
-      { time: '10:00', coach: 'ISIDRO' },
-      { time: '16:00', coach: 'CRISTIAN' },
-      { time: '17:00', coach: 'CRISTIAN' },
-      { time: '18:00', coach: 'CRISTIAN' },
-      { time: '19:00', coach: 'CRISTIAN' },
-      { time: '20:00', coach: 'CRISTIAN' },
-    ],
-    saturday: [
-      { time: '09:00', coach: 'ISIDRO/CRISTIAN' },
-      { time: '10:00', coach: 'ISIDRO/CRISTIAN' },
-      { time: '11:00', coach: 'ISIDRO/CRISTIAN' },
-      { time: '12:00', coach: 'ISIDRO/CRISTIAN' },
-    ],
-    sunday: [{ time: '10:00', coach: 'ISIDRO/CRISTIAN' }],
-  };
+  // 🔄 NUEVO: Servicio de horarios dinámicos
+  private scheduleService = inject(ScheduleService);
 
   constructor() {
     this.supabaseClient = createClient(
@@ -143,33 +76,18 @@ export class BookingService {
     }
   }
 
-  getDaySchedule(date: Date | string): TimeSlot[] {
-    const dayNames = [
-      'sunday',
-      'monday',
-      'tuesday',
-      'wednesday',
-      'thursday',
-      'friday',
-      'saturday',
-    ];
-    
-    let dayIndex: number;
-    if (typeof date === 'string') {
-      // Parse string date in format YYYY-MM-DD to avoid timezone issues
-      const [year, month, day] = date.split('-').map(Number);
-      const localDate = new Date(year, month - 1, day);
-      dayIndex = localDate.getDay();
-    } else {
-      dayIndex = date.getDay();
+  // 🔄 NUEVO: Obtener horarios dinámicos desde BD
+  async getDaySchedule(date: Date | string): Promise<TimeSlot[]> {
+    try {
+      return await this.scheduleService.getDayScheduleAsTimeSlots(date);
+    } catch (error) {
+      console.error('Error getting day schedule:', error);
+      return [];
     }
-    
-    const dayName = dayNames[dayIndex];
-    return this.schedule[dayName] || [];
   }
 
   async getAvailableSlots(date: string): Promise<TimeSlot[]> {
-    const daySchedule = this.getDaySchedule(date);
+    const daySchedule = await this.getDaySchedule(date);
 
     // Obtener reservas existentes para esa fecha
     const { data: bookings, error } = await this.supabaseClient
