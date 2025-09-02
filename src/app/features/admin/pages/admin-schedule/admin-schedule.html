@@ -1,0 +1,444 @@
+<div class="admin-schedule-container">
+  <p-toast></p-toast>
+  <p-confirmDialog></p-confirmDialog>
+
+  <!-- Header Card -->
+  <p-card class="mb-4">
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      <div>
+        <h1 class="text-2xl font-bold text-gray-900 mb-2">Gestión de Horarios</h1>
+        <p class="text-gray-600">Administra los horarios de sesiones por día de la semana y asigna coaches</p>
+      </div>
+      
+      <div class="flex gap-2">
+        <p-button 
+          label="Actualizar" 
+          icon="pi pi-refresh" 
+          [loading]="loading()"
+          (click)="loadData()"
+          severity="secondary"
+          size="small">
+        </p-button>
+        
+        <p-button 
+          label="Nuevo Horario" 
+          icon="pi pi-plus" 
+          (click)="openCreateDialog()"
+          size="small">
+        </p-button>
+      </div>
+    </div>
+  </p-card>
+
+  <!-- Statistics Cards -->
+  <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+    <p-card class="text-center">
+      <div class="text-3xl font-bold text-blue-600 mb-2">{{scheduleSlots().length}}</div>
+      <div class="text-sm text-gray-600">Total Horarios</div>
+    </p-card>
+    
+    <p-card class="text-center">
+      <div class="text-3xl font-bold text-green-600 mb-2">
+        {{activeSlots.length}}
+      </div>
+      <div class="text-sm text-gray-600">Horarios Activos</div>
+    </p-card>
+    
+    <p-card class="text-center">
+      <div class="text-3xl font-bold text-orange-600 mb-2">
+        {{inactiveSlots.length}}
+      </div>
+      <div class="text-sm text-gray-600">Horarios Inactivos</div>
+    </p-card>
+    
+    <p-card class="text-center">
+      <div class="text-3xl font-bold text-purple-600 mb-2">{{availableCoaches().length}}</div>
+      <div class="text-sm text-gray-600">Coaches Disponibles</div>
+    </p-card>
+  </div>
+
+  <!-- Main Table Card -->
+  <p-card>
+    <!-- Loading State -->
+    @if (loading()) {
+      <div class="space-y-4">
+        @for (item of [1,2,3,4,5]; track $index) {
+          <div class="grid grid-cols-1 md:grid-cols-6 gap-4 p-4 border-b">
+            <p-skeleton height="2rem"></p-skeleton>
+            <p-skeleton height="2rem"></p-skeleton>
+            <p-skeleton height="2rem"></p-skeleton>
+            <p-skeleton height="2rem"></p-skeleton>
+            <p-skeleton height="2rem"></p-skeleton>
+            <p-skeleton height="2rem"></p-skeleton>
+          </div>
+        }
+      </div>
+    } @else {
+      <!-- Desktop Table -->
+      <div class="hidden md:block overflow-x-auto">
+        <p-table 
+          [value]="scheduleSlots()" 
+          [sortField]="'day_of_week'" 
+          [sortOrder]="1"
+          styleClass="p-datatable-sm">
+          
+          <ng-template pTemplate="header">
+            <tr>
+              <th pSortableColumn="day_of_week">
+                Día de la Semana
+                <p-sortIcon field="day_of_week"></p-sortIcon>
+              </th>
+              <th pSortableColumn="start_time">
+                Horario
+                <p-sortIcon field="start_time"></p-sortIcon>
+              </th>
+              <th>Coaches</th>
+              <th pSortableColumn="max_capacity">
+                Capacidad
+                <p-sortIcon field="max_capacity"></p-sortIcon>
+              </th>
+              <th pSortableColumn="is_active">
+                Estado
+                <p-sortIcon field="is_active"></p-sortIcon>
+              </th>
+              <th class="text-center">Acciones</th>
+            </tr>
+          </ng-template>
+          
+          <ng-template pTemplate="body" let-slot>
+            <tr>
+              <td>
+                <div class="font-medium">{{slot.day_name}}</div>
+                @if (slot.description) {
+                  <div class="text-sm text-gray-500 mt-1">{{slot.description}}</div>
+                }
+              </td>
+              
+              <td>
+                <div class="font-mono">
+                  {{slot.start_time.substring(0,5)}} - {{slot.end_time.substring(0,5)}}
+                </div>
+              </td>
+              
+              <td>
+                <div class="space-y-1">
+                  @for (coach of slot.coaches; track coach.id) {
+                    <p-chip 
+                      [label]="coach.name" 
+                      [styleClass]="coach.is_primary ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'"
+                      size="small">
+                    </p-chip>
+                  }
+                  @if (slot.coaches.length === 0) {
+                    <span class="text-sm text-gray-500">Sin coach asignado</span>
+                  }
+                </div>
+              </td>
+              
+              <td>
+                <span class="font-medium">{{slot.max_capacity}} camas</span>
+              </td>
+              
+              <td>
+                <p-tag 
+                  [value]="getStatusText(slot.is_active)" 
+                  [severity]="getStatusSeverity(slot.is_active)">
+                </p-tag>
+              </td>
+              
+              <td class="text-center">
+                <div class="flex justify-center gap-1">
+                  <p-button
+                    icon="pi pi-pencil"
+                    size="small"
+                    severity="secondary"
+                    [text]="true"
+                    pTooltip="Editar"
+                    (click)="openEditDialog(slot)">
+                  </p-button>
+                  
+                  <p-button
+                    [icon]="slot.is_active ? 'pi pi-eye-slash' : 'pi pi-eye'"
+                    size="small"
+                    [severity]="getButtonSeverity(!slot.is_active)"
+                    [text]="true"
+                    [pTooltip]="slot.is_active ? 'Desactivar' : 'Activar'"
+                    (click)="toggleSlotStatus(slot)">
+                  </p-button>
+                  
+                  <p-button
+                    icon="pi pi-trash"
+                    size="small"
+                    severity="danger"
+                    [text]="true"
+                    pTooltip="Eliminar"
+                    (click)="deleteSlot(slot)">
+                  </p-button>
+                </div>
+              </td>
+            </tr>
+          </ng-template>
+          
+          <ng-template pTemplate="emptymessage">
+            <tr>
+              <td colspan="6" class="text-center py-8">
+                <div class="text-gray-500">
+                  <i class="pi pi-calendar-times text-4xl mb-4 block"></i>
+                  <p class="text-lg font-medium mb-2">No hay horarios configurados</p>
+                  <p class="text-sm">Crea el primer horario para comenzar</p>
+                </div>
+              </td>
+            </tr>
+          </ng-template>
+        </p-table>
+      </div>
+
+      <!-- Mobile Cards -->
+      <div class="block md:hidden space-y-4">
+        @for (slot of scheduleSlots(); track slot.id) {
+          <div class="border rounded-lg p-4 bg-white shadow-sm">
+            <div class="flex justify-between items-start mb-3">
+              <div>
+                <h3 class="font-medium text-lg">{{slot.day_name}}</h3>
+                <p class="text-sm text-gray-600 font-mono">
+                  {{slot.start_time.substring(0,5)}} - {{slot.end_time.substring(0,5)}}
+                </p>
+              </div>
+              
+              <p-tag 
+                [value]="getStatusText(slot.is_active)" 
+                [severity]="getStatusSeverity(slot.is_active)">
+              </p-tag>
+            </div>
+            
+            @if (slot.description) {
+              <p class="text-sm text-gray-600 mb-3">{{slot.description}}</p>
+            }
+            
+            <div class="mb-3">
+              <p class="text-sm font-medium text-gray-700 mb-2">Coaches:</p>
+              <div class="space-y-1">
+                @for (coach of slot.coaches; track coach.id) {
+                  <p-chip 
+                    [label]="coach.name" 
+                    [styleClass]="coach.is_primary ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'"
+                    size="small">
+                  </p-chip>
+                }
+                @if (slot.coaches.length === 0) {
+                  <span class="text-sm text-gray-500">Sin coach asignado</span>
+                }
+              </div>
+            </div>
+            
+            <div class="flex justify-between items-center pt-3 border-t">
+              <span class="text-sm text-gray-600">{{slot.max_capacity}} camas</span>
+              
+              <div class="flex gap-1">
+                <p-button
+                  icon="pi pi-pencil"
+                  size="small"
+                  severity="secondary"
+                  [text]="true"
+                  pTooltip="Editar"
+                  (click)="openEditDialog(slot)">
+                </p-button>
+                
+                <p-button
+                  [icon]="slot.is_active ? 'pi pi-eye-slash' : 'pi pi-eye'"
+                  size="small"
+                  [severity]="getButtonSeverity(!slot.is_active)"
+                  [text]="true"
+                  [pTooltip]="slot.is_active ? 'Desactivar' : 'Activar'"
+                  (click)="toggleSlotStatus(slot)">
+                </p-button>
+                
+                <p-button
+                  icon="pi pi-trash"
+                  size="small"
+                  severity="danger"
+                  [text]="true"
+                  pTooltip="Eliminar"
+                  (click)="deleteSlot(slot)">
+                </p-button>
+              </div>
+            </div>
+          </div>
+        } @empty {
+          <div class="text-center py-8">
+            <div class="text-gray-500">
+              <i class="pi pi-calendar-times text-4xl mb-4 block"></i>
+              <p class="text-lg font-medium mb-2">No hay horarios configurados</p>
+              <p class="text-sm">Crea el primer horario para comenzar</p>
+            </div>
+          </div>
+        }
+      </div>
+    }
+  </p-card>
+</div>
+
+<!-- Create/Edit Dialog -->
+<p-dialog 
+  [header]="dialogMode() === 'create' ? 'Crear Nuevo Horario' : 'Editar Horario'"
+  [modal]="true" 
+  [visible]="showDialog()"
+  (onHide)="closeDialog()"
+  [style]="{width: '90vw', maxWidth: '600px'}"
+  [draggable]="false"
+  [resizable]="false">
+  
+  @if (selectedSlot()) {
+    <form class="space-y-6">
+      <!-- Día de la semana -->
+      <div class="field">
+        <label for="dayOfWeek" class="block text-sm font-medium text-gray-700 mb-2">
+          Día de la semana *
+        </label>
+        <p-select
+          id="dayOfWeek"
+          [(ngModel)]="selectedSlot()!.day_of_week"
+          name="dayOfWeek"
+          [options]="daysOfWeek"
+          optionLabel="label"
+          optionValue="value"
+          placeholder="Selecciona un día"
+          [style]="{'width': '100%'}"
+          (onChange)="onDayOfWeekChange()">
+        </p-select>
+      </div>
+
+      <!-- Horarios -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="field">
+          <label for="startTime" class="block text-sm font-medium text-gray-700 mb-2">
+            Hora de inicio *
+          </label>
+          <p-select
+            id="startTime"
+            [(ngModel)]="selectedSlot()!.start_time"
+            name="startTime"
+            [options]="timeOptions"
+            optionLabel="label"
+            optionValue="value"
+            placeholder="Hora inicio"
+            [style]="{'width': '100%'}">
+          </p-select>
+        </div>
+
+        <div class="field">
+          <label for="endTime" class="block text-sm font-medium text-gray-700 mb-2">
+            Hora de fin *
+          </label>
+          <p-select
+            id="endTime"
+            [(ngModel)]="selectedSlot()!.end_time"
+            name="endTime"
+            [options]="timeOptions"
+            optionLabel="label"
+            optionValue="value"
+            placeholder="Hora fin"
+            [style]="{'width': '100%'}">
+          </p-select>
+        </div>
+      </div>
+
+      <!-- Coaches -->
+      <div class="field">
+        <label for="coaches" class="block text-sm font-medium text-gray-700 mb-2">
+          Coaches asignados
+        </label>
+        <p-multiselect
+          appendTo="body"
+          id="coaches"
+          [(ngModel)]="selectedCoaches"
+          name="coaches"
+          [options]="coachOptions"
+          optionLabel="name"
+          optionValue="id"
+          placeholder="Selecciona coaches"
+          display="chip"
+          class="w-full"
+          (onChange)="onCoachesChange($event.value)">
+          
+          <ng-template let-coach pTemplate="item">
+            <div>
+              <span>{{coach.name}}</span>
+            </div>
+          </ng-template>
+        </p-multiselect>
+        <small class="text-gray-500 mt-1 block">
+          El primer coach seleccionado será marcado como principal automáticamente
+        </small>
+      </div>
+
+      <!-- Capacidad máxima -->
+      <div class="field">
+        <label for="maxCapacity" class="block text-sm font-medium text-gray-700 mb-2">
+          Capacidad máxima (camas)
+        </label>
+        <input
+          id="maxCapacity"
+          [(ngModel)]="selectedSlot()!.max_capacity"
+          name="maxCapacity"
+          type="number"
+          min="1"
+          max="20"
+          placeholder="14"
+          pInputText
+          class="w-full">
+      </div>
+
+      <!-- Descripción -->
+      <div class="field">
+        <label for="description" class="block text-sm font-medium text-gray-700 mb-2">
+          Descripción (opcional)
+        </label>
+        <textarea
+          id="description"
+          [(ngModel)]="selectedSlot()!.description"
+          name="description"
+          rows="3"
+          placeholder="Descripción del horario..."
+          pTextarea
+          [style]="{'width': '100%'}">
+        </textarea>
+      </div>
+
+      <!-- Estado activo -->
+      <div class="field">
+        <div class="flex items-center">
+          <p-checkbox
+            id="isActive"
+            [(ngModel)]="selectedSlot()!.is_active"
+            name="isActive"
+            [binary]="true">
+          </p-checkbox>
+          <label for="isActive" class="ml-2 text-sm font-medium text-gray-700">
+            Horario activo
+          </label>
+        </div>
+        <small class="text-gray-500 mt-1 block">
+          Solo los horarios activos aparecerán disponibles para reservar
+        </small>
+      </div>
+    </form>
+  }
+
+  <ng-template pTemplate="footer">
+    <div class="flex justify-end gap-2">
+      <p-button 
+        label="Cancelar" 
+        severity="secondary" 
+        (click)="closeDialog()"
+        [text]="true">
+      </p-button>
+      
+      <p-button 
+        [label]="dialogMode() === 'create' ? 'Crear' : 'Actualizar'"
+        [loading]="loading()"
+        (click)="saveSlot()">
+      </p-button>
+    </div>
+  </ng-template>
+</p-dialog>

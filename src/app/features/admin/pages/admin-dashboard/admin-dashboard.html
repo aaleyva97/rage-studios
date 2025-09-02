@@ -124,5 +124,19 @@
         </div>
       </p-card>
     </div>
+    
+    <!-- Segunda fila de acciones -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-6">
+      <!-- Gestionar Horarios - NUEVA -->
+      <p-card 
+        class="action-card cursor-pointer"
+        (click)="navigateToSection('horarios')">
+        <div class="text-center">
+          <i class="pi pi-calendar-clock text-4xl text-blue-500 mb-4"></i>
+          <h3 class="text-lg font-semibold mb-2">Gestionar Horarios</h3>
+          <p class="text-gray-600 text-sm">Configurar horarios y coaches por día</p>
+        </div>
+      </p-card>
+    </div>
   }
 </div>
