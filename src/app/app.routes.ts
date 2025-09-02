@@ -80,6 +80,10 @@ export const routes: Routes = [
       {
         path: 'credits',
         loadComponent: () => import('./features/admin/pages/admin-credits/admin-credits').then(m => m.AdminCredits)
+      },
+      {
+        path: 'horarios',
+        loadComponent: () => import('./features/admin/pages/admin-schedule/admin-schedule').then(m => m.AdminSchedule)
       }
     ]
   },
