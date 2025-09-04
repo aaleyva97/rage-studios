@@ -1,7 +1,6 @@
 import { Injectable, effect, signal, computed, PLATFORM_ID, inject } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { BehaviorSubject, Observable, from, take } from 'rxjs';
-import { SwPush, SwUpdate } from '@angular/service-worker';
 import { SupabaseService } from './supabase-service';
 import { 
   UserNotificationPreferences, 
@@ -15,6 +14,9 @@ import {
 } from '../interfaces/notification.interface';
 import { formatDateCustom } from '../functions/date-utils';
 
+// Firebase types declaration
+declare const firebase: any;
+
 @Injectable({
   providedIn: 'root'
 })
@@ -23,9 +25,9 @@ export class NotificationService {
   private readonly platformId = inject(PLATFORM_ID);
   private readonly isBrowser = isPlatformBrowser(this.platformId);
   
-  // 🔥 ANGULAR SWPUSH NATIVO - PROFESIONAL
-  private readonly swPush = inject(SwPush, { optional: true });
-  private readonly swUpdate = inject(SwUpdate, { optional: true });
+  // 🔥 FIREBASE MESSAGING en lugar de SwPush
+  private firebaseMessaging: any = null;
+  private firebaseApp: any = null;
   
   // 🔄 Reactive State Management
   private readonly _permissionStatus = signal<NotificationPermission>('default');
@@ -67,6 +69,19 @@ export class NotificationService {
   // 📡 Observable Streams for External Components
   private readonly _notificationReceived = new BehaviorSubject<NotificationPayload | null>(null);
   public readonly notificationReceived$ = this._notificationReceived.asObservable();
+
+  // 🔥 Firebase Configuration
+  private readonly firebaseConfig = {
+  apiKey: "AIzaSyA6cVv2nk-xMzVYqM8DQBQ-JeicvyhS8a4",
+  authDomain: "rage-studios.firebaseapp.com",
+  projectId: "rage-studios",
+  storageBucket: "rage-studios.firebasestorage.app",
+  messagingSenderId: "401067010518",
+  appId: "1:401067010518:web:b716d612274887ba6a9c77"
+};
+
+  // VAPID Key de Firebase (obtener de Firebase Console -> Project Settings -> Cloud Messaging)
+  private readonly firebaseVapidKey = 'BAZuWOr2cwR2etuTiZ6Xyxi8fYOTzpcfZUX3p0qugWGvI2jVkbckMi8Ltq6mHBDkc-5sSmQK2L_gXfonstfSDlM'; // NECESITAS OBTENER ESTO DE FIREBASE
 
   constructor() {
     console.log('🔔 NotificationService: Constructor initialized');
@@ -132,13 +147,13 @@ export class NotificationService {
       await this.loadUserPreferences();
       console.log('📋 [SMART] User preferences loaded');
       
-      // 3. Service Worker Analysis
+      // 3. 🔥 NUEVO: Inicializar Firebase en lugar de SwPush
       if (capabilities.serviceWorkerSupported) {
-        console.log('🔧 [SMART] Service Worker supported, checking registration...');
-        await this.analyzeServiceWorkerStatus();
+        console.log('🔧 [SMART] Service Worker supported, initializing Firebase...');
+        await this.initializeFirebase();
         
-        // 4. Try to get existing push token (con fallback inteligente)
-        await this.tryGetExistingPushTokenWithFallback();
+        // 4. Try to get existing FCM token
+        await this.tryGetExistingFirebaseToken();
         
         // 🚨 CRÍTICO: Si user ya tiene permisos pero no token, registrar automáticamente
         if (this._permissionStatus() === 'granted' && !this._pushToken()) {
@@ -152,8 +167,8 @@ export class NotificationService {
           }
         }
         
-        // 5. Setup service worker message handlers (opcional)
-        await this.setupServiceWorkerHandlersWithFallback();
+        // 5. Setup message handlers
+        this.setupFirebaseMessageHandlers();
       } else {
         console.warn('⚠️ [SMART] Service Worker not supported - notifications will be database-only');
       }
@@ -195,6 +210,174 @@ export class NotificationService {
   }
 
   /**
+   * 🔥 NUEVA: Inicializar Firebase
+   */
+  private async initializeFirebase(): Promise<void> {
+    try {
+      console.log('🔥 Initializing Firebase...');
+      
+      // Cargar Firebase SDK dinámicamente
+      await this.loadFirebaseSDK();
+      
+      // Inicializar Firebase App
+      if (!firebase.apps?.length) {
+        this.firebaseApp = firebase.initializeApp(this.firebaseConfig);
+      } else {
+        this.firebaseApp = firebase.apps[0];
+      }
+      
+      // Obtener instancia de messaging
+      this.firebaseMessaging = firebase.messaging();
+      
+      // Registrar Service Worker de Firebase
+      await this.registerFirebaseServiceWorker();
+      
+      console.log('✅ Firebase initialized successfully');
+    } catch (error) {
+      console.error('❌ Error initializing Firebase:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 🔥 Cargar Firebase SDK dinámicamente
+   */
+  private async loadFirebaseSDK(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      // Si ya está cargado, resolver inmediatamente
+      if (typeof firebase !== 'undefined') {
+        console.log('✅ Firebase SDK already loaded');
+        resolve();
+        return;
+      }
+
+      const scriptApp = document.createElement('script');
+      scriptApp.src = 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js';
+      
+      const scriptMessaging = document.createElement('script');
+      scriptMessaging.src = 'https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js';
+      
+      scriptApp.onload = () => {
+        document.head.appendChild(scriptMessaging);
+      };
+      
+      scriptMessaging.onload = () => {
+        console.log('✅ Firebase SDK loaded');
+        resolve();
+      };
+      
+      scriptApp.onerror = scriptMessaging.onerror = (error) => {
+        console.error('❌ Error loading Firebase SDK:', error);
+        reject(error);
+      };
+      
+      document.head.appendChild(scriptApp);
+    });
+  }
+
+  /**
+   * 🔥 Registrar Service Worker de Firebase
+   */
+  private async registerFirebaseServiceWorker(): Promise<void> {
+    if (!('serviceWorker' in navigator)) {
+      console.warn('⚠️ Service Worker not supported');
+      return;
+    }
+    
+    try {
+      const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js', {
+        scope: '/'
+      });
+      
+      console.log('✅ Firebase Service Worker registered:', registration);
+      
+      // Usar esta registration para messaging
+      this.firebaseMessaging.useServiceWorker(registration);
+      
+    } catch (error) {
+      console.error('❌ Firebase Service Worker registration failed:', error);
+    }
+  }
+
+  /**
+   * 🔥 Intentar obtener token FCM existente
+   */
+  private async tryGetExistingFirebaseToken(): Promise<void> {
+    if (!this.firebaseMessaging) {
+      console.log('ℹ️ Firebase Messaging not available');
+      return;
+    }
+    
+    try {
+      console.log('🔍 Checking for existing FCM token...');
+      
+      const currentToken = await this.firebaseMessaging.getToken({
+        vapidKey: this.firebaseVapidKey
+      });
+      
+      if (currentToken) {
+        console.log('✅ Found existing FCM token');
+        this._pushToken.set(currentToken);
+        
+        // Actualizar en base de datos
+        await this.updateTokenInDatabase(currentToken);
+      } else {
+        console.log('ℹ️ No existing FCM token found');
+      }
+    } catch (error) {
+      console.warn('⚠️ Could not get existing FCM token:', error);
+    }
+  }
+
+  /**
+   * 🔥 Setup Firebase message handlers
+   */
+  private setupFirebaseMessageHandlers(): void {
+    if (!this.firebaseMessaging) return;
+    
+    console.log('🔧 Setting up Firebase message handlers...');
+    
+    // Handle foreground messages
+    this.firebaseMessaging.onMessage((payload: any) => {
+      console.log('📨 Foreground message received:', payload);
+      
+      // Emit to reactive stream
+      this._notificationReceived.next(payload);
+      
+      // Show notification even in foreground
+      if (Notification.permission === 'granted') {
+        const notification = new Notification(
+          payload.notification?.title || 'RageStudios',
+          {
+            body: payload.notification?.body || 'Nueva notificación',
+            icon: '/icons/icon-192x192.png',
+            badge: '/icons/badge-72x72.png',
+            data: payload.data
+          }
+        );
+        
+        notification.onclick = () => {
+          window.focus();
+          const url = payload.data?.actionUrl || '/account/bookings';
+          window.location.href = url;
+          notification.close();
+        };
+      }
+      
+      // Log the event
+      this.logInteraction('push_message_received', { message: payload });
+    });
+    
+    // Handle token refresh
+    this.firebaseMessaging.onTokenRefresh(async () => {
+      console.log('🔄 FCM token refreshed');
+      await this.registerPushToken();
+    });
+    
+    console.log('✅ Firebase message handlers setup complete');
+  }
+
+  /**
    * 🔍 DIAGNÓSTICO COMPLETO DE CAPACIDADES DEL BROWSER
    */
   private diagnoseBrowserCapabilities() {
@@ -221,86 +404,6 @@ export class NotificationService {
     capabilities.isDevelopment = this.isDevelopmentEnvironment();
 
     return capabilities;
-  }
-
-  /**
-   * 🔧 ANÁLISIS PROFESIONAL CON ANGULAR SWPUSH
-   */
-  private async analyzeServiceWorkerStatus(): Promise<void> {
-    try {
-      console.log('🔧 [SWPUSH] Analyzing Angular Service Worker status...');
-      
-      // Check if SwPush is available
-      if (!this.swPush) {
-        console.warn('⚠️ [SWPUSH] Angular SwPush not available (SSR or not configured)');
-        return;
-      }
-      
-      // Check if SwPush is enabled
-      if (!this.swPush.isEnabled) {
-        console.warn('⚠️ [SWPUSH] Angular SwPush is disabled');
-        return;
-      }
-      
-      console.log('✅ [SWPUSH] Angular SwPush is available and enabled');
-      
-      // Setup push notification handlers using Angular SwPush
-      this.setupSwPushHandlers();
-      
-    } catch (error) {
-      console.error('❌ [SWPUSH] Error analyzing Service Worker status:', error);
-    }
-  }
-
-  /**
-   * 🔥 SETUP ANGULAR SWPUSH HANDLERS - PROFESIONAL
-   */
-  private setupSwPushHandlers(): void {
-    if (!this.swPush || !this.swPush.isEnabled) {
-      console.warn('⚠️ [SWPUSH] SwPush not available for handlers setup');
-      return;
-    }
-    
-    console.log('🔧 [SWPUSH] Setting up Angular SwPush handlers...');
-    
-    // Listen for push messages using Angular SwPush
-    this.swPush.messages.subscribe(message => {
-      console.log('🔔 [SWPUSH] Push message received:', message);
-      this.handlePushMessage(message);
-    });
-    
-    // Listen for notification clicks using Angular SwPush
-    this.swPush.notificationClicks.subscribe(click => {
-      console.log('🔔 [SWPUSH] Notification clicked:', click);
-      this.handleNotificationClick(click);
-    });
-    
-    // Listen for Service Worker updates
-    if (this.swUpdate && this.swUpdate.isEnabled) {
-      this.swUpdate.versionUpdates.subscribe(event => {
-        console.log('🔄 [SWUPDATE] Version update:', event.type);
-        
-        if (event.type === 'VERSION_READY') {
-          // Optionally prompt user to reload
-          console.log('🔄 [SWUPDATE] New version ready');
-        }
-      });
-    }
-    
-    console.log('✅ [SWPUSH] Angular SwPush handlers setup complete');
-  }
-  
-  /**
-   * 📨 HANDLE PUSH MESSAGE FROM ANGULAR SWPUSH
-   */
-  private handlePushMessage(message: any): void {
-    console.log('📨 [SWPUSH] Processing push message:', message);
-    
-    // Emit to reactive stream for components
-    this._notificationReceived.next(message);
-    
-    // Log the event
-    this.logInteraction('push_message_received', { message });
   }
 
   private reset(): void {
@@ -368,102 +471,46 @@ export class NotificationService {
     return this._permissionStatus();
   }
 
-  // 📱 PUSH TOKEN MANAGEMENT CON ANGULAR SWPUSH
-  private async tryGetExistingPushTokenWithFallback(): Promise<void> {
-    try {
-      console.log('🔍 [SWPUSH] Checking for existing push subscription...');
-      
-      if (!this.swPush || !this.swPush.isEnabled) {
-        console.log('ℹ️ [SWPUSH] Angular SwPush not available, skipping token check');
-        return;
-      }
-      
-      // Get existing subscription using Angular SwPush
-      const subscription = await this.swPush.subscription.pipe(take(1)).toPromise();
-      
-      if (subscription) {
-        const token = this.extractTokenFromSubscription(subscription);
-        this._pushToken.set(token);
-        
-        // Update last seen timestamp in database (async, no bloquear)
-        this.updateTokenLastSeen(token).catch(() => {
-          console.warn('⚠️ Could not update token timestamp (non-blocking)');
-        });
-        
-        console.log('✅ [SWPUSH] Found existing push subscription');
-      } else {
-        console.log('ℹ️ [SWPUSH] No existing push subscription found');
-      }
-    } catch (error) {
-      console.warn('⚠️ [SWPUSH] Could not check existing subscription, will retry later:', error);
-      // NO fallar la inicialización por esto
-      // Programar reintentos en background
-      this.scheduleTokenRetrieval();
-    }
-  }
-
-  private scheduleTokenRetrieval(): void {
-    // Reintento después de 5 segundos
-    setTimeout(() => {
-      if (!this._pushToken() && this._permissionStatus() === 'granted') {
-        console.log('🔄 [RETRY] Attempting push token retrieval...');
-        this.tryGetExistingPushToken().catch(() => {
-          console.warn('⚠️ [RETRY] Push token retrieval failed, will try again later');
-        });
-      }
-    }, 5000);
-  }
-
-  private async tryGetExistingPushToken(): Promise<void> {
-    try {
-      console.log('🔍 [SWPUSH-RETRY] Checking for existing push token...');
-      
-      if (!this.swPush || !this.swPush.isEnabled) {
-        console.warn('⚠️ [SWPUSH-RETRY] Angular SwPush not available');
-        return;
-      }
-      
-      const subscription = await this.swPush.subscription.pipe(take(1)).toPromise();
-      
-      if (subscription) {
-        const token = this.extractTokenFromSubscription(subscription);
-        this._pushToken.set(token);
-        
-        // Update last seen timestamp in database
-        await this.updateTokenLastSeen(token);
-        
-        console.log('✅ [SWPUSH-RETRY] Found existing push token');
-      } else {
-        console.log('ℹ️ [SWPUSH-RETRY] No existing push subscription found');
-      }
-    } catch (error) {
-      console.warn('⚠️ [SWPUSH-RETRY] Could not get existing push token:', error);
-    }
-  }
-
+  // 📱 PUSH TOKEN MANAGEMENT CON FIREBASE
   async registerPushToken(): Promise<string> {
     if (!this.isNotificationSupported() || this._permissionStatus() !== 'granted') {
       throw new Error('Cannot register push token: permissions not granted or not supported');
     }
 
-    if (!this.swPush || !this.swPush.isEnabled) {
-      throw new Error('Angular SwPush not available or enabled');
+    if (!this.firebaseMessaging) {
+      throw new Error('Firebase Messaging not initialized');
     }
 
     try {
-      console.log('📱 [SWPUSH] Registering push token with Angular SwPush...');
+      console.log('📱 Registering FCM token...');
       
-      // 🚨 TIMEOUT CRÍTICO: Máximo 8 segundos para registro completo
-      const timeoutPromise = new Promise<never>((_, reject) => 
-        setTimeout(() => reject(new Error('Push token registration timeout')), 8000)
-      );
-
-      const registrationPromise = this.performSwPushTokenRegistration();
+      // Obtener token FCM
+      const token = await this.firebaseMessaging.getToken({
+        vapidKey: this.firebaseVapidKey
+      });
       
-      return await Promise.race([registrationPromise, timeoutPromise]);
+      if (!token) {
+        throw new Error('Failed to get FCM token');
+      }
+      
+      console.log('✅ FCM token obtained:', token.substring(0, 20) + '...');
+      
+      // Guardar token
+      this._pushToken.set(token);
+      
+      // Guardar en base de datos
+      await this.updateTokenInDatabase(token);
+      
+      // Log event
+      await this.logEvent('token_registered', {
+        deviceType: 'web',
+        method: 'firebase_fcm'
+      });
+      
+      return token;
       
     } catch (error) {
-      console.error('❌ [SWPUSH] Error registering push token:', error);
+      console.error('❌ Error registering FCM token:', error);
       await this.logEvent('token_registration_failed', { 
         error: error instanceof Error ? error.message : String(error) 
       });
@@ -471,231 +518,45 @@ export class NotificationService {
     }
   }
 
-  private async performSwPushTokenRegistration(): Promise<string> {
-    console.log('📱 [SWPUSH] Starting push token registration with Angular SwPush...');
-    
-    if (!this.swPush || !this.swPush.isEnabled) {
-      throw new Error('Angular SwPush not available');
-    }
-    
-    // Check if already subscribed using Angular SwPush
-    let subscription = await this.swPush.subscription.pipe(take(1)).toPromise();
-    
-    if (!subscription) {
-      console.log('🔔 [SWPUSH] Creating new push subscription...');
-      
-      // Request subscription using Angular SwPush with timeout
-      const vapidKey = this.getVapidPublicKeyForSwPush();
-      
-      const subscribePromise = this.swPush.requestSubscription({ 
-        serverPublicKey: vapidKey 
-      });
-      
-      const subscribeTimeoutPromise = new Promise<never>((_, reject) => 
-        setTimeout(() => reject(new Error('Angular SwPush subscription timeout')), 5000)
-      );
-      
-      subscription = await Promise.race([subscribePromise, subscribeTimeoutPromise]);
-      console.log('✅ [SWPUSH] New push subscription created with Angular SwPush');
-    } else {
-      console.log('✅ [SWPUSH] Using existing Angular SwPush subscription');
-    }
-    
-    const token = this.extractTokenFromSubscription(subscription);
-    const deviceInfo = this.getDeviceInfo();
-    
-    // Store in Supabase database con timeout
-    const dbPromise = this.storeTokenInDatabase(token, deviceInfo);
-    const dbTimeoutPromise = new Promise<never>((_, reject) => 
-      setTimeout(() => reject(new Error('Database storage timeout')), 2000)
-    );
-    
-    await Promise.race([dbPromise, dbTimeoutPromise]);
-    
-    this._pushToken.set(token);
-    
-    console.log('🎉 [SWPUSH] Push token registered and stored successfully with Angular SwPush');
-    
-    // Log event de forma asíncrona (no bloquear)
-    this.logEvent('token_registered', {
-      deviceType: 'web',
-      deviceInfo,
-      method: 'angular_swpush'
-    }).catch(() => {
-      // Ignore logging errors
-    });
-    
-    return token;
-  }
-
-  private extractTokenFromSubscription(subscription: PushSubscription): string {
-    // Convert PushSubscription to token string for storage
-    const subscriptionObject = {
-      endpoint: subscription.endpoint,
-      keys: {
-        p256dh: subscription.getKey('p256dh') ? 
-          btoa(String.fromCharCode(...new Uint8Array(subscription.getKey('p256dh')!))) : null,
-        auth: subscription.getKey('auth') ? 
-          btoa(String.fromCharCode(...new Uint8Array(subscription.getKey('auth')!))) : null
-      }
-    };
-    
-    return btoa(JSON.stringify(subscriptionObject));
-  }
-
   /**
-   * 🔧 VAPID KEY FOR ANGULAR SWPUSH (STRING FORMAT)
+   * 🔥 Actualizar token en base de datos
    */
-  private getVapidPublicKeyForSwPush(): string {
-    // Angular SwPush expects string format, not Uint8Array
-    const isDevelopment = this.isDevelopmentEnvironment();
-    
-    if (isDevelopment) {
-      console.log('🔧 [SWPUSH-DEV] Using development VAPID key');
-      return this.getDevelopmentVapidKey();
-    } else {
-      console.log('🏭 [SWPUSH-PROD] Using production VAPID key');
-      return 'BAZuWOr2cwR2etuTiZ6Xyxi8fYOTzpcfZUX3p0qugWGvI2jVkbckMi8Ltq6mHBDkc-5sSmQK2L_gXfonstfSDlM';
-    }
-  }
-  
-  /**
-   * 🔧 LEGACY VAPID KEY (UINT8ARRAY FORMAT) - MANTENER PARA COMPATIBILIDAD
-   */
-  private getVapidPublicKey(): Uint8Array {
-    // 🔧 DESARROLLO: VAPID keys válidas generadas para localhost testing
-    // En producción, estas deberían venir del environment/servidor
-    
-    let vapidPublicKey: string;
-    
-    // 🚨 DETECCIÓN INTELIGENTE DE AMBIENTE SIN window.location
-    const isDevelopment = this.isDevelopmentEnvironment();
-    
-    if (isDevelopment) {
-      // 🧪 DESARROLLO: Keys válidas para testing local
-      console.log('🔧 [DEV] Using development VAPID keys for localhost');
-      vapidPublicKey = this.getDevelopmentVapidKey();
-    } else {
-      // 🏭 PRODUCCIÓN: Keys reales del servidor
-      console.log('🏭 [PROD] Using production VAPID keys');  
-      vapidPublicKey = 'BG6JhFh9ZQi-_0LD9vkRyHGOzF-vYfIjXpVcOyM4L4w8pQZrYr7_HiAJ0bMqC7-RGXdYFRqIwLwZvVcGHNlRq_k';
-    }
-    
-    // 🚨 SAFE atob() - protegido contra SSR
-    if (!this.isBrowser || typeof window === 'undefined' || !window.atob) {
-      console.warn('⚠️ [SSR] Cannot process VAPID key on server side');
-      return new Uint8Array();
-    }
-    
-    try {
-      const padding = '='.repeat((4 - vapidPublicKey.length % 4) % 4);
-      const base64 = (vapidPublicKey + padding).replace(/\-/g, '+').replace(/_/g, '/');
-      const rawData = window.atob(base64);
-      return new Uint8Array([...rawData].map(char => char.charCodeAt(0)));
-    } catch (error) {
-      console.error('❌ Error converting VAPID key:', error);
-      // Return empty array as fallback - notifications will work in database-only mode
-      return new Uint8Array();
-    }
-  }
-
-  /**
-   * 🎯 DETECCIÓN INTELIGENTE DE AMBIENTE
-   * Usa múltiples fuentes para determinar si estamos en desarrollo
-   */
-  private isDevelopmentEnvironment(): boolean {
-    // 1. Browser check primero
-    if (!this.isBrowser || typeof window === 'undefined') {
-      return false; // En SSR, asumir producción por seguridad
-    }
-    
-    // 2. URL check
-    const hostname = window.location?.hostname;
-    if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname?.includes('.local')) {
-      return true;
-    }
-    
-    // 3. Port check (desarrollo suele usar :4200, :3000, etc)
-    const port = window.location?.port;
-    if (port && ['3000', '4200', '8080', '5173', '5174'].includes(port)) {
-      return true;
-    }
-    
-    // 4. Protocol check (desarrollo suele ser http)
-    if (window.location?.protocol === 'http:' && hostname !== 'localhost') {
-      return false; // http en dominio real = probablemente staging/prod
-    }
-    
-    return false; // Por defecto, asumir producción
-  }
-
-  /**
-   * 🧪 DESARROLLO: VAPID key válida para testing localhost
-   * Generada con web-push library para desarrollo local
-   */
-  private getDevelopmentVapidKey(): string {
-    // Esta key fue generada específicamente para desarrollo localhost
-    // No tiene servidor backend real pero permite testing de Service Worker
-    return 'BAZuWOr2cwR2etuTiZ6Xyxi8fYOTzpcfZUX3p0qugWGvI2jVkbckMi8Ltq6mHBDkc-5sSmQK2L_gXfonstfSDlM';
-  }
-
-  private getDeviceInfo(): DeviceInfo {
-    return {
-      platform: navigator.platform,
-      userAgent: navigator.userAgent,
-      screenResolution: `${screen.width}x${screen.height}`,
-      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-      language: navigator.language
-    };
-  }
-
-  private async storeTokenInDatabase(token: string, deviceInfo: DeviceInfo): Promise<void> {
+  private async updateTokenInDatabase(token: string): Promise<void> {
     const user = await this.getCurrentUser();
-    if (!user) throw new Error('User not authenticated');
-
-    console.log('💾 Storing push token in database...');
-
-    const { error } = await this.supabase.client.rpc('upsert_push_token', {
-      p_user_id: user.id,
-      p_token: token,
-      p_device_type: 'web',
-      p_device_name: `${deviceInfo.platform} - ${this.getBrowserName()}`
-    });
-
-    if (error) {
-      console.error('❌ Error storing push token in database:', error);
-      throw error;
+    if (!user) {
+      console.warn('⚠️ No user authenticated, cannot save token');
+      return;
     }
-
-    console.log('✅ Push token stored in database successfully');
-  }
-
-  private getBrowserName(): string {
-    const userAgent = navigator.userAgent;
-    if (userAgent.includes('Chrome')) return 'Chrome';
-    if (userAgent.includes('Firefox')) return 'Firefox';
-    if (userAgent.includes('Safari')) return 'Safari';
-    if (userAgent.includes('Edge')) return 'Edge';
-    return 'Unknown';
-  }
-
-  private async updateTokenLastSeen(token: string): Promise<void> {
-    const user = await this.getCurrentUser();
-    if (!user) return;
 
     try {
+      console.log('💾 Updating FCM token in database...');
+      
+      // Actualizar en user_notification_preferences
       const { error } = await this.supabase.client
         .from('user_notification_preferences')
-        .update({ 
+        .upsert({
+          user_id: user.id,
+          primary_device_token: token,
+          push_tokens: [{ 
+            token, 
+            type: 'fcm',
+            created_at: new Date().toISOString() 
+          }],
+          last_token_updated_at: new Date().toISOString(),
+          push_notifications_enabled: true,
           updated_at: new Date().toISOString()
-        })
-        .eq('user_id', user.id);
+        }, {
+          onConflict: 'user_id'
+        });
 
       if (error) {
-        console.warn('⚠️ Could not update token last seen:', error);
+        console.error('❌ Error storing token in database:', error);
+        throw error;
       }
+
+      console.log('✅ FCM token stored in database successfully');
     } catch (error) {
-      console.warn('⚠️ Error updating token last seen:', error);
+      console.error('❌ Error updating token in database:', error);
     }
   }
 
@@ -1129,43 +990,6 @@ export class NotificationService {
     };
   }
 
-  // 🔧 SERVICE WORKER INTEGRATION CON ANGULAR SWPUSH
-  private async setupServiceWorkerHandlersWithFallback(): Promise<void> {
-    if (!this.swPush || !this.swPush.isEnabled) {
-      console.log('ℹ️ [SWPUSH] Angular SwPush not available, skipping handlers setup');
-      return;
-    }
-
-    try {
-      // Setup handlers using Angular SwPush (already done in analyzeServiceWorkerStatus)
-      console.log('✅ [SWPUSH] Service Worker handlers already configured via Angular SwPush');
-      
-    } catch (error) {
-      console.warn('⚠️ [SWPUSH] Service Worker handlers setup failed, system will still work:', error);
-    }
-  }
-
-  // 📨 LEGACY SERVICE WORKER MESSAGE HANDLER - REMOVED (USING ANGULAR SWPUSH HANDLERS)
-
-  private async handleNotificationClick(payload: any): Promise<void> {
-    console.log('🔔 Notification clicked:', payload);
-    
-    try {
-      // Log the interaction
-      await this.logInteraction('notification_clicked', payload);
-      
-      // Handle navigation based on payload data
-      if (payload.data?.actionUrl) {
-        // Use Angular Router for navigation if available
-        // For now, fallback to window.location
-        window.location.href = payload.data.actionUrl;
-      }
-      
-    } catch (error) {
-      console.error('❌ Error handling notification click:', error);
-    }
-  }
-
   // 📊 ANALYTICS & LOGGING
   async logEvent(eventType: string, data?: any): Promise<void> {
     try {
@@ -1230,6 +1054,46 @@ export class NotificationService {
     });
   }
 
+  private getDeviceInfo(): DeviceInfo {
+    return {
+      platform: navigator.platform,
+      userAgent: navigator.userAgent,
+      screenResolution: `${screen.width}x${screen.height}`,
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      language: navigator.language
+    };
+  }
+
+  /**
+   * 🎯 DETECCIÓN INTELIGENTE DE AMBIENTE
+   * Usa múltiples fuentes para determinar si estamos en desarrollo
+   */
+  private isDevelopmentEnvironment(): boolean {
+    // 1. Browser check primero
+    if (!this.isBrowser || typeof window === 'undefined') {
+      return false; // En SSR, asumir producción por seguridad
+    }
+    
+    // 2. URL check
+    const hostname = window.location?.hostname;
+    if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname?.includes('.local')) {
+      return true;
+    }
+    
+    // 3. Port check (desarrollo suele usar :4200, :3000, etc)
+    const port = window.location?.port;
+    if (port && ['3000', '4200', '8080', '5173', '5174'].includes(port)) {
+      return true;
+    }
+    
+    // 4. Protocol check (desarrollo suele ser http)
+    if (window.location?.protocol === 'http:' && hostname !== 'localhost') {
+      return false; // http en dominio real = probablemente staging/prod
+    }
+    
+    return false; // Por defecto, asumir producción
+  }
+
   // 🔧 DEBUG: Forzar registro de push token para troubleshooting
   async forceRegisterPushToken(): Promise<void> {
     console.log('🚨 [DEBUG] Force registering push token - TROUBLESHOOTING MODE');
@@ -1239,18 +1103,11 @@ export class NotificationService {
       const currentStatus = this.getStatus();
       console.log('📊 [DEBUG] Current status before force registration:', currentStatus);
       
-      // Check SwPush availability
-      if (!this.swPush) {
-        console.error('❌ [DEBUG] SwPush is null - not injected properly');
-        return;
+      // Check Firebase
+      if (!this.firebaseMessaging) {
+        console.error('❌ [DEBUG] Firebase Messaging not initialized');
+        await this.initializeFirebase();
       }
-      
-      if (!this.swPush.isEnabled) {
-        console.error('❌ [DEBUG] SwPush is not enabled');
-        return;
-      }
-      
-      console.log('✅ [DEBUG] SwPush is available and enabled');
       
       // Check permissions
       if (this._permissionStatus() !== 'granted') {
@@ -1315,19 +1172,6 @@ export class NotificationService {
 
   /**
    * 🚨 MÉTODO CRÍTICO: Determinar canales de entrega disponibles
-   * 
-   * PUSH TOKEN: Es un identificador único que permite al servidor enviar 
-   * notificaciones push directamente al navegador del usuario, incluso cuando
-   * la pestaña está cerrada. SIN PUSH TOKEN, las notificaciones solo funcionan
-   * cuando el usuario está activo en la web.
-   * 
-   * Para RageStudios, las notificaciones push son CRÍTICAS porque:
-   * 1. Recordatorios de clases (24h y 1h antes)
-   * 2. Confirmaciones de reservas
-   * 3. Avisos de cancelaciones
-   * 4. Notificaciones admin urgentes
-   * 
-   * El sistema debe funcionar SIEMPRE, con o sin push token.
    */
   private getAvailableDeliveryChannels(): string[] {
     const channels: string[] = [];
