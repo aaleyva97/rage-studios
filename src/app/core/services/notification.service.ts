@@ -7,10 +7,14 @@ import {
   NotificationPayload,
   NotificationPermissionResult,
   NotificationSchedule,
-  NotificationType
+  NotificationType,
+  PushToken,
+  NotificationLog,
+  DeviceInfo
 } from '../interfaces/notification.interface';
+import { formatDateCustom } from '../functions/date-utils';
 
-// Firebase v10 modular imports
+// Firebase v10 modular imports - SI NO FUNCIONA, USA LA VERSIÓN COMPAT
 import { initializeApp, FirebaseApp } from 'firebase/app';
 import { 
   getMessaging, 
@@ -29,11 +33,14 @@ export class NotificationService {
   private readonly platformId = inject(PLATFORM_ID);
   private readonly isBrowser = isPlatformBrowser(this.platformId);
   
-  // 🔥 Firebase Instances (v10 modular)
+  // 🔥 Firebase Instances
   private firebaseApp: FirebaseApp | null = null;
   private messaging: Messaging | null = null;
   
-  // 🔄 Reactive State Management
+  // Para compatibilidad con código existente
+  private firebaseMessaging: any = null; // Alias para messaging
+  
+  // 🔄 Reactive State Management  
   private readonly _permissionStatus = signal<NotificationPermission>('default');
   private readonly _pushToken = signal<string | null>(null);
   private readonly _preferences = signal<UserNotificationPreferences | null>(null);
@@ -49,7 +56,7 @@ export class NotificationService {
   readonly isLoading = this._isLoading.asReadonly();
   readonly serviceWorkerReady = this._serviceWorkerReady.asReadonly();
   
-  // 🔄 Separar scheduling de push delivery
+  // Mantener compatibilidad con código existente
   readonly canScheduleNotifications = computed(() => 
     this._preferences()?.notifications_enabled === true
   );
@@ -57,8 +64,12 @@ export class NotificationService {
   readonly canSendPushNotifications = computed(() => 
     this._permissionStatus() === 'granted' && 
     this._pushToken() !== null &&
-    this._preferences()?.push_notifications_enabled === true &&
+    this._preferences()?.push_notifications_enabled !== false &&
     this._serviceWorkerReady() === true
+  );
+  
+  readonly canSendNotifications = computed(() => 
+    this.canScheduleNotifications()
   );
   
   readonly isNotificationSupported = computed(() => 
@@ -82,10 +93,10 @@ export class NotificationService {
     appId: "1:401067010518:web:b716d612274887ba6a9c77"
   };
 
-  private readonly vapidKey = 'BAZuWOr2cwR2etuTiZ6Xyxi8fYOTzpcfZUX3p0qugWGvI2jVkbckMi8Ltq6mHBDkc-5sSmQK2L_gXfonstfSDlM';
+  private readonly firebaseVapidKey = 'BAZuWOr2cwR2etuTiZ6Xyxi8fYOTzpcfZUX3p0qugWGvI2jVkbckMi8Ltq6mHBDkc-5sSmQK2L_gXfonstfSDlM';
 
   constructor() {
-    console.log('🔔 [NotificationService] Constructor initialized');
+    console.log('🔔 NotificationService: Constructor initialized');
     
     if (this.isBrowser) {
       this.initializeWhenReady();
@@ -100,16 +111,16 @@ export class NotificationService {
   private initializeWhenReady(): void {
     setTimeout(() => {
       if (this.isBrowser && typeof window !== 'undefined') {
-        console.log('🔄 [INIT] Starting intelligent initialization...');
+        console.log('🔄 Starting intelligent initialization...');
         
         this.supabase.currentUser$.subscribe(user => {
           if (user && !this._isInitialized()) {
-            console.log('👤 [AUTH] User authenticated, initializing notifications...');
+            console.log('👤 User authenticated, initializing notifications...');
             this.initialize().catch(err => {
               console.error('❌ Auto-initialization failed:', err);
             });
           } else if (!user) {
-            console.log('👤 [AUTH] User logged out, resetting notifications...');
+            console.log('👤 User logged out, resetting...');
             this.reset();
           }
         });
@@ -128,223 +139,192 @@ export class NotificationService {
     this._isLoading.set(true);
     
     try {
-      console.log('🔄 [INIT] Starting notification service initialization...');
+      console.log('🔄 Starting notification service initialization...');
 
-      // Check browser capabilities
-      if (!this.isNotificationSupported()) {
-        console.warn('⚠️ [CAPABILITY] Push notifications not supported');
+      // Check capabilities
+      const capabilities = this.diagnoseBrowserCapabilities();
+      console.log('🔍 Browser capabilities:', capabilities);
+      
+      if (!capabilities.notificationSupported) {
+        console.warn('⚠️ Push notifications not supported');
         return;
       }
 
-      // Check current permission
+      // Check permission
       this._permissionStatus.set(Notification.permission);
-      console.log('🔐 [PERMISSION] Current status:', this._permissionStatus());
+      console.log('🔐 Current permission:', this._permissionStatus());
       
-      // Load user preferences
+      // Load preferences
       await this.loadUserPreferences();
-      console.log('📋 [PREFS] User preferences loaded');
+      console.log('📋 User preferences loaded');
       
       // Initialize Firebase
-      await this.initializeFirebase();
-      
-      // Register Service Worker
-      await this.registerServiceWorker();
-      
-      // Try to get existing token if permissions granted
-      if (this._permissionStatus() === 'granted' && this._serviceWorkerReady()) {
-        await this.tryGetExistingToken();
+      if (capabilities.serviceWorkerSupported) {
+        await this.initializeFirebase();
+        await this.registerServiceWorker();
+        
+        if (this._permissionStatus() === 'granted' && this._serviceWorkerReady()) {
+          await this.tryGetExistingFirebaseToken();
+        }
+        
+        this.setupFirebaseMessageHandlers();
       }
-      
-      // Setup message handlers
-      this.setupMessageHandlers();
       
       this._isInitialized.set(true);
       
       const status = this.getStatus();
-      console.log('✅ [INIT] NotificationService initialized:', status);
+      console.log('✅ NotificationService initialized:', status);
       
-      // Expose debug tools in development
-      if (this.isDevelopment()) {
+      // Debug tools en desarrollo
+      if (this.isDevelopmentEnvironment()) {
         (window as any).debugNotifications = {
           getStatus: () => this.getStatus(),
-          testNotification: () => this.testNotification(),
-          forceRegister: () => this.forceRegisterToken(),
-          triggerEdgeFunction: () => this.triggerNotificationProcessing()
+          testNotification: (type?: NotificationType) => this.testNotification(type),
+          forceRegister: () => this.forceRegisterPushToken()
         };
-        console.log('🔧 [DEBUG] Tools available: window.debugNotifications');
+        console.log('🔧 Debug tools available: window.debugNotifications');
       }
       
     } catch (error) {
-      console.error('❌ [INIT] Initialization failed:', error);
-      // Don't throw - allow app to continue
+      console.error('❌ Initialization failed:', error);
     } finally {
       this._isLoading.set(false);
     }
   }
 
   /**
-   * 🔥 INITIALIZE FIREBASE (v10 Modular API)
+   * 🔥 INITIALIZE FIREBASE (v10 Modular)
    */
   private async initializeFirebase(): Promise<void> {
     try {
-      console.log('🔥 [FIREBASE] Initializing Firebase Messaging...');
+      console.log('🔥 Initializing Firebase Messaging...');
       
-      // Check if messaging is supported
+      // Check if supported
       const supported = await isSupported();
       if (!supported) {
-        console.warn('⚠️ [FIREBASE] Messaging not supported in this browser');
+        console.warn('⚠️ Firebase Messaging not supported');
         return;
       }
       
-      // Initialize Firebase App
+      // Initialize app
       if (!this.firebaseApp) {
         this.firebaseApp = initializeApp(this.firebaseConfig);
-        console.log('✅ [FIREBASE] App initialized');
       }
       
-      // Get Messaging instance
+      // Get messaging instance
       this.messaging = getMessaging(this.firebaseApp);
-      console.log('✅ [FIREBASE] Messaging instance created');
+      this.firebaseMessaging = this.messaging; // Alias para compatibilidad
+      
+      console.log('✅ Firebase Messaging initialized');
       
     } catch (error) {
-      console.error('❌ [FIREBASE] Initialization error:', error);
-      // Don't throw - continue without push
+      console.error('❌ Firebase initialization error:', error);
     }
   }
 
   /**
-   * 🔧 REGISTER SERVICE WORKER
+   * 🔧 REGISTER SERVICE WORKER  
    */
   private async registerServiceWorker(): Promise<void> {
     if (!('serviceWorker' in navigator)) {
-      console.warn('⚠️ [SW] Service Worker not supported');
+      console.warn('⚠️ Service Worker not supported');
       return;
     }
     
     try {
-      console.log('📦 [SW] Registering Service Worker...');
+      console.log('📦 Registering Service Worker...');
       
-      // Unregister old workers first
-      const registrations = await navigator.serviceWorker.getRegistrations();
-      for (const reg of registrations) {
-        if (reg.scope !== new URL('/', location.origin).href) {
-          await reg.unregister();
-          console.log('🔄 [SW] Unregistered old worker:', reg.scope);
-        }
-      }
-      
-      // Register new worker
       const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js', {
         scope: '/',
         updateViaCache: 'none'
       });
       
-      console.log('✅ [SW] Service Worker registered:', registration.scope);
+      console.log('✅ Service Worker registered:', registration.scope);
       
-      // Wait for activation
       await navigator.serviceWorker.ready;
       this._serviceWorkerReady.set(true);
-      console.log('✅ [SW] Service Worker ready and active');
-      
-      // Handle updates
-      registration.addEventListener('updatefound', () => {
-        console.log('🔄 [SW] New version available');
-        const newWorker = registration.installing;
-        if (newWorker) {
-          newWorker.addEventListener('statechange', () => {
-            if (newWorker.state === 'activated') {
-              console.log('✅ [SW] New version activated');
-              this.tryGetExistingToken();
-            }
-          });
-        }
-      });
       
     } catch (error) {
-      console.error('❌ [SW] Registration failed:', error);
+      console.error('❌ Service Worker registration failed:', error);
       this._serviceWorkerReady.set(false);
     }
   }
 
   /**
-   * 🔍 TRY TO GET EXISTING TOKEN
+   * 🔍 TRY GET EXISTING TOKEN
    */
-  private async tryGetExistingToken(): Promise<void> {
+  private async tryGetExistingFirebaseToken(): Promise<void> {
     if (!this.messaging || !this._serviceWorkerReady()) {
-      console.log('ℹ️ [TOKEN] Not ready for token retrieval');
+      console.log('ℹ️ Not ready for token retrieval');
       return;
     }
     
     try {
-      console.log('🔍 [TOKEN] Checking for existing FCM token...');
+      console.log('🔍 Checking for existing FCM token...');
       
       const currentToken = await getToken(this.messaging, {
-        vapidKey: this.vapidKey,
+        vapidKey: this.firebaseVapidKey,
         serviceWorkerRegistration: await navigator.serviceWorker.ready
       });
       
       if (currentToken) {
-        console.log('✅ [TOKEN] Found existing token:', currentToken.substring(0, 20) + '...');
+        console.log('✅ Found existing token:', currentToken.substring(0, 20) + '...');
         this._pushToken.set(currentToken);
         await this.updateTokenInDatabase(currentToken);
       } else {
-        console.log('ℹ️ [TOKEN] No existing token found');
+        console.log('ℹ️ No existing token found');
       }
     } catch (error) {
-      console.warn('⚠️ [TOKEN] Could not get existing token:', error);
+      console.warn('⚠️ Could not get existing token:', error);
     }
   }
 
   /**
    * 📨 SETUP MESSAGE HANDLERS
    */
-  private setupMessageHandlers(): void {
+  private setupFirebaseMessageHandlers(): void {
     if (!this.messaging) return;
     
-    console.log('🔧 [HANDLERS] Setting up message handlers...');
+    console.log('🔧 Setting up message handlers...');
     
-    // Handle foreground messages with proper typing
+    // Handle foreground messages
     onMessage(this.messaging, (payload: MessagePayload) => {
-      console.log('📨 [MESSAGE] Foreground message received:', payload);
+      console.log('📨 Foreground message received:', payload);
       
-      // Convert to our NotificationPayload type
+      // Convert to NotificationPayload
       const notification: NotificationPayload = {
         title: payload.notification?.title || 'RageStudios',
         body: payload.notification?.body || 'Nueva notificación',
         icon: payload.notification?.icon,
-        badge: payload.data?.badge,
-        data: payload.data,
-        tag: payload.data?.notificationType,
-        timestamp: Date.now()
+        badge: payload.data?.['badge'],
+        data: payload.data
       };
       
       // Emit to subscribers
       this._notificationReceived.next(notification);
       
-      // Show notification in foreground
+      // Show notification
       if (Notification.permission === 'granted') {
         const nativeNotification = new Notification(notification.title, {
           body: notification.body,
-          icon: notification.icon || '/icons/icon-192x192.png',
-          badge: notification.badge || '/icons/badge-72x72.png',
+          icon: '/icons/icon-192x192.png',
+          badge: '/icons/badge-72x72.png',
           data: notification.data
         });
         
         nativeNotification.onclick = () => {
           window.focus();
-          const url = notification.data?.actionUrl || '/account/bookings';
+          const url = notification.data?.['actionUrl'] || '/account/bookings';
           window.location.href = url;
           nativeNotification.close();
         };
       }
       
       // Log event
-      this.logEvent('push_message_received', { 
-        messageId: payload.messageId 
-      });
+      this.logInteraction('push_message_received', { message: payload });
     });
     
-    console.log('✅ [HANDLERS] Message handlers setup complete');
+    console.log('✅ Message handlers setup complete');
   }
 
   /**
@@ -352,9 +332,8 @@ export class NotificationService {
    */
   async requestPermissions(): Promise<NotificationPermissionResult> {
     try {
-      console.log('🔐 [PERMISSION] Requesting notification permissions...');
+      console.log('🔐 Requesting notification permissions...');
       
-      // Ensure service worker is ready
       if (!this._serviceWorkerReady()) {
         await this.registerServiceWorker();
       }
@@ -365,31 +344,29 @@ export class NotificationService {
       const result: NotificationPermissionResult = {
         permission,
         granted: permission === 'granted',
-        token: undefined // ← CORRECCIÓN: undefined en lugar de null
+        token: undefined // No null
       };
       
       if (permission === 'granted') {
-        console.log('✅ [PERMISSION] Granted, registering token...');
+        console.log('✅ Permissions granted, registering token...');
         
         try {
           const token = await this.registerPushToken();
           result.token = token;
         } catch (tokenError) {
-          console.error('⚠️ [PERMISSION] Token registration failed:', tokenError);
-          // Continue without token - db-only mode
+          console.error('⚠️ Token registration failed:', tokenError);
         }
       }
       
       await this.logEvent('permission_requested', {
         permission,
-        granted: result.granted,
-        hasToken: !!result.token
+        granted: result.granted
       });
       
       return result;
       
     } catch (error) {
-      console.error('❌ [PERMISSION] Request error:', error);
+      console.error('❌ Permission request error:', error);
       throw error;
     }
   }
@@ -406,19 +383,13 @@ export class NotificationService {
       throw new Error('Notification permissions not granted');
     }
     
-    if (!this._serviceWorkerReady()) {
-      throw new Error('Service Worker not ready');
-    }
-    
     try {
-      console.log('📱 [TOKEN] Registering FCM token...');
+      console.log('📱 Registering FCM token...');
       
-      // Wait for SW to be ready
       const swRegistration = await navigator.serviceWorker.ready;
       
-      // Get FCM token with SW registration
       const token = await getToken(this.messaging, {
-        vapidKey: this.vapidKey,
+        vapidKey: this.firebaseVapidKey,
         serviceWorkerRegistration: swRegistration
       });
       
@@ -426,27 +397,20 @@ export class NotificationService {
         throw new Error('Failed to get FCM token');
       }
       
-      console.log('✅ [TOKEN] FCM token obtained:', token.substring(0, 20) + '...');
+      console.log('✅ FCM token obtained:', token.substring(0, 20) + '...');
       
-      // Save token
       this._pushToken.set(token);
-      
-      // Save to database
       await this.updateTokenInDatabase(token);
       
-      // Log event
       await this.logEvent('token_registered', {
         deviceType: 'web',
-        method: 'firebase_fcm_v10'
+        method: 'firebase_fcm'
       });
       
       return token;
       
     } catch (error) {
-      console.error('❌ [TOKEN] Registration error:', error);
-      await this.logEvent('token_registration_failed', {
-        error: error instanceof Error ? error.message : String(error)
-      });
+      console.error('❌ Token registration error:', error);
       throw error;
     }
   }
@@ -457,26 +421,25 @@ export class NotificationService {
   private async updateTokenInDatabase(token: string): Promise<void> {
     const user = await this.getCurrentUser();
     if (!user) {
-      console.warn('⚠️ [DB] No user authenticated');
+      console.warn('⚠️ No user authenticated');
       return;
     }
 
     try {
-      console.log('💾 [DB] Updating FCM token...');
+      const pushTokenData: PushToken = {
+        token: token,
+        deviceType: 'web',
+        isActive: true,
+        createdAt: new Date().toISOString(),
+        lastUsedAt: new Date().toISOString()
+      };
       
       const { error } = await this.supabase.client
         .from('user_notification_preferences')
         .upsert({
           user_id: user.id,
           primary_device_token: token,
-          push_tokens: [{ 
-            token, 
-            type: 'fcm',
-            deviceType: 'web',
-            isActive: true,
-            createdAt: new Date().toISOString(),
-            lastUsedAt: new Date().toISOString()
-          }],
+          push_tokens: [pushTokenData],
           last_token_updated_at: new Date().toISOString(),
           push_notifications_enabled: true,
           updated_at: new Date().toISOString()
@@ -486,27 +449,35 @@ export class NotificationService {
 
       if (error) throw error;
       
-      console.log('✅ [DB] Token stored successfully');
+      console.log('✅ Token stored in database');
     } catch (error) {
-      console.error('❌ [DB] Update error:', error);
+      console.error('❌ Database update error:', error);
     }
   }
 
   /**
-   * 📅 SCHEDULE NOTIFICATIONS FOR BOOKING
+   * 📅 SCHEDULE BOOKING NOTIFICATIONS - MÉTODO PRINCIPAL
    */
-  async scheduleNotificationsForBooking(booking: any): Promise<{ success: boolean; reason?: string; count?: number }> {
+  async scheduleBookingNotifications(booking: any): Promise<{ success: boolean; reason?: string; count?: number }> {
     const canSchedule = this.canScheduleNotifications();
     const canSendPush = this.canSendPushNotifications();
+    const status = this.getStatus();
     
     if (!canSchedule) {
-      const reason = 'Notifications disabled in preferences';
-      console.warn('⚠️ [SCHEDULE] Cannot schedule:', reason);
+      const reason = `Cannot schedule notifications - Preferences disabled`;
+      console.warn('⚠️ Cannot schedule notifications:', reason);
       return { success: false, reason };
     }
 
+    console.log('📅 Scheduling notifications with status:', {
+      canSchedule,
+      canSendPush,
+      permission: status.permission,
+      hasToken: status.hasToken
+    });
+
     try {
-      console.log('📅 [SCHEDULE] Scheduling for booking:', booking.id);
+      console.log('📅 Scheduling notifications for booking:', booking.id);
       
       const user = await this.getCurrentUser();
       if (!user) throw new Error('User not authenticated');
@@ -518,13 +489,15 @@ export class NotificationService {
       const bookingDateTime = new Date(`${booking.session_date}T${booking.session_time}`);
       const now = new Date();
 
-      // Determine delivery channels
-      const channels = this.getAvailableDeliveryChannels();
-      const pushToken = canSendPush ? this._pushToken() : undefined;
+      const availableChannels = this.getAvailableDeliveryChannels();
+      const pushToken = canSendPush ? this._pushToken() : null;
+      
+      // Convertir null a undefined para la BD
+      const pushTokenForDB = pushToken || undefined;
 
-      console.log('📡 [SCHEDULE] Channels:', channels, 'Token:', !!pushToken);
+      console.log('📡 Available delivery channels:', availableChannels, 'Push token:', !!pushToken);
 
-      // 1. Booking Confirmation (immediate)
+      // 1. Booking Confirmation
       if (preferences.booking_confirmation_enabled !== false) {
         notifications.push({
           booking_id: booking.id,
@@ -535,10 +508,15 @@ export class NotificationService {
           priority: 5,
           retry_count: 0,
           max_retries: 3,
-          message_payload: this.buildNotificationPayload('booking_confirmation', booking),
-          push_token: pushToken,
-          delivery_channels: channels,
-          expires_at: new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString()
+          message_payload: await this.buildNotificationPayload('booking_confirmation', booking),
+          push_token: pushTokenForDB,
+          delivery_channels: availableChannels,
+          expires_at: new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString(),
+          session_data: this.extractSessionData(booking),
+          user_preferences: { 
+            message_style: preferences.message_style,
+            fallback_to_db_only: !canSendPush
+          }
         });
       }
 
@@ -555,10 +533,12 @@ export class NotificationService {
             priority: 4,
             retry_count: 0,
             max_retries: 3,
-            message_payload: this.buildNotificationPayload('reminder_24h', booking),
-            push_token: pushToken,
-            delivery_channels: channels,
-            expires_at: bookingDateTime.toISOString()
+            message_payload: await this.buildNotificationPayload('reminder_24h', booking),
+            push_token: pushTokenForDB,
+            delivery_channels: availableChannels,
+            expires_at: new Date(bookingDateTime.getTime() + 60 * 60 * 1000).toISOString(),
+            session_data: this.extractSessionData(booking),
+            user_preferences: { message_style: preferences.message_style }
           });
         }
       }
@@ -576,129 +556,238 @@ export class NotificationService {
             priority: 5,
             retry_count: 0,
             max_retries: 3,
-            message_payload: this.buildNotificationPayload('reminder_1h', booking),
-            push_token: pushToken,
-            delivery_channels: channels,
-            expires_at: new Date(bookingDateTime.getTime() + 30 * 60 * 1000).toISOString()
+            message_payload: await this.buildNotificationPayload('reminder_1h', booking),
+            push_token: pushTokenForDB,
+            delivery_channels: availableChannels,
+            expires_at: new Date(bookingDateTime.getTime() + 30 * 60 * 1000).toISOString(),
+            session_data: this.extractSessionData(booking),
+            user_preferences: { message_style: preferences.message_style }
           });
         }
       }
 
-      // Save to database
+      // Store in database
       if (notifications.length > 0) {
         const { error } = await this.supabase.client
           .from('notification_schedules')
           .insert(notifications);
 
-        if (error) throw error;
-
-        console.log(`✅ [SCHEDULE] ${notifications.length} notifications scheduled`);
-        
-        // Trigger immediate processing for confirmation
-        if (preferences.booking_confirmation_enabled !== false) {
-          setTimeout(() => this.triggerNotificationProcessing(), 2000);
+        if (error) {
+          console.error('❌ Error storing schedules:', error);
+          throw error;
         }
+
+        console.log(`✅ Scheduled ${notifications.length} notifications`);
+        
+        await this.logEvent('notifications_scheduled', {
+          bookingId: booking.id,
+          count: notifications.length,
+          types: notifications.map(n => n.notification_type)
+        });
         
         return { success: true, count: notifications.length };
+      } else {
+        console.log('ℹ️ No notifications scheduled');
+        return { success: true, count: 0, reason: 'All disabled or past due' };
       }
 
-      return { success: true, count: 0 };
-      
     } catch (error) {
-      console.error('❌ [SCHEDULE] Error:', error);
+      console.error('❌ Error in scheduleBookingNotifications:', error);
+      await this.logEvent('scheduling_failed', {
+        bookingId: booking.id,
+        error: error instanceof Error ? error.message : String(error)
+      });
       return { 
         success: false, 
-        reason: error instanceof Error ? error.message : 'Unknown error' 
+        reason: error instanceof Error ? error.message : String(error) 
       };
+    }
+  }
+
+  /**
+   * 🚫 CANCEL BOOKING NOTIFICATIONS  
+   */
+  async cancelBookingNotifications(bookingId: string): Promise<void> {
+    try {
+      console.log('🚫 Cancelling notifications for booking:', bookingId);
+      
+      const { error } = await this.supabase.client
+        .from('notification_schedules')
+        .update({
+          status: 'cancelled',
+          cancelled_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('booking_id', bookingId)
+        .in('status', ['scheduled', 'failed']);
+
+      if (error) {
+        console.error('❌ Error cancelling notifications:', error);
+        throw error;
+      }
+
+      console.log(`✅ Cancelled notifications for booking ${bookingId}`);
+      
+      await this.logEvent('notifications_cancelled', { 
+        bookingId,
+        cancelledAt: new Date().toISOString()
+      });
+
+    } catch (error) {
+      console.error('❌ Error in cancelBookingNotifications:', error);
+      throw error;
     }
   }
 
   /**
    * 🔔 BUILD NOTIFICATION PAYLOAD
    */
-  private buildNotificationPayload(type: NotificationType, booking: any): NotificationPayload {
-    const templates = {
+  private async buildNotificationPayload(
+    type: NotificationType, 
+    booking: any
+  ): Promise<NotificationPayload> {
+    
+    try {
+      // Build variables for template
+      const variables = {
+        user_name: booking.user?.full_name || 'Usuario',
+        class_name: booking.class_name || 'tu clase',
+        session_date: formatDateCustom(booking.session_date, {
+          weekday: 'long',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
+        }),
+        session_time: booking.session_time,
+        coach_name: booking.coach_name || 'tu coach',
+        bed_numbers: Array.isArray(booking.bed_numbers) ? 
+          booking.bed_numbers.join(', ') : booking.bed_numbers || ''
+      };
+
+      console.log('🏗️ Processing notification template:', type, 'with variables:', variables);
+
+      // Get processed template from database
+      const { data, error } = await this.supabase.client
+        .rpc('process_notification_template', {
+          p_template_key: `${type}_es`,
+          p_language_code: 'es-MX',
+          p_variables: variables
+        });
+
+      if (error) {
+        console.error('❌ Error processing template:', error);
+        return this.getFallbackPayload(type, booking);
+      }
+
+      const payload: NotificationPayload = {
+        title: data.title,
+        body: data.body,
+        icon: '/icons/icon-192x192.png',
+        badge: '/icons/badge-72x72.png',
+        data: { 
+          bookingId: booking.id, 
+          type,
+          actionUrl: data.action_url || '/account/bookings',
+          timestamp: new Date().toISOString()
+        }
+      };
+
+      if (data.action_text) {
+        payload.actions = [{
+          action: 'view',
+          title: data.action_text
+        }];
+      }
+
+      console.log('✅ Notification payload built:', payload);
+      return payload;
+
+    } catch (error) {
+      console.error('❌ Error building payload:', error);
+      return this.getFallbackPayload(type, booking);
+    }
+  }
+
+  /**
+   * 🔄 GET FALLBACK PAYLOAD
+   */
+  private getFallbackPayload(type: NotificationType, booking: any): NotificationPayload {
+    const fallbackMessages = {
       booking_confirmation: {
-        title: '✅ Reserva Confirmada',
-        body: `Tu clase ${booking.class_name} ha sido reservada para el ${new Date(booking.session_date).toLocaleDateString('es-MX')}`
+        title: '¡Reserva confirmada! 🎉',
+        body: `Tu clase de ${booking.class_name || 'fitness'} está confirmada.`
       },
       reminder_24h: {
-        title: '⏰ Recordatorio - Mañana',
-        body: `Mañana tienes ${booking.class_name} a las ${booking.session_time.substring(0, 5)}`
+        title: 'Tu clase es mañana 📅',
+        body: `Recuerda que mañana tienes ${booking.class_name || 'tu clase'}.`
       },
       reminder_1h: {
-        title: '🔔 ¡Tu clase empieza pronto!',
-        body: `${booking.class_name} empieza en 1 hora - Cama ${booking.bed_numbers?.join(', ')}`
+        title: 'Tu clase comienza en 1 hora ⏰',
+        body: `${booking.class_name || 'Tu clase'} comienza pronto. ¡Te esperamos!`
       },
       cancellation_user: {
-        title: '❌ Reserva Cancelada',
-        body: `Tu reserva de ${booking.class_name} ha sido cancelada`
+        title: 'Reserva cancelada ✅',
+        body: 'Tu reserva ha sido cancelada exitosamente.'
       },
       cancellation_admin: {
-        title: '⚠️ Clase Cancelada',
-        body: `${booking.class_name} ha sido cancelada por el estudio`
+        title: 'Cambio en tu reserva 📋',
+        body: 'Tu reserva ha sido modificada por el administrador.'
       },
       class_update: {
-        title: '📝 Cambio en tu Clase',
-        body: `Hay cambios en tu reserva de ${booking.class_name}`
+        title: 'Actualización de clase 📝',
+        body: 'Hay cambios en tu clase programada.'
       }
     };
 
-    const template = templates[type];
+    const message = fallbackMessages[type] || fallbackMessages.booking_confirmation;
 
     return {
-      title: template.title,
-      body: template.body,
+      title: message.title,
+      body: message.body,
       icon: '/icons/icon-192x192.png',
       badge: '/icons/badge-72x72.png',
-      data: {
-        bookingId: booking.id,
-        notificationType: type,
-        actionUrl: `/account/bookings/${booking.id}`,
-        classDate: booking.session_date,
-        classTime: booking.session_time
-      },
-      tag: type,
-      requireInteraction: type === 'reminder_1h',
-      timestamp: Date.now()
+      data: { 
+        bookingId: booking.id, 
+        type,
+        actionUrl: '/account/bookings',
+        timestamp: new Date().toISOString(),
+        fallback: true
+      }
     };
   }
 
   /**
-   * 🚀 TRIGGER EDGE FUNCTION FOR PROCESSING
+   * 📊 LOG EVENT - PÚBLICO
    */
-  private async triggerNotificationProcessing(): Promise<void> {
+  async logEvent(eventType: string, data?: any): Promise<void> {
     try {
-      console.log('🚀 [EDGE] Triggering notification processing...');
-      
-      const { data, error } = await this.supabase.client.functions.invoke('process-notifications', {
-        body: { trigger: 'manual' }
-      });
+      const user = await this.getCurrentUser();
+      if (!user) return;
 
-      if (error) throw error;
-      
-      console.log('✅ [EDGE] Processing triggered:', data);
+      const logEntry: Partial<NotificationLog> = {
+        user_id: user.id,
+        log_type: 'user_interaction',
+        success: true,
+        user_action: eventType,
+        action_data: data,
+        device_info: this.getDeviceInfo(),
+        created_at: new Date().toISOString()
+      };
+
+      await this.supabase.client
+        .from('notification_logs')
+        .insert([logEntry]);
+
     } catch (error) {
-      console.error('❌ [EDGE] Trigger failed:', error);
+      console.warn('⚠️ Could not log event:', eventType, error);
     }
   }
 
   /**
-   * 📡 GET AVAILABLE DELIVERY CHANNELS
+   * 📊 LOG INTERACTION - PÚBLICO
    */
-  private getAvailableDeliveryChannels(): string[] {
-    const channels: string[] = ['database'];
-    
-    if (this.canSendPushNotifications()) {
-      channels.push('push');
-    }
-    
-    const prefs = this._preferences();
-    if (prefs?.email_notifications_enabled) {
-      channels.push('email');
-    }
-    
-    return channels;
+  async logInteraction(action: string, data?: any): Promise<void> {
+    await this.logEvent(action, data);
   }
 
   /**
@@ -707,7 +796,10 @@ export class NotificationService {
   private async loadUserPreferences(): Promise<void> {
     try {
       const user = await this.getCurrentUser();
-      if (!user) return;
+      if (!user) {
+        console.log('ℹ️ No user authenticated');
+        return;
+      }
 
       const { data, error } = await this.supabase.client
         .from('user_notification_preferences')
@@ -716,18 +808,20 @@ export class NotificationService {
         .single();
 
       if (error && error.code !== 'PGRST116') {
-        console.error('❌ [PREFS] Load error:', error);
+        console.error('❌ Error loading preferences:', error);
         return;
       }
 
       if (data) {
         this._preferences.set(data);
+        console.log('✅ User preferences loaded');
       } else {
+        console.log('📝 Creating default preferences...');
         await this.createDefaultPreferences();
       }
 
     } catch (error) {
-      console.error('❌ [PREFS] Error:', error);
+      console.error('❌ Error in loadUserPreferences:', error);
     }
   }
 
@@ -741,28 +835,146 @@ export class NotificationService {
     const defaultPrefs: Partial<UserNotificationPreferences> = {
       user_id: user.id,
       notifications_enabled: true,
-      push_notifications_enabled: true,
-      email_notifications_enabled: true,
+      timezone_identifier: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      preferred_language: navigator.language.startsWith('es') ? 'es' : 'en',
       booking_confirmation_enabled: true,
       reminder_24h_enabled: true,
       reminder_1h_enabled: true,
-      timezone_identifier: Intl.DateTimeFormat().resolvedOptions().timeZone,
-      preferred_language: navigator.language.startsWith('es') ? 'es' : 'en'
+      cancellation_notifications_enabled: true,
+      class_update_notifications_enabled: true,
+      push_notifications_enabled: true,
+      email_notifications_enabled: false,
+      sms_notifications_enabled: false,
+      quiet_hours_enabled: false,
+      message_style: 'standard',
+      include_coach_info: true,
+      include_location_info: true,
+      include_quick_actions: true,
+      allow_admin_override: true
     };
 
     try {
       const { data, error } = await this.supabase.client
         .from('user_notification_preferences')
-        .insert(defaultPrefs)
+        .insert([defaultPrefs])
         .select()
         .single();
 
-      if (!error && data) {
-        this._preferences.set(data);
+      if (error) {
+        console.error('❌ Error creating default preferences:', error);
+        return;
       }
+
+      this._preferences.set(data);
+      console.log('✅ Default preferences created');
+
     } catch (error) {
-      console.error('❌ [PREFS] Default creation error:', error);
+      console.error('❌ Error creating default preferences:', error);
     }
+  }
+
+  /**
+   * 📡 GET AVAILABLE DELIVERY CHANNELS
+   */
+  private getAvailableDeliveryChannels(): string[] {
+    const channels: string[] = [];
+    
+    // Database always available
+    channels.push('database');
+    
+    // Push if token available
+    if (this.canSendPushNotifications()) {
+      channels.push('push');
+      console.log('✅ Push notifications enabled with valid token');
+    } else {
+      console.log('⚠️ Push notifications disabled - will use database only');
+    }
+    
+    // Email if enabled
+    const preferences = this._preferences();
+    if (preferences?.email_notifications_enabled) {
+      channels.push('email');
+    }
+    
+    console.log('📡 Final delivery channels:', channels);
+    return channels;
+  }
+
+  /**
+   * 📊 EXTRACT SESSION DATA
+   */
+  private extractSessionData(booking: any): Record<string, any> {
+    return {
+      className: booking.class_name,
+      coachName: booking.coach_name,
+      sessionDate: booking.session_date,
+      sessionTime: booking.session_time,
+      bedNumbers: booking.bed_numbers,
+      totalAttendees: booking.total_attendees,
+      creditsUsed: booking.credits_used
+    };
+  }
+
+  /**
+   * 🔍 DIAGNOSE BROWSER CAPABILITIES
+   */
+  private diagnoseBrowserCapabilities() {
+    const capabilities = {
+      isBrowser: this.isBrowser,
+      hasWindow: typeof window !== 'undefined',
+      notificationSupported: false,
+      serviceWorkerSupported: false,
+      pushManagerSupported: false,
+      permissionStatus: 'unknown',
+      isDevelopment: false
+    };
+
+    if (!this.isBrowser || typeof window === 'undefined') {
+      console.log('🖥️ Server-side rendering detected');
+      return capabilities;
+    }
+
+    capabilities.notificationSupported = 'Notification' in window;
+    capabilities.serviceWorkerSupported = 'serviceWorker' in navigator;
+    capabilities.pushManagerSupported = 'PushManager' in window;
+    capabilities.permissionStatus = Notification?.permission || 'unknown';
+    capabilities.isDevelopment = this.isDevelopmentEnvironment();
+
+    return capabilities;
+  }
+
+  /**
+   * 🔍 CHECK IF DEVELOPMENT
+   */
+  private isDevelopmentEnvironment(): boolean {
+    if (!this.isBrowser || typeof window === 'undefined') {
+      return false;
+    }
+    
+    const hostname = window.location?.hostname;
+    if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname?.includes('.local')) {
+      return true;
+    }
+    
+    const port = window.location?.port;
+    if (port && ['3000', '4200', '8080', '5173', '5174'].includes(port)) {
+      return true;
+    }
+    
+    return false;
+  }
+
+  /**
+   * 🔧 DEVICE INFO
+   */
+  private getDeviceInfo(): DeviceInfo {
+    return {
+      platform: navigator.platform,
+      userAgent: navigator.userAgent,
+      screenResolution: `${screen.width}x${screen.height}`,
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      language: navigator.language
+    };
   }
 
   /**
@@ -774,123 +986,100 @@ export class NotificationService {
   }
 
   /**
-   * 📊 GET STATUS
+   * 📊 GET STATUS - PÚBLICO
    */
   getStatus() {
     return {
       initialized: this._isInitialized(),
-      loading: this._isLoading(),
+      supported: this.isNotificationSupported(),
       permission: this._permissionStatus(),
       hasToken: !!this._pushToken(),
-      token: this._pushToken()?.substring(0, 20),
-      preferencesLoaded: !!this._preferences(),
-      notificationsEnabled: this._preferences()?.notifications_enabled,
-      pushEnabled: this._preferences()?.push_notifications_enabled,
+      canSend: this.canSendNotifications(),
       canSchedule: this.canScheduleNotifications(),
       canSendPush: this.canSendPushNotifications(),
-      serviceWorkerReady: this._serviceWorkerReady(),
-      firebaseInitialized: !!this.messaging
+      hasPreferences: !!this._preferences(),
+      loading: this._isLoading()
     };
   }
 
   /**
-   * 🧪 TEST NOTIFICATION
+   * 🧪 TEST NOTIFICATION - DEBUG
    */
   async testNotification(type: NotificationType = 'booking_confirmation'): Promise<void> {
-    console.log('🧪 [TEST] Testing notification...');
-    
-    if (Notification.permission !== 'granted') {
-      throw new Error('Permissions not granted');
+    if (!this.isBrowser || this._permissionStatus() !== 'granted') {
+      console.warn('⚠️ Cannot test notification: permission not granted');
+      return;
     }
 
     const testBooking = {
       id: 'test-' + Date.now(),
       class_name: 'Test Class',
-      session_date: new Date().toISOString().split('T')[0],
+      session_date: '2025-01-28',
       session_time: '10:00:00',
-      bed_numbers: ['1', '2']
+      coach_name: 'Test Coach',
+      bed_numbers: ['1', '2'],
+      user: { full_name: 'Test User' }
     };
 
-    const payload = this.buildNotificationPayload(type, testBooking);
-
-    const notification = new Notification(payload.title, {
+    const payload = await this.buildNotificationPayload(type, testBooking);
+    
+    new Notification(payload.title, {
       body: payload.body,
       icon: payload.icon,
-      badge: payload.badge
+      badge: payload.badge,
+      data: payload.data
     });
 
-    setTimeout(() => notification.close(), 5000);
+    await this.logEvent('test_notification_sent', { type, payload });
+    console.log('🧪 Test notification sent:', payload);
   }
 
   /**
-   * 📝 LOG EVENT
+   * 🔧 FORCE REGISTER TOKEN - DEBUG
    */
-  private async logEvent(event: string, details: any = {}): Promise<void> {
+  async forceRegisterPushToken(): Promise<void> {
+    console.log('🚨 Force registering push token...');
+    
     try {
-      const user = await this.getCurrentUser();
-      if (!user) return;
-
-      await this.supabase.client
-        .from('notification_logs')
-        .insert({
-          user_id: user.id,
-          log_type: 'user_interaction',
-          notification_type: details.notificationType,
-          success: true,
-          user_action: event,
-          action_data: details,
-          created_at: new Date().toISOString()
-        });
+      const currentStatus = this.getStatus();
+      console.log('📊 Current status:', currentStatus);
+      
+      if (!this.messaging) {
+        console.error('❌ Firebase Messaging not initialized');
+        await this.initializeFirebase();
+      }
+      
+      if (this._permissionStatus() !== 'granted') {
+        console.error('❌ Permissions not granted');
+        const permissions = await this.requestPermissions();
+        console.log('🔑 Permission result:', permissions);
+        return;
+      }
+      
+      console.log('🔑 Forcing push token registration...');
+      const token = await this.registerPushToken();
+      console.log('🎉 Force registration successful! Token:', !!token);
+      
     } catch (error) {
-      console.error('Log error:', error);
+      console.error('❌ Force registration failed:', error);
     }
   }
 
   /**
    * 🔄 RESET SERVICE
    */
-  reset(): void {
-    this._isInitialized.set(false);
+  private reset(): void {
     this._permissionStatus.set('default');
     this._pushToken.set(null);
     this._preferences.set(null);
-    this._serviceWorkerReady.set(false);
-    console.log('🔄 [RESET] Service reset');
+    this._isInitialized.set(false);
+    console.log('🔄 NotificationService reset');
   }
 
   /**
-   * 🔍 CHECK IF DEVELOPMENT
+   * 📊 GET PERMISSION STATUS
    */
-  private isDevelopment(): boolean {
-    if (!this.isBrowser) return false;
-    const hostname = window.location?.hostname;
-    return hostname === 'localhost' || hostname === '127.0.0.1';
-  }
-
-  /**
-   * 🔧 FORCE REGISTER TOKEN (Debug)
-   */
-  async forceRegisterToken(): Promise<void> {
-    console.log('🔧 [DEBUG] Force registering token...');
-    
-    try {
-      if (!this.messaging) {
-        await this.initializeFirebase();
-      }
-      
-      if (!this._serviceWorkerReady()) {
-        await this.registerServiceWorker();
-      }
-      
-      if (this._permissionStatus() !== 'granted') {
-        await this.requestPermissions();
-      }
-      
-      await this.registerPushToken();
-      console.log('✅ [DEBUG] Force registration complete');
-    } catch (error) {
-      console.error('❌ [DEBUG] Force registration failed:', error);
-      throw error;
-    }
+  getPermissionStatus(): NotificationPermission {
+    return this._permissionStatus();
   }
 }
