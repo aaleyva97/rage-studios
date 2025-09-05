@@ -232,41 +232,21 @@ export class NotificationService {
     }
     
     try {
-      console.log('📦 Registering Firebase Messaging Service Worker...');
-      
-      // Check if there's already a service worker registered
-      const existingRegistration = await navigator.serviceWorker.getRegistration('/');
-      
-      if (existingRegistration) {
-        console.log('ℹ️ Existing service worker found:', existingRegistration.scope);
-        // Use existing registration for Firebase messaging
-        this._serviceWorkerReady.set(true);
-        return;
-      }
+      console.log('📦 Registering Service Worker...');
       
       const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js', {
         scope: '/',
         updateViaCache: 'none'
       });
       
-      console.log('✅ Firebase Service Worker registered:', registration.scope);
+      console.log('✅ Service Worker registered:', registration.scope);
       
       await navigator.serviceWorker.ready;
       this._serviceWorkerReady.set(true);
       
     } catch (error) {
-      console.error('❌ Firebase Service Worker registration failed:', error);
-      // Try to use existing service worker if available
-      try {
-        const existingRegistration = await navigator.serviceWorker.getRegistration('/');
-        if (existingRegistration) {
-          console.log('ℹ️ Using existing service worker for Firebase messaging');
-          this._serviceWorkerReady.set(true);
-        }
-      } catch (fallbackError) {
-        console.error('❌ No service worker available:', fallbackError);
-        this._serviceWorkerReady.set(false);
-      }
+      console.error('❌ Service Worker registration failed:', error);
+      this._serviceWorkerReady.set(false);
     }
   }
 
