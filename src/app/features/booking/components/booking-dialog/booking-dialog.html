@@ -8,7 +8,37 @@
   header="Reservar Clase"
   (onHide)="closeDialog()">
   
-  <p-stepper [value]="currentStep()" class="w-full">
+  <!-- 🚫 VALIDACIÓN: Sistema de reservas deshabilitado -->
+  @if (!bookingsEnabled) {
+    <div class="p-6 text-center">
+      <!-- Mensaje personalizado con estilo PrimeNG -->
+      <div class="w-full mb-4 p-4 border border-yellow-300 bg-yellow-50 rounded-lg">
+        <div class="flex flex-col items-center gap-4 text-center">
+          <i class="pi pi-exclamation-triangle text-4xl text-yellow-600"></i>
+          <div>
+            <div class="font-semibold text-lg text-gray-800 mb-2">
+              Sistema de reservas temporalmente fuera de servicio
+            </div>
+            <div class="text-sm text-gray-700">
+              Nuestro sistema de reservas se encuentra temporalmente deshabilitado para mantenimiento.
+              <br>Por favor, inténtalo más tarde o contacta al administrador.
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="flex justify-center mt-4">
+        <p-button 
+          label="Entendido" 
+          icon="pi pi-check"
+          severity="secondary"
+          (onClick)="closeDialog()">
+        </p-button>
+      </div>
+    </div>
+  } @else {
+    <!-- ✅ STEPPER NORMAL cuando las reservas están habilitadas -->
+    <p-stepper [value]="currentStep()" class="w-full">
     <p-step-list>
       <p-step [value]="1" class="flex flex-row flex-auto gap-2">
         <ng-template #content let-activateCallback="activateCallback" let-value="value">
@@ -329,5 +359,6 @@
       </ng-template>
       </p-step-panel>
     </p-step-panels>
-  </p-stepper>
+    </p-stepper>
+  }
 </p-dialog>

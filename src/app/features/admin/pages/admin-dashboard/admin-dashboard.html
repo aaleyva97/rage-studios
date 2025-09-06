@@ -1,3 +1,6 @@
+<p-toast />
+<p-confirmDialog />
+
 <div class="admin-dashboard">
   <div class="dashboard-header mb-6">
     <h1 class="text-3xl font-bold text-gray-900 mb-2">Panel de Administración</h1>
@@ -127,7 +130,7 @@
     
     <!-- Segunda fila de acciones -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-6">
-      <!-- Gestionar Horarios - NUEVA -->
+      <!-- Gestionar Horarios -->
       <p-card 
         class="action-card cursor-pointer"
         (click)="navigateToSection('horarios')">
@@ -135,6 +138,36 @@
           <i class="pi pi-calendar-clock text-4xl text-blue-500 mb-4"></i>
           <h3 class="text-lg font-semibold mb-2">Gestionar Horarios</h3>
           <p class="text-gray-600 text-sm">Configurar horarios y coaches por día</p>
+        </div>
+      </p-card>
+      
+      <!-- Configuraciones del Sistema - NUEVA -->
+      <p-card class="action-card">
+        <div class="text-center">
+          <i class="pi pi-cog text-4xl text-gray-500 mb-4"></i>
+          <h3 class="text-lg font-semibold mb-2">Configuraciones</h3>
+          <p class="text-gray-600 text-sm mb-4">Configurar sistema de reservas</p>
+          
+          <!-- Toggle de Reservas -->
+          <div class="flex flex-col items-center gap-3">
+            <div class="flex items-center gap-3">
+              <span class="text-sm font-medium" [class.text-red-600]="!bookingsEnabled" [class.text-green-600]="bookingsEnabled">
+                {{ bookingsEnabled ? 'Reservas Habilitadas' : 'Reservas Deshabilitadas' }}
+              </span>
+              <p-toggleSwitch 
+                [(ngModel)]="bookingsEnabled"
+                (onChange)="toggleBookings()"
+                [disabled]="settingsLoading">
+              </p-toggleSwitch>
+            </div>
+            
+            @if (settingsLoading) {
+              <div class="flex items-center gap-2 text-xs text-gray-500">
+                <i class="pi pi-spin pi-spinner"></i>
+                <span>Actualizando...</span>
+              </div>
+            }
+          </div>
         </div>
       </p-card>
     </div>
