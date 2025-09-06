@@ -184,6 +184,52 @@ export class AppSettingsService {
   }
   
   /**
+   * ✅ Verificar estado actual de reservas (consulta fresca sin cache)
+   * Método específico para verificaciones críticas en tiempo de uso
+   */
+  async verifyBookingsEnabled(): Promise<boolean> {
+    try {
+      console.log('🔍 Verificando estado actual de reservas...');
+      
+      // Consulta directa a BD sin usar cache
+      const { data, error } = await this.supabaseClient
+        .from('app_settings')
+        .select('value')
+        .eq('key', 'bookings_enabled')
+        .single();
+      
+      if (error) {
+        if (error.code === 'PGRST116') {
+          // No existe la configuración, usar valor por defecto
+          console.log('⚠️ Configuración bookings_enabled no encontrada, usando valor por defecto: true');
+          return true;
+        }
+        throw error;
+      }
+      
+      const isEnabled = data.value === 'true';
+      
+      // Actualizar el signal con el valor fresco
+      this._bookingsEnabled.set(isEnabled);
+      this._lastUpdated.set(new Date());
+      
+      // Actualizar cache con el valor fresco
+      this.setCachedValue('bookings_enabled', data.value);
+      
+      console.log(`✅ Estado de reservas verificado: ${isEnabled ? 'habilitadas' : 'deshabilitadas'}`);
+      return isEnabled;
+      
+    } catch (error: any) {
+      console.error('❌ Error verificando estado de reservas:', error);
+      
+      // En caso de error, devolver el valor actual del signal como fallback
+      const fallbackValue = this._bookingsEnabled();
+      console.warn(`🛡️ Usando valor fallback para reservas: ${fallbackValue}`);
+      return fallbackValue;
+    }
+  }
+  
+  /**
    * 🎛️ Habilitar/deshabilitar reservas (método específico)
    */
   async toggleBookings(enabled: boolean): Promise<{ success: boolean; error?: string }> {

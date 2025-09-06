@@ -3,6 +3,7 @@ import {
   model,
   signal,
   inject,
+  effect,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -17,6 +18,7 @@ import { CreditsService } from '../../../../core/services/credits.service';
 import { SupabaseService } from '../../../../core/services/supabase-service';
 import { MessageService } from 'primeng/api';
 import { ToastModule } from 'primeng/toast';
+import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { PaymentService } from '../../../../core/services/payment.service';
 import { NotificationService } from '../../../../core/services/notification.service';
 import { AppSettingsService } from '../../../../core/services/app-settings.service';
@@ -35,6 +37,7 @@ import { MessageModule } from 'primeng/message';
     InputTextModule,
     ToastModule,
     MessageModule,
+    ProgressSpinnerModule,
   ],
   providers: [MessageService],
   templateUrl: './booking-dialog.html',
@@ -70,13 +73,50 @@ export class BookingDialog {
   // 🔄 REFRESCO AUTOMÁTICO DE DISPONIBILIDAD
   private refreshInterval: any = null;
   private lastRefresh = signal<Date | null>(null);
+  
+  // 🔍 VERIFICACIÓN DE ESTADO AL ABRIR DIÁLOGO
+  isVerifyingBookings = signal(false);
+  verifiedBookingsEnabled = signal(true); // Valor por defecto optimista
 
   // Fecha mínima (hoy)
   minDate = new Date();
   
-  // 🎛️ GETTER PÚBLICO para acceder al estado de reservas
+  constructor() {
+    // 🔍 EFECTO: Verificar estado cuando se abre el diálogo
+    effect(() => {
+      if (this.visible()) {
+        this.verifyBookingsOnOpen();
+      }
+    });
+  }
+  
+  // 🎛️ GETTER PÚBLICO para acceder al estado verificado de reservas
   get bookingsEnabled() {
-    return this.appSettingsService.bookingsEnabled();
+    return this.verifiedBookingsEnabled();
+  }
+  
+  /**
+   * 🔍 Verificar estado de reservas al abrir el diálogo
+   * Hace consulta fresca a BD para asegurar estado actualizado
+   */
+  private async verifyBookingsOnOpen(): Promise<void> {
+    try {
+      console.log('🔍 Verificando estado de reservas al abrir diálogo...');
+      this.isVerifyingBookings.set(true);
+      
+      // Consulta fresca del estado actual
+      const isEnabled = await this.appSettingsService.verifyBookingsEnabled();
+      
+      // Actualizar el estado verificado
+      this.verifiedBookingsEnabled.set(isEnabled);
+      
+      console.log(`✅ Estado verificado: ${isEnabled ? 'habilitadas' : 'deshabilitadas'}`);
+    } catch (error) {
+      console.error('❌ Error verificando estado de reservas al abrir:', error);
+      // En caso de error, mantener valor por defecto optimista
+    } finally {
+      this.isVerifyingBookings.set(false);
+    }
   }
 
   onDateSelect(date: Date) {
