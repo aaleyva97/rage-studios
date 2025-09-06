@@ -155,8 +155,8 @@
                 {{ bookingsEnabled ? 'Reservas Habilitadas' : 'Reservas Deshabilitadas' }}
               </span>
               <p-toggleSwitch 
-                [(ngModel)]="bookingsEnabled"
-                (onChange)="toggleBookings()"
+                [ngModel]="bookingsEnabled"
+                (ngModelChange)="toggleBookings()"
                 [disabled]="settingsLoading">
               </p-toggleSwitch>
             </div>
