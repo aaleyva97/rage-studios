@@ -19,6 +19,8 @@ import { MessageService } from 'primeng/api';
 import { ToastModule } from 'primeng/toast';
 import { PaymentService } from '../../../../core/services/payment.service';
 import { NotificationService } from '../../../../core/services/notification.service';
+import { AppSettingsService } from '../../../../core/services/app-settings.service';
+import { MessageModule } from 'primeng/message';
 
 @Component({
   selector: 'app-booking-dialog',
@@ -32,6 +34,7 @@ import { NotificationService } from '../../../../core/services/notification.serv
     ToggleSwitchModule,
     InputTextModule,
     ToastModule,
+    MessageModule,
   ],
   providers: [MessageService],
   templateUrl: './booking-dialog.html',
@@ -46,6 +49,7 @@ export class BookingDialog {
   private paymentService = inject(PaymentService);
   private messageService = inject(MessageService);
   private notificationService = inject(NotificationService);
+  private appSettingsService = inject(AppSettingsService);
 
   // Estados
   currentStep = signal(1);
@@ -69,6 +73,11 @@ export class BookingDialog {
 
   // Fecha mínima (hoy)
   minDate = new Date();
+  
+  // 🎛️ GETTER PÚBLICO para acceder al estado de reservas
+  get bookingsEnabled() {
+    return this.appSettingsService.bookingsEnabled();
+  }
 
   onDateSelect(date: Date) {
     this.selectedDate.set(date);
