@@ -8,8 +8,21 @@
   header="Reservar Clase"
   (onHide)="closeDialog()">
   
-  <!-- 🚫 VALIDACIÓN: Sistema de reservas deshabilitado -->
-  @if (!bookingsEnabled) {
+  <!-- 🔍 VERIFICANDO ESTADO DE RESERVAS -->
+  @if (isVerifyingBookings()) {
+    <div class="p-8 text-center">
+      <div class="flex flex-col items-center gap-4">
+        <i class="pi pi-spin pi-spinner text-3xl text-blue-600"></i>
+        <div>
+          <div class="font-semibold text-lg text-gray-800">Verificando disponibilidad...</div>
+          <div class="text-sm text-gray-600 mt-1">
+            Consultando estado actual del sistema de reservas
+          </div>
+        </div>
+      </div>
+    </div>
+  } @else if (!bookingsEnabled) {
+    <!-- 🚫 VALIDACIÓN: Sistema de reservas deshabilitado -->
     <div class="p-6 text-center">
       <!-- Mensaje personalizado con estilo PrimeNG -->
       <div class="w-full mb-4 p-4 border border-yellow-300 bg-yellow-50 rounded-lg">
