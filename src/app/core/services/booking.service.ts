@@ -455,53 +455,77 @@ export class BookingService {
     bookingId: string,
     amount: number
   ): Promise<void> {
-    // Buscar el batch original de donde se usaron los créditos
-    const { data: history, error: historyError } = await this.supabaseClient
+    // 🔄 NUEVA LÓGICA: Buscar TODOS los registros de créditos usados para esta reserva
+    const { data: historyRecords, error: historyError } = await this.supabaseClient
       .from('credit_history')
-      .select('credit_batch_id')
+      .select('credit_batch_id, amount')
       .eq('booking_id', bookingId)
       .eq('type', 'used')
-      .single();
+      .order('created_at', { ascending: true });
 
-    if (historyError || !history) {
+    if (historyError || !historyRecords || historyRecords.length === 0) {
       throw new Error('No se encontró el historial de créditos');
     }
 
-    // Obtener el batch
-    const { data: batch, error: batchError } = await this.supabaseClient
-      .from('credit_batches')
-      .select('*')
-      .eq('id', history.credit_batch_id)
-      .single();
+    let totalCreditsToRefund = 0;
+    const refundPromises: Promise<void>[] = [];
 
-    if (batchError || !batch) {
-      throw new Error('No se encontró el lote de créditos');
+    // 🔄 PROCESAR CADA LOTE DE CRÉDITOS USADO
+    for (const historyRecord of historyRecords) {
+      const creditsUsedFromBatch = Math.abs(historyRecord.amount); // amount es negativo
+      totalCreditsToRefund += creditsUsedFromBatch;
+
+      // Crear promesa para procesar este lote en paralelo
+      const refundBatchPromise = async () => {
+        // Obtener el batch
+        const { data: batch, error: batchError } = await this.supabaseClient
+          .from('credit_batches')
+          .select('*')
+          .eq('id', historyRecord.credit_batch_id)
+          .single();
+
+        if (batchError || !batch) {
+          throw new Error(`No se encontró el lote de créditos ${historyRecord.credit_batch_id}`);
+        }
+
+        // Verificar si el batch no ha expirado (opcional para admins)
+        if (batch.expiration_date) {
+          const expDate = new Date(batch.expiration_date);
+          if (expDate < new Date()) {
+            console.warn(`⚠️ Los créditos del lote ${batch.id} han expirado, pero devolviendo por cancelación administrativa`);
+          }
+        }
+
+        // Devolver los créditos a este lote específico
+        await this.supabaseClient
+          .from('credit_batches')
+          .update({
+            credits_remaining: batch.credits_remaining + creditsUsedFromBatch,
+          })
+          .eq('id', batch.id);
+
+        // Registrar en historial la devolución específica de este lote
+        await this.supabaseClient.from('credit_history').insert({
+          user_id: userId,
+          credit_batch_id: batch.id,
+          type: 'refunded',
+          amount: creditsUsedFromBatch,
+          description: `Créditos devueltos por cancelación administrativa (${creditsUsedFromBatch} de ${historyRecords.length} lotes)`,
+          booking_id: bookingId,
+        });
+      };
+
+      refundPromises.push(refundBatchPromise());
     }
 
-    // Verificar si el batch no ha expirado (opcional para admins)
-    if (batch.expiration_date) {
-      const expDate = new Date(batch.expiration_date);
-      if (expDate < new Date()) {
-        console.warn('Los créditos han expirado, pero devolviendo por cancelación administrativa');
-      }
+    // Ejecutar todas las devoluciones en paralelo
+    await Promise.all(refundPromises);
+
+    // Verificar que se devolvieron todos los créditos esperados
+    if (totalCreditsToRefund !== amount) {
+      console.warn(`⚠️ [Admin] Se devolvieron ${totalCreditsToRefund} créditos, pero se esperaban ${amount}`);
     }
 
-    // Devolver los créditos
-    await this.supabaseClient
-      .from('credit_batches')
-      .update({
-        credits_remaining: batch.credits_remaining + amount,
-      })
-      .eq('id', batch.id);
-
-    // Registrar en historial
-    await this.supabaseClient.from('credit_history').insert({
-      user_id: userId,
-      credit_batch_id: batch.id,
-      type: 'refunded',
-      amount: amount,
-      description: 'Créditos devueltos por cancelación administrativa',
-      booking_id: bookingId,
-    });
+    console.log(`✅ [Admin] Devolución exitosa: ${totalCreditsToRefund} créditos devueltos a ${historyRecords.length} lotes`);
   }
 }
