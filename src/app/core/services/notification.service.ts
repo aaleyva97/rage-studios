@@ -191,8 +191,7 @@ export class NotificationService implements OnDestroy {
         this.setupFirebaseMessageHandlers();
       }
 
-      // Iniciar monitoreo de tokens y configurar debug tools
-      this.monitorTokenChanges();
+      // Solo configurar debug tools (remover token monitoring agresivo)
       this.setupDebugTools();
 
       this._isInitialized.set(true);
@@ -538,12 +537,20 @@ export class NotificationService implements OnDestroy {
   }
 
   /**
-   * 💾 UPDATE TOKEN IN DATABASE - MEJORADO
+   * 💾 UPDATE TOKEN IN DATABASE - MEJORADO CON RATE LIMITING
    */
   private async updateTokenInDatabase(token: string): Promise<void> {
     const user = await this.getCurrentUser();
     if (!user) {
       console.warn('⚠️ No user authenticated');
+      return;
+    }
+
+    // Verificar rate limiting local antes de hacer la petición
+    const lastUpdate = localStorage.getItem('fcm_last_db_update');
+    const now = Date.now();
+    if (lastUpdate && (now - parseInt(lastUpdate)) < 60000) { // 1 minuto mínimo
+      console.log('ℹ️ Rate limiting: skipping database update (too recent)');
       return;
     }
 
@@ -587,11 +594,23 @@ export class NotificationService implements OnDestroy {
           onConflict: 'user_id'
         });
 
-      if (error) throw error;
+      if (error) {
+        // Manejar errores de rate limiting específicamente
+        if (error.message?.includes('rate limit') || error.code === 'too_many_requests') {
+          console.warn('⚠️ Rate limit reached, deferring token update');
+          // Intentar de nuevo en 5 minutos
+          setTimeout(() => {
+            this.updateTokenInDatabase(token).catch(console.error);
+          }, 5 * 60 * 1000);
+          return;
+        }
+        throw error;
+      }
 
       console.log('✅ Token stored in database');
+      localStorage.setItem('fcm_last_db_update', now.toString());
 
-      // Forzar sincronización de notificaciones programadas
+      // Forzar sincronización de notificaciones programadas solo si es necesario
       await this.syncScheduledNotifications(user.id, token);
 
     } catch (error) {
@@ -614,31 +633,62 @@ export class NotificationService implements OnDestroy {
   }
 
   /**
-   * 🔄 MONITOR TOKEN CHANGES
+   * 🔄 MONITOR TOKEN CHANGES - OPTIMIZADO
+   * Solo verificar cuando sea absolutamente necesario
    */
   private async monitorTokenChanges(): Promise<void> {
     if (!this.messaging) return;
 
-    console.log('🔄 Starting token monitoring...');
+    console.log('🔄 Starting optimized token monitoring...');
 
-    // Verificar cambios cada 30 minutos
+    // Verificar cambios solo cada 4 horas para reducir rate limiting
     this.tokenMonitorInterval = setInterval(async () => {
       if (!this.messaging || this._permissionStatus() !== 'granted') return;
 
       try {
+        // Solo verificar si tenemos una sesión activa usando el método seguro
+        const sessionResult = await this.supabase.getSessionSafe();
+        if (!sessionResult || !sessionResult.data?.session) {
+          console.log('ℹ️ No active session, skipping token check');
+          return;
+        }
+
         const currentStoredToken = this._pushToken();
+        if (!currentStoredToken) {
+          console.log('ℹ️ No stored token, skipping verification');
+          return;
+        }
+
+        // Solo hacer la verificación si han pasado más de 6 horas desde la última
+        const lastCheck = localStorage.getItem('fcm_last_token_check');
+        const now = Date.now();
+        if (lastCheck && (now - parseInt(lastCheck)) < 6 * 60 * 60 * 1000) {
+          return;
+        }
+
         const actualToken = await getToken(this.messaging, {
           vapidKey: this.firebaseVapidKey
         });
 
         if (actualToken && actualToken !== currentStoredToken) {
-          console.log('🔄 Token change detected');
+          console.log('🔄 Token change detected after extended period');
           await this.handleTokenRefresh(actualToken);
         }
+        
+        localStorage.setItem('fcm_last_token_check', now.toString());
       } catch (error) {
         console.error('❌ Token monitoring error:', error);
+        // Si hay error de rate limiting, aumentar el intervalo
+        if (error instanceof Error && error.message.includes('rate limit')) {
+          console.log('⚠️ Rate limit detected, reducing monitoring frequency');
+          clearInterval(this.tokenMonitorInterval);
+          // Reiniciar con frecuencia mucho menor (8 horas)
+          this.tokenMonitorInterval = setInterval(() => {
+            this.monitorTokenChanges();
+          }, 8 * 60 * 60 * 1000);
+        }
       }
-    }, 30 * 60 * 1000); // 30 minutos
+    }, 4 * 60 * 60 * 1000); // 4 horas en lugar de 30 minutos
   }
 
   /**

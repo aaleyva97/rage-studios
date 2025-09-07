@@ -1,8 +1,6 @@
 import { Injectable, inject, signal, computed, Inject, PLATFORM_ID } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
-import { distinctUntilChanged } from 'rxjs';
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { environment } from '../../../environments/environment';
+import { debounceTime } from 'rxjs';
 import { BehaviorSubject } from 'rxjs';
 import { SupabaseService } from './supabase-service';
 
@@ -16,7 +14,6 @@ export interface UserCredits {
   providedIn: 'root'
 })
 export class CreditsService {
-  private supabaseClient: SupabaseClient | null = null;
   private supabaseService = inject(SupabaseService);
   private isBrowser: boolean;
   
@@ -32,11 +29,10 @@ export class CreditsService {
   constructor(@Inject(PLATFORM_ID) platformId: Object) {
     this.isBrowser = isPlatformBrowser(platformId);
     if (this.isBrowser) {
-      this.supabaseClient = createClient(environment.SUPABASE_URL, environment.SUPABASE_KEY);
-      // Escuchar cambios de usuario, solo si cambia el id
+      // Usar el observable ya optimizado del SupabaseService
       this.supabaseService.currentUser$
         .pipe(
-          distinctUntilChanged((a: any, b: any) => a?.id === b?.id)
+          debounceTime(200) // Debounce adicional para créditos
         )
         .subscribe((user: any) => {
           if (user && user.id) {
@@ -49,11 +45,11 @@ export class CreditsService {
   }
   
   async loadUserCredits(userId: string) {
-    if (!this.isBrowser || !this.supabaseClient) return;
+    if (!this.isBrowser) return;
     this.isLoading.set(true);
     try {
-      // Obtener todos los lotes de créditos activos
-      const { data: batches, error } = await this.supabaseClient
+      // Usar la instancia centralizada de Supabase
+      const { data: batches, error } = await this.supabaseService.client
         .from('credit_batches')
         .select('*')
         .eq('user_id', userId)
@@ -104,7 +100,7 @@ export class CreditsService {
   
   // Método para refrescar créditos manualmente
   async refreshCredits() {
-    if (!this.isBrowser || !this.supabaseClient) return;
+    if (!this.isBrowser) return;
     const user = this.supabaseService.getUser();
     if (user) {
       await this.loadUserCredits(user.id);
