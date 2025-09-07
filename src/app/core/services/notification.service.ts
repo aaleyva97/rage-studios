@@ -1,53 +1,61 @@
-import { Injectable, signal, computed, PLATFORM_ID, inject } from '@angular/core';
+import {
+  Injectable,
+  signal,
+  computed,
+  PLATFORM_ID,
+  inject,
+  OnDestroy,
+} from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { BehaviorSubject } from 'rxjs';
 import { SupabaseService } from './supabase-service';
-import { 
-  UserNotificationPreferences, 
+import {
+  UserNotificationPreferences,
   NotificationPayload,
   NotificationPermissionResult,
   NotificationSchedule,
   NotificationType,
   PushToken,
   NotificationLog,
-  DeviceInfo
+  DeviceInfo,
 } from '../interfaces/notification.interface';
 import { formatDateCustom } from '../functions/date-utils';
 
-// Firebase v10 modular imports - SI NO FUNCIONA, USA LA VERSIÓN COMPAT
+// Firebase v10 modular imports
 import { initializeApp, FirebaseApp } from 'firebase/app';
-import { 
-  getMessaging, 
-  getToken, 
-  onMessage, 
+import {
+  getMessaging,
+  getToken,
+  onMessage,
   Messaging,
   isSupported,
-  MessagePayload 
+  MessagePayload,
+  Unsubscribe,
 } from 'firebase/messaging';
 
 @Injectable({
-  providedIn: 'root'
+  providedIn: 'root',
 })
-export class NotificationService {
+export class NotificationService implements OnDestroy {
   private readonly supabase = inject(SupabaseService);
   private readonly platformId = inject(PLATFORM_ID);
   private readonly isBrowser = isPlatformBrowser(this.platformId);
-  
+
   // 🔥 Firebase Instances
   private firebaseApp: FirebaseApp | null = null;
   private messaging: Messaging | null = null;
-  
-  // Para compatibilidad con código existente
-  private firebaseMessaging: any = null; // Alias para messaging
-  
-  // 🔄 Reactive State Management  
+  private firebaseMessaging: any = null; // Alias para compatibilidad
+  private tokenMonitorInterval: any = null;
+  private messageUnsubscribe: Unsubscribe | null = null;
+
+  // 🔄 Reactive State Management
   private readonly _permissionStatus = signal<NotificationPermission>('default');
   private readonly _pushToken = signal<string | null>(null);
   private readonly _preferences = signal<UserNotificationPreferences | null>(null);
   private readonly _isInitialized = signal(false);
   private readonly _isLoading = signal(false);
   private readonly _serviceWorkerReady = signal(false);
-  
+
   // 📊 Public Computed Properties
   readonly permissionStatus = this._permissionStatus.asReadonly();
   readonly pushToken = this._pushToken.asReadonly();
@@ -55,28 +63,30 @@ export class NotificationService {
   readonly isInitialized = this._isInitialized.asReadonly();
   readonly isLoading = this._isLoading.asReadonly();
   readonly serviceWorkerReady = this._serviceWorkerReady.asReadonly();
-  
+
   // Mantener compatibilidad con código existente
-  readonly canScheduleNotifications = computed(() => 
-    this._preferences()?.notifications_enabled === true
+  readonly canScheduleNotifications = computed(
+    () => this._preferences()?.notifications_enabled === true
   );
-  
-  readonly canSendPushNotifications = computed(() => 
-    this._permissionStatus() === 'granted' && 
-    this._pushToken() !== null &&
-    this._preferences()?.push_notifications_enabled !== false &&
-    this._serviceWorkerReady() === true
+
+  readonly canSendPushNotifications = computed(
+    () =>
+      this._permissionStatus() === 'granted' &&
+      this._pushToken() !== null &&
+      this._preferences()?.push_notifications_enabled !== false &&
+      this._serviceWorkerReady() === true
   );
-  
-  readonly canSendNotifications = computed(() => 
+
+  readonly canSendNotifications = computed(() =>
     this.canScheduleNotifications()
   );
-  
-  readonly isNotificationSupported = computed(() => 
-    this.isBrowser && 
-    'Notification' in window && 
-    'serviceWorker' in navigator && 
-    'PushManager' in window
+
+  readonly isNotificationSupported = computed(
+    () =>
+      this.isBrowser &&
+      'Notification' in window &&
+      'serviceWorker' in navigator &&
+      'PushManager' in window
   );
 
   // 📡 Observable Streams
@@ -85,23 +95,34 @@ export class NotificationService {
 
   // 🔥 Firebase Configuration
   private readonly firebaseConfig = {
-    apiKey: "AIzaSyA6cVv2nk-xMzVYqM8DQBQ-JeicvyhS8a4",
-    authDomain: "rage-studios.firebaseapp.com",
-    projectId: "rage-studios",
-    storageBucket: "rage-studios.firebasestorage.app",
-    messagingSenderId: "401067010518",
-    appId: "1:401067010518:web:b716d612274887ba6a9c77"
+    apiKey: 'AIzaSyA6cVv2nk-xMzVYqM8DQBQ-JeicvyhS8a4',
+    authDomain: 'rage-studios.firebaseapp.com',
+    projectId: 'rage-studios',
+    storageBucket: 'rage-studios.firebasestorage.app',
+    messagingSenderId: '401067010518',
+    appId: '1:401067010518:web:b716d612274887ba6a9c77',
   };
 
-  private readonly firebaseVapidKey = 'BAZuWOr2cwR2etuTiZ6Xyxi8fYOTzpcfZUX3p0qugWGvI2jVkbckMi8Ltq6mHBDkc-5sSmQK2L_gXfonstfSDlM';
+  private readonly firebaseVapidKey =
+    'BAZuWOr2cwR2etuTiZ6Xyxi8fYOTzpcfZUX3p0qugWGvI2jVkbckMi8Ltq6mHBDkc-5sSmQK2L_gXfonstfSDlM';
 
   constructor() {
     console.log('🔔 NotificationService: Constructor initialized');
-    
+
     if (this.isBrowser) {
       this.initializeWhenReady();
     } else {
       console.log('🖥️ [SSR] Server-side rendering detected');
+    }
+  }
+
+  ngOnDestroy(): void {
+    // Limpiar intervalos y suscripciones
+    if (this.tokenMonitorInterval) {
+      clearInterval(this.tokenMonitorInterval);
+    }
+    if (this.messageUnsubscribe) {
+      this.messageUnsubscribe();
     }
   }
 
@@ -112,11 +133,11 @@ export class NotificationService {
     setTimeout(() => {
       if (this.isBrowser && typeof window !== 'undefined') {
         console.log('🔄 Starting intelligent initialization...');
-        
-        this.supabase.currentUser$.subscribe(user => {
+
+        this.supabase.currentUser$.subscribe((user) => {
           if (user && !this._isInitialized()) {
             console.log('👤 User authenticated, initializing notifications...');
-            this.initialize().catch(err => {
+            this.initialize().catch((err) => {
               console.error('❌ Auto-initialization failed:', err);
             });
           } else if (!user) {
@@ -137,14 +158,14 @@ export class NotificationService {
     }
 
     this._isLoading.set(true);
-    
+
     try {
       console.log('🔄 Starting notification service initialization...');
 
       // Check capabilities
       const capabilities = this.diagnoseBrowserCapabilities();
       console.log('🔍 Browser capabilities:', capabilities);
-      
+
       if (!capabilities.notificationSupported) {
         console.warn('⚠️ Push notifications not supported');
         return;
@@ -153,38 +174,32 @@ export class NotificationService {
       // Check permission
       this._permissionStatus.set(Notification.permission);
       console.log('🔐 Current permission:', this._permissionStatus());
-      
+
       // Load preferences
       await this.loadUserPreferences();
       console.log('📋 User preferences loaded');
-      
+
       // Initialize Firebase
       if (capabilities.serviceWorkerSupported) {
         await this.initializeFirebase();
         await this.registerServiceWorker();
-        
+
         if (this._permissionStatus() === 'granted' && this._serviceWorkerReady()) {
           await this.tryGetExistingFirebaseToken();
         }
-        
+
         this.setupFirebaseMessageHandlers();
       }
-      
+
+      // Iniciar monitoreo de tokens y configurar debug tools
+      this.monitorTokenChanges();
+      this.setupDebugTools();
+
       this._isInitialized.set(true);
-      
+
       const status = this.getStatus();
       console.log('✅ NotificationService initialized:', status);
-      
-      // Debug tools en desarrollo
-      if (this.isDevelopmentEnvironment()) {
-        (window as any).debugNotifications = {
-          getStatus: () => this.getStatus(),
-          testNotification: (type?: NotificationType) => this.testNotification(type),
-          forceRegister: () => this.forceRegisterPushToken()
-        };
-        console.log('🔧 Debug tools available: window.debugNotifications');
-      }
-      
+
     } catch (error) {
       console.error('❌ Initialization failed:', error);
     } finally {
@@ -198,76 +213,133 @@ export class NotificationService {
   private async initializeFirebase(): Promise<void> {
     try {
       console.log('🔥 Initializing Firebase Messaging...');
-      
+
       // Check if supported
       const supported = await isSupported();
       if (!supported) {
         console.warn('⚠️ Firebase Messaging not supported');
         return;
       }
-      
+
       // Initialize app
       if (!this.firebaseApp) {
         this.firebaseApp = initializeApp(this.firebaseConfig);
       }
-      
+
       // Get messaging instance
       this.messaging = getMessaging(this.firebaseApp);
       this.firebaseMessaging = this.messaging; // Alias para compatibilidad
-      
+
       console.log('✅ Firebase Messaging initialized');
-      
     } catch (error) {
       console.error('❌ Firebase initialization error:', error);
     }
   }
 
   /**
-   * 🔧 REGISTER SERVICE WORKER  
+   * 🔧 REGISTER SERVICE WORKER - MEJORADO
    */
   private async registerServiceWorker(): Promise<void> {
     if (!('serviceWorker' in navigator)) {
       console.warn('⚠️ Service Worker not supported');
       return;
     }
-    
+
     try {
       console.log('📦 Registering Firebase Messaging Service Worker...');
-      
-      // Check if there's already a service worker registered
-      const existingRegistration = await navigator.serviceWorker.getRegistration('/');
-      
-      if (existingRegistration) {
-        console.log('ℹ️ Existing service worker found:', existingRegistration.scope);
-        // Use existing registration for Firebase messaging
-        this._serviceWorkerReady.set(true);
-        return;
+
+      // PASO 1: Limpiar service workers duplicados
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      console.log(`Found ${registrations.length} service worker(s)`);
+
+      // Buscar y limpiar duplicados
+      const firebaseWorkers = registrations.filter((reg) =>
+        reg.active?.scriptURL.includes('firebase-messaging-sw.js')
+      );
+
+      if (firebaseWorkers.length > 1) {
+        console.warn('⚠️ Multiple Firebase service workers detected, cleaning up...');
+        // Mantener solo el más reciente
+        for (let i = 0; i < firebaseWorkers.length - 1; i++) {
+          await firebaseWorkers[i].unregister();
+          console.log('🗑️ Unregistered duplicate service worker');
+        }
       }
-      
-      const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js', {
-        scope: '/',
-        updateViaCache: 'none'
-      });
-      
-      console.log('✅ Firebase Service Worker registered:', registration.scope);
-      
+
+      // PASO 2: Verificar si ya existe uno válido
+      let registration = await navigator.serviceWorker.getRegistration('/');
+
+      if (registration?.active?.scriptURL.includes('firebase-messaging-sw.js')) {
+        console.log('✅ Using existing Firebase service worker');
+        // Forzar actualización si es necesario
+        await registration.update();
+      } else {
+        // PASO 3: Registrar nuevo service worker
+        registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js', {
+          scope: '/',
+          updateViaCache: 'none',
+        });
+        console.log('✅ New Firebase Service Worker registered');
+      }
+
+      // PASO 4: Esperar a que esté listo
       await navigator.serviceWorker.ready;
       this._serviceWorkerReady.set(true);
+
+      // PASO 5: Configurar listener para mensajes del SW
+      this.setupServiceWorkerListener();
       
     } catch (error) {
       console.error('❌ Firebase Service Worker registration failed:', error);
-      // Try to use existing service worker if available
-      try {
-        const existingRegistration = await navigator.serviceWorker.getRegistration('/');
-        if (existingRegistration) {
-          console.log('ℹ️ Using existing service worker for Firebase messaging');
-          this._serviceWorkerReady.set(true);
-        }
-      } catch (fallbackError) {
-        console.error('❌ No service worker available:', fallbackError);
-        this._serviceWorkerReady.set(false);
-      }
+      this._serviceWorkerReady.set(false);
     }
+  }
+
+  /**
+   * 🔄 SETUP SERVICE WORKER LISTENER
+   */
+  private setupServiceWorkerListener(): void {
+    if (!('serviceWorker' in navigator)) return;
+
+    navigator.serviceWorker.addEventListener('message', async (event) => {
+      console.log('📨 Message from SW:', event.data);
+
+      if (event.data.type === 'TOKEN_REFRESHED') {
+        console.log('🔄 Token refreshed by SW, updating database...');
+        await this.handleTokenRefresh(event.data.token);
+      }
+
+      if (event.data.type === 'SW_ERROR') {
+        console.error('❌ SW Error:', event.data.error);
+        // Intentar recuperación
+        await this.attemptTokenRecovery();
+      }
+    });
+  }
+
+  /**
+   * 🔄 HANDLE TOKEN REFRESH
+   */
+  private async handleTokenRefresh(newToken: string): Promise<void> {
+    if (!newToken || newToken === this._pushToken()) {
+      return;
+    }
+
+    console.log('🔄 Handling token refresh...');
+    const oldToken = this._pushToken();
+
+    // Actualizar token local
+    this._pushToken.set(newToken);
+
+    // Actualizar en base de datos
+    await this.updateTokenInDatabase(newToken);
+
+    // Registrar el cambio
+    await this.logEvent('token_refreshed', {
+      old_token: oldToken?.substring(0, 20),
+      new_token: newToken.substring(0, 20),
+      timestamp: new Date().toISOString(),
+    });
   }
 
   /**
@@ -278,15 +350,15 @@ export class NotificationService {
       console.log('ℹ️ Not ready for token retrieval');
       return;
     }
-    
+
     try {
       console.log('🔍 Checking for existing FCM token...');
-      
+
       const currentToken = await getToken(this.messaging, {
         vapidKey: this.firebaseVapidKey,
-        serviceWorkerRegistration: await navigator.serviceWorker.ready
+        serviceWorkerRegistration: await navigator.serviceWorker.ready,
       });
-      
+
       if (currentToken) {
         console.log('✅ Found existing token:', currentToken.substring(0, 20) + '...');
         this._pushToken.set(currentToken);
@@ -304,34 +376,34 @@ export class NotificationService {
    */
   private setupFirebaseMessageHandlers(): void {
     if (!this.messaging) return;
-    
+
     console.log('🔧 Setting up message handlers...');
-    
+
     // Handle foreground messages
-    onMessage(this.messaging, (payload: MessagePayload) => {
+    this.messageUnsubscribe = onMessage(this.messaging, (payload: MessagePayload) => {
       console.log('📨 Foreground message received:', payload);
-      
+
       // Convert to NotificationPayload
       const notification: NotificationPayload = {
         title: payload.notification?.title || 'RageStudios',
         body: payload.notification?.body || 'Nueva notificación',
         icon: payload.notification?.icon,
         badge: payload.data?.['badge'],
-        data: payload.data
+        data: payload.data,
       };
-      
+
       // Emit to subscribers
       this._notificationReceived.next(notification);
-      
+
       // Show notification
       if (Notification.permission === 'granted') {
         const nativeNotification = new Notification(notification.title, {
           body: notification.body,
           icon: '/icons/icon-192x192.png',
           badge: '/icons/badge-72x72.png',
-          data: notification.data
+          data: notification.data,
         });
-        
+
         nativeNotification.onclick = () => {
           window.focus();
           const url = notification.data?.['actionUrl'] || '/account/bookings';
@@ -339,11 +411,11 @@ export class NotificationService {
           nativeNotification.close();
         };
       }
-      
+
       // Log event
       this.logInteraction('push_message_received', { message: payload });
     });
-    
+
     console.log('✅ Message handlers setup complete');
   }
 
@@ -353,23 +425,23 @@ export class NotificationService {
   async requestPermissions(): Promise<NotificationPermissionResult> {
     try {
       console.log('🔐 Requesting notification permissions...');
-      
+
       if (!this._serviceWorkerReady()) {
         await this.registerServiceWorker();
       }
-      
+
       const permission = await Notification.requestPermission();
       this._permissionStatus.set(permission);
-      
+
       const result: NotificationPermissionResult = {
         permission,
         granted: permission === 'granted',
-        token: undefined // No null
+        token: undefined, // No null
       };
-      
+
       if (permission === 'granted') {
         console.log('✅ Permissions granted, registering token...');
-        
+
         try {
           const token = await this.registerPushToken();
           result.token = token;
@@ -377,12 +449,12 @@ export class NotificationService {
           console.error('⚠️ Token registration failed:', tokenError);
         }
       }
-      
+
       await this.logEvent('permission_requested', {
         permission,
-        granted: result.granted
+        granted: result.granted,
       });
-      
+
       return result;
       
     } catch (error) {
@@ -392,43 +464,73 @@ export class NotificationService {
   }
 
   /**
-   * 📱 REGISTER PUSH TOKEN
+   * 📱 REGISTER PUSH TOKEN - MEJORADO
    */
   async registerPushToken(): Promise<string> {
     if (!this.messaging) {
       throw new Error('Firebase Messaging not initialized');
     }
-    
+
     if (this._permissionStatus() !== 'granted') {
       throw new Error('Notification permissions not granted');
     }
-    
+
     try {
       console.log('📱 Registering FCM token...');
-      
+
       const swRegistration = await navigator.serviceWorker.ready;
-      
-      const token = await getToken(this.messaging, {
-        vapidKey: this.firebaseVapidKey,
-        serviceWorkerRegistration: swRegistration
-      });
-      
-      if (!token) {
-        throw new Error('Failed to get FCM token');
+
+      // VALIDACIÓN: Verificar que el SW es el correcto
+      if (!swRegistration.active?.scriptURL.includes('firebase-messaging-sw.js')) {
+        console.warn('⚠️ Invalid service worker, re-registering...');
+        await this.registerServiceWorker();
       }
-      
+
+      // Obtener token con reintentos
+      let token: string | undefined;
+      let attempts = 0;
+      const maxAttempts = 3;
+
+      while (!token && attempts < maxAttempts) {
+        try {
+          token = await getToken(this.messaging, {
+            vapidKey: this.firebaseVapidKey,
+            serviceWorkerRegistration: swRegistration
+          });
+
+          if (!token && attempts < maxAttempts - 1) {
+            console.log(`⏳ Attempt ${attempts + 1} failed, retrying...`);
+            await new Promise(resolve => setTimeout(resolve, 1000 * (attempts + 1)));
+          }
+        } catch (error) {
+          console.error(`❌ Token attempt ${attempts + 1} failed:`, error);
+          if (attempts === maxAttempts - 1) throw error;
+        }
+        attempts++;
+      }
+
+      if (!token) {
+        throw new Error('Failed to get FCM token after multiple attempts');
+      }
+
       console.log('✅ FCM token obtained:', token.substring(0, 20) + '...');
-      
+
+      // Validar formato del token
+      if (!this.isValidFCMToken(token)) {
+        throw new Error('Invalid FCM token format');
+      }
+
       this._pushToken.set(token);
       await this.updateTokenInDatabase(token);
-      
+
       await this.logEvent('token_registered', {
         deviceType: 'web',
-        method: 'firebase_fcm'
+        method: 'firebase_fcm',
+        attempts: attempts
       });
-      
+
       return token;
-      
+
     } catch (error) {
       console.error('❌ Token registration error:', error);
       throw error;
@@ -436,7 +538,7 @@ export class NotificationService {
   }
 
   /**
-   * 💾 UPDATE TOKEN IN DATABASE
+   * 💾 UPDATE TOKEN IN DATABASE - MEJORADO
    */
   private async updateTokenInDatabase(token: string): Promise<void> {
     const user = await this.getCurrentUser();
@@ -446,6 +548,12 @@ export class NotificationService {
     }
 
     try {
+      // Validar token antes de guardar
+      if (!this.isValidFCMToken(token)) {
+        console.error('❌ Invalid token format, not saving to database');
+        return;
+      }
+
       const pushTokenData: PushToken = {
         token: token,
         deviceType: 'web',
@@ -453,7 +561,19 @@ export class NotificationService {
         createdAt: new Date().toISOString(),
         lastUsedAt: new Date().toISOString()
       };
-      
+
+      // Actualizar con verificación de cambios
+      const { data: existing } = await this.supabase.client
+        .from('user_notification_preferences')
+        .select('primary_device_token')
+        .eq('user_id', user.id)
+        .single();
+
+      if (existing?.primary_device_token === token) {
+        console.log('ℹ️ Token unchanged, skipping update');
+        return;
+      }
+
       const { error } = await this.supabase.client
         .from('user_notification_preferences')
         .upsert({
@@ -468,10 +588,129 @@ export class NotificationService {
         });
 
       if (error) throw error;
-      
+
       console.log('✅ Token stored in database');
+
+      // Forzar sincronización de notificaciones programadas
+      await this.syncScheduledNotifications(user.id, token);
+
     } catch (error) {
       console.error('❌ Database update error:', error);
+    }
+  }
+
+  /**
+   * 🔍 VALIDATE FCM TOKEN FORMAT
+   */
+  private isValidFCMToken(token: string): boolean {
+    if (!token || typeof token !== 'string') return false;
+    if (token.startsWith('eyJ')) return false; // JWT format, invalid for FCM
+    if (token.length < 100) return false; // Too short
+    if (token.includes(' ')) return false; // Contains spaces
+
+    // Valid FCM token format: xxxxx:xxxxxxxxx
+    const fcmPattern = /^[a-zA-Z0-9_-]+:[a-zA-Z0-9_-]+$/;
+    return fcmPattern.test(token);
+  }
+
+  /**
+   * 🔄 MONITOR TOKEN CHANGES
+   */
+  private async monitorTokenChanges(): Promise<void> {
+    if (!this.messaging) return;
+
+    console.log('🔄 Starting token monitoring...');
+
+    // Verificar cambios cada 30 minutos
+    this.tokenMonitorInterval = setInterval(async () => {
+      if (!this.messaging || this._permissionStatus() !== 'granted') return;
+
+      try {
+        const currentStoredToken = this._pushToken();
+        const actualToken = await getToken(this.messaging, {
+          vapidKey: this.firebaseVapidKey
+        });
+
+        if (actualToken && actualToken !== currentStoredToken) {
+          console.log('🔄 Token change detected');
+          await this.handleTokenRefresh(actualToken);
+        }
+      } catch (error) {
+        console.error('❌ Token monitoring error:', error);
+      }
+    }, 30 * 60 * 1000); // 30 minutos
+  }
+
+  /**
+   * 🔧 ATTEMPT TOKEN RECOVERY
+   */
+  private async attemptTokenRecovery(): Promise<void> {
+    console.log('🔧 Attempting token recovery...');
+
+    try {
+      // Limpiar token actual
+      this._pushToken.set(null);
+
+      // Limpiar en base de datos
+      const user = await this.getCurrentUser();
+      if (user) {
+        await this.supabase.client
+          .from('user_notification_preferences')
+          .update({
+            primary_device_token: null,
+            last_token_updated_at: new Date().toISOString()
+          })
+          .eq('user_id', user.id);
+      }
+
+      // Re-registrar service worker
+      await this.registerServiceWorker();
+
+      // Obtener nuevo token
+      if (this._permissionStatus() === 'granted') {
+        await this.registerPushToken();
+        console.log('✅ Token recovery successful');
+      }
+    } catch (error) {
+      console.error('❌ Token recovery failed:', error);
+    }
+  }
+
+  /**
+   * 🔄 SYNC SCHEDULED NOTIFICATIONS
+   */
+  private async syncScheduledNotifications(userId: string, newToken: string): Promise<void> {
+    try {
+      console.log('🔄 Syncing scheduled notifications with new token...');
+
+      // Actualizar directamente las notificaciones programadas
+      const { error } = await this.supabase.client
+        .from('notification_schedules')
+        .update({
+          push_token: newToken,
+          updated_at: new Date().toISOString()
+        })
+        .eq('user_id', userId)
+        .eq('status', 'scheduled');
+
+      if (error) {
+        console.error('❌ Error syncing notifications:', error);
+
+        // Intentar con RPC si existe
+        const { error: rpcError } = await this.supabase.client
+          .rpc('update_user_notification_tokens', {
+            p_user_id: userId,
+            p_new_token: newToken
+          });
+
+        if (rpcError) {
+          console.error('❌ RPC error:', rpcError);
+        }
+      } else {
+        console.log('✅ Scheduled notifications synced');
+      }
+    } catch (error) {
+      console.error('❌ Sync error:', error);
     }
   }
 
@@ -482,7 +721,7 @@ export class NotificationService {
     const canSchedule = this.canScheduleNotifications();
     const canSendPush = this.canSendPushNotifications();
     const status = this.getStatus();
-    
+
     if (!canSchedule) {
       const reason = `Cannot schedule notifications - Preferences disabled`;
       console.warn('⚠️ Cannot schedule notifications:', reason);
@@ -493,12 +732,12 @@ export class NotificationService {
       canSchedule,
       canSendPush,
       permission: status.permission,
-      hasToken: status.hasToken
+      hasToken: status.hasToken,
     });
 
     try {
       console.log('📅 Scheduling notifications for booking:', booking.id);
-      
+
       const user = await this.getCurrentUser();
       if (!user) throw new Error('User not authenticated');
 
@@ -511,7 +750,7 @@ export class NotificationService {
 
       const availableChannels = this.getAvailableDeliveryChannels();
       const pushToken = canSendPush ? this._pushToken() : null;
-      
+
       // Convertir null a undefined para la BD
       const pushTokenForDB = pushToken || undefined;
 
@@ -533,10 +772,10 @@ export class NotificationService {
           delivery_channels: availableChannels,
           expires_at: new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString(),
           session_data: this.extractSessionData(booking),
-          user_preferences: { 
+          user_preferences: {
             message_style: preferences.message_style,
-            fallback_to_db_only: !canSendPush
-          }
+            fallback_to_db_only: !canSendPush,
+          },
         });
       }
 
@@ -558,7 +797,7 @@ export class NotificationService {
             delivery_channels: availableChannels,
             expires_at: new Date(bookingDateTime.getTime() + 60 * 60 * 1000).toISOString(),
             session_data: this.extractSessionData(booking),
-            user_preferences: { message_style: preferences.message_style }
+            user_preferences: { message_style: preferences.message_style },
           });
         }
       }
@@ -581,7 +820,7 @@ export class NotificationService {
             delivery_channels: availableChannels,
             expires_at: new Date(bookingDateTime.getTime() + 30 * 60 * 1000).toISOString(),
             session_data: this.extractSessionData(booking),
-            user_preferences: { message_style: preferences.message_style }
+            user_preferences: { message_style: preferences.message_style },
           });
         }
       }
@@ -598,45 +837,44 @@ export class NotificationService {
         }
 
         console.log(`✅ Scheduled ${notifications.length} notifications`);
-        
+
         await this.logEvent('notifications_scheduled', {
           bookingId: booking.id,
           count: notifications.length,
-          types: notifications.map(n => n.notification_type)
+          types: notifications.map((n) => n.notification_type),
         });
-        
+
         return { success: true, count: notifications.length };
       } else {
         console.log('ℹ️ No notifications scheduled');
         return { success: true, count: 0, reason: 'All disabled or past due' };
       }
-
     } catch (error) {
       console.error('❌ Error in scheduleBookingNotifications:', error);
       await this.logEvent('scheduling_failed', {
         bookingId: booking.id,
-        error: error instanceof Error ? error.message : String(error)
+        error: error instanceof Error ? error.message : String(error),
       });
-      return { 
-        success: false, 
-        reason: error instanceof Error ? error.message : String(error) 
+      return {
+        success: false,
+        reason: error instanceof Error ? error.message : String(error),
       };
     }
   }
 
   /**
-   * 🚫 CANCEL BOOKING NOTIFICATIONS  
+   * 🚫 CANCEL BOOKING NOTIFICATIONS
    */
   async cancelBookingNotifications(bookingId: string): Promise<void> {
     try {
       console.log('🚫 Cancelling notifications for booking:', bookingId);
-      
+
       const { error } = await this.supabase.client
         .from('notification_schedules')
         .update({
           status: 'cancelled',
           cancelled_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
+          updated_at: new Date().toISOString(),
         })
         .eq('booking_id', bookingId)
         .in('status', ['scheduled', 'failed']);
@@ -647,12 +885,11 @@ export class NotificationService {
       }
 
       console.log(`✅ Cancelled notifications for booking ${bookingId}`);
-      
-      await this.logEvent('notifications_cancelled', { 
-        bookingId,
-        cancelledAt: new Date().toISOString()
-      });
 
+      await this.logEvent('notifications_cancelled', {
+        bookingId,
+        cancelledAt: new Date().toISOString(),
+      });
     } catch (error) {
       console.error('❌ Error in cancelBookingNotifications:', error);
       throw error;
@@ -662,11 +899,7 @@ export class NotificationService {
   /**
    * 🔔 BUILD NOTIFICATION PAYLOAD
    */
-  private async buildNotificationPayload(
-    type: NotificationType, 
-    booking: any
-  ): Promise<NotificationPayload> {
-    
+  private async buildNotificationPayload(type: NotificationType, booking: any): Promise<NotificationPayload> {
     try {
       // Build variables for template
       const variables = {
@@ -676,23 +909,23 @@ export class NotificationService {
           weekday: 'long',
           year: 'numeric',
           month: 'long',
-          day: 'numeric'
+          day: 'numeric',
         }),
         session_time: booking.session_time,
         coach_name: booking.coach_name || 'tu coach',
-        bed_numbers: Array.isArray(booking.bed_numbers) ? 
-          booking.bed_numbers.join(', ') : booking.bed_numbers || ''
+        bed_numbers: Array.isArray(booking.bed_numbers)
+          ? booking.bed_numbers.join(', ')
+          : booking.bed_numbers || '',
       };
 
       console.log('🏗️ Processing notification template:', type, 'with variables:', variables);
 
       // Get processed template from database
-      const { data, error } = await this.supabase.client
-        .rpc('process_notification_template', {
-          p_template_key: `${type}_es`,
-          p_language_code: 'es-MX',
-          p_variables: variables
-        });
+      const { data, error } = await this.supabase.client.rpc('process_notification_template', {
+        p_template_key: `${type}_es`,
+        p_language_code: 'es-MX',
+        p_variables: variables,
+      });
 
       if (error) {
         console.error('❌ Error processing template:', error);
@@ -704,24 +937,25 @@ export class NotificationService {
         body: data.body,
         icon: '/icons/icon-192x192.png',
         badge: '/icons/badge-72x72.png',
-        data: { 
-          bookingId: booking.id, 
+        data: {
+          bookingId: booking.id,
           type,
           actionUrl: data.action_url || '/account/bookings',
-          timestamp: new Date().toISOString()
-        }
+          timestamp: new Date().toISOString(),
+        },
       };
 
       if (data.action_text) {
-        payload.actions = [{
-          action: 'view',
-          title: data.action_text
-        }];
+        payload.actions = [
+          {
+            action: 'view',
+            title: data.action_text,
+          },
+        ];
       }
 
       console.log('✅ Notification payload built:', payload);
       return payload;
-
     } catch (error) {
       console.error('❌ Error building payload:', error);
       return this.getFallbackPayload(type, booking);
@@ -735,28 +969,28 @@ export class NotificationService {
     const fallbackMessages = {
       booking_confirmation: {
         title: '¡Reserva confirmada! 🎉',
-        body: `Tu clase de ${booking.class_name || 'fitness'} está confirmada.`
+        body: `Tu clase de ${booking.class_name || 'fitness'} está confirmada.`,
       },
       reminder_24h: {
         title: 'Tu clase es mañana 📅',
-        body: `Recuerda que mañana tienes ${booking.class_name || 'tu clase'}.`
+        body: `Recuerda que mañana tienes ${booking.class_name || 'tu clase'}.`,
       },
       reminder_1h: {
         title: 'Tu clase comienza en 1 hora ⏰',
-        body: `${booking.class_name || 'Tu clase'} comienza pronto. ¡Te esperamos!`
+        body: `${booking.class_name || 'Tu clase'} comienza pronto. ¡Te esperamos!`,
       },
       cancellation_user: {
         title: 'Reserva cancelada ✅',
-        body: 'Tu reserva ha sido cancelada exitosamente.'
+        body: 'Tu reserva ha sido cancelada exitosamente.',
       },
       cancellation_admin: {
         title: 'Cambio en tu reserva 📋',
-        body: 'Tu reserva ha sido modificada por el administrador.'
+        body: 'Tu reserva ha sido modificada por el administrador.',
       },
       class_update: {
         title: 'Actualización de clase 📝',
-        body: 'Hay cambios en tu clase programada.'
-      }
+        body: 'Hay cambios en tu clase programada.',
+      },
     };
 
     const message = fallbackMessages[type] || fallbackMessages.booking_confirmation;
@@ -766,13 +1000,13 @@ export class NotificationService {
       body: message.body,
       icon: '/icons/icon-192x192.png',
       badge: '/icons/badge-72x72.png',
-      data: { 
-        bookingId: booking.id, 
+      data: {
+        bookingId: booking.id,
         type,
         actionUrl: '/account/bookings',
         timestamp: new Date().toISOString(),
-        fallback: true
-      }
+        fallback: true,
+      },
     };
   }
 
@@ -791,13 +1025,10 @@ export class NotificationService {
         user_action: eventType,
         action_data: data,
         device_info: this.getDeviceInfo(),
-        created_at: new Date().toISOString()
+        created_at: new Date().toISOString(),
       };
 
-      await this.supabase.client
-        .from('notification_logs')
-        .insert([logEntry]);
-
+      await this.supabase.client.from('notification_logs').insert([logEntry]);
     } catch (error) {
       console.warn('⚠️ Could not log event:', eventType, error);
     }
@@ -839,7 +1070,6 @@ export class NotificationService {
         console.log('📝 Creating default preferences...');
         await this.createDefaultPreferences();
       }
-
     } catch (error) {
       console.error('❌ Error in loadUserPreferences:', error);
     }
@@ -870,7 +1100,7 @@ export class NotificationService {
       include_coach_info: true,
       include_location_info: true,
       include_quick_actions: true,
-      allow_admin_override: true
+      allow_admin_override: true,
     };
 
     try {
@@ -887,7 +1117,6 @@ export class NotificationService {
 
       this._preferences.set(data);
       console.log('✅ Default preferences created');
-
     } catch (error) {
       console.error('❌ Error creating default preferences:', error);
     }
@@ -898,10 +1127,10 @@ export class NotificationService {
    */
   private getAvailableDeliveryChannels(): string[] {
     const channels: string[] = [];
-    
+
     // Database always available
     channels.push('database');
-    
+
     // Push if token available
     if (this.canSendPushNotifications()) {
       channels.push('push');
@@ -909,13 +1138,13 @@ export class NotificationService {
     } else {
       console.log('⚠️ Push notifications disabled - will use database only');
     }
-    
+
     // Email if enabled
     const preferences = this._preferences();
     if (preferences?.email_notifications_enabled) {
       channels.push('email');
     }
-    
+
     console.log('📡 Final delivery channels:', channels);
     return channels;
   }
@@ -931,7 +1160,7 @@ export class NotificationService {
       sessionTime: booking.session_time,
       bedNumbers: booking.bed_numbers,
       totalAttendees: booking.total_attendees,
-      creditsUsed: booking.credits_used
+      creditsUsed: booking.credits_used,
     };
   }
 
@@ -946,7 +1175,7 @@ export class NotificationService {
       serviceWorkerSupported: false,
       pushManagerSupported: false,
       permissionStatus: 'unknown',
-      isDevelopment: false
+      isDevelopment: false,
     };
 
     if (!this.isBrowser || typeof window === 'undefined') {
@@ -970,17 +1199,17 @@ export class NotificationService {
     if (!this.isBrowser || typeof window === 'undefined') {
       return false;
     }
-    
+
     const hostname = window.location?.hostname;
     if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname?.includes('.local')) {
       return true;
     }
-    
+
     const port = window.location?.port;
     if (port && ['3000', '4200', '8080', '5173', '5174'].includes(port)) {
       return true;
     }
-    
+
     return false;
   }
 
@@ -993,7 +1222,7 @@ export class NotificationService {
       userAgent: navigator.userAgent,
       screenResolution: `${screen.width}x${screen.height}`,
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-      language: navigator.language
+      language: navigator.language,
     };
   }
 
@@ -1001,7 +1230,9 @@ export class NotificationService {
    * 👤 GET CURRENT USER
    */
   private async getCurrentUser() {
-    const { data: { user } } = await this.supabase.client.auth.getUser();
+    const {
+      data: { user },
+    } = await this.supabase.client.auth.getUser();
     return user;
   }
 
@@ -1014,11 +1245,12 @@ export class NotificationService {
       supported: this.isNotificationSupported(),
       permission: this._permissionStatus(),
       hasToken: !!this._pushToken(),
+      pushToken: this._pushToken(),
       canSend: this.canSendNotifications(),
       canSchedule: this.canScheduleNotifications(),
       canSendPush: this.canSendPushNotifications(),
       hasPreferences: !!this._preferences(),
-      loading: this._isLoading()
+      loading: this._isLoading(),
     };
   }
 
@@ -1038,16 +1270,16 @@ export class NotificationService {
       session_time: '10:00:00',
       coach_name: 'Test Coach',
       bed_numbers: ['1', '2'],
-      user: { full_name: 'Test User' }
+      user: { full_name: 'Test User' },
     };
 
     const payload = await this.buildNotificationPayload(type, testBooking);
-    
+
     new Notification(payload.title, {
       body: payload.body,
       icon: payload.icon,
       badge: payload.badge,
-      data: payload.data
+      data: payload.data,
     });
 
     await this.logEvent('test_notification_sent', { type, payload });
@@ -1059,30 +1291,138 @@ export class NotificationService {
    */
   async forceRegisterPushToken(): Promise<void> {
     console.log('🚨 Force registering push token...');
-    
+
     try {
       const currentStatus = this.getStatus();
       console.log('📊 Current status:', currentStatus);
-      
+
       if (!this.messaging) {
         console.error('❌ Firebase Messaging not initialized');
         await this.initializeFirebase();
       }
-      
+
       if (this._permissionStatus() !== 'granted') {
         console.error('❌ Permissions not granted');
         const permissions = await this.requestPermissions();
         console.log('🔑 Permission result:', permissions);
         return;
       }
-      
+
       console.log('🔑 Forcing push token registration...');
       const token = await this.registerPushToken();
       console.log('🎉 Force registration successful! Token:', !!token);
-      
     } catch (error) {
       console.error('❌ Force registration failed:', error);
     }
+  }
+
+  /**
+   * 🧪 VALIDATE NOTIFICATION SETUP
+   */
+  async validateNotificationSetup(): Promise<any> {
+    const diagnostics = {
+      serviceWorkers: [] as any[],
+      fcmToken: null as string | null,
+      dbToken: null as string | null,
+      tokensMatch: false,
+      scheduledNotifications: 0,
+      errors: [] as string[]
+    };
+
+    try {
+      // Check service workers
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      diagnostics.serviceWorkers = registrations.map(reg => ({
+        scope: reg.scope,
+        scriptURL: reg.active?.scriptURL,
+        state: reg.active?.state
+      }));
+
+      // Check FCM token
+      if (this.messaging) {
+        try {
+          diagnostics.fcmToken = await getToken(this.messaging, {
+            vapidKey: this.firebaseVapidKey
+          });
+        } catch (e) {
+          diagnostics.errors.push('Cannot get FCM token');
+        }
+      }
+
+      // Check DB token
+      const user = await this.getCurrentUser();
+      if (user) {
+        const { data } = await this.supabase.client
+          .from('user_notification_preferences')
+          .select('primary_device_token')
+          .eq('user_id', user.id)
+          .single();
+
+        diagnostics.dbToken = data?.primary_device_token || null;
+
+        // Check scheduled notifications
+        const { count } = await this.supabase.client
+          .from('notification_schedules')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', user.id)
+          .eq('status', 'scheduled');
+
+        diagnostics.scheduledNotifications = count || 0;
+      }
+
+      // Compare tokens
+      diagnostics.tokensMatch = !!(diagnostics.fcmToken && diagnostics.dbToken &&
+                                  diagnostics.fcmToken === diagnostics.dbToken);
+
+      // Identify issues
+      if (diagnostics.serviceWorkers.length > 1) {
+        diagnostics.errors.push('Multiple service workers detected');
+      }
+      if (!diagnostics.fcmToken) {
+        diagnostics.errors.push('No FCM token available');
+      }
+      if (!diagnostics.tokensMatch) {
+        diagnostics.errors.push('Token mismatch between FCM and database');
+      }
+      if (diagnostics.fcmToken && !this.isValidFCMToken(diagnostics.fcmToken)) {
+        diagnostics.errors.push('Invalid FCM token format');
+      }
+
+    } catch (error: any) {
+      diagnostics.errors.push(`Diagnostic error: ${error.message || error}`);
+    }
+
+    console.log('📊 Notification Setup Diagnostics:', diagnostics);
+    return diagnostics;
+  }
+
+  /**
+   * 🔧 SETUP DEBUG TOOLS
+   */
+  private setupDebugTools(): void {
+    if (!this.isDevelopmentEnvironment()) return;
+
+    const debugTools = {
+      getStatus: () => this.getStatus(),
+      testNotification: (type?: NotificationType) => this.testNotification(type),
+      forceRegister: () => this.forceRegisterPushToken(),
+      validateSetup: () => this.validateNotificationSetup(),
+      recoverToken: () => this.attemptTokenRecovery(),
+      cleanupServiceWorkers: async () => {
+        try {
+          const regs = await navigator.serviceWorker.getRegistrations();
+          for (const reg of regs) {
+            await reg.unregister();
+          }
+          console.log('✅ All service workers unregistered');
+        } catch (error) {
+          console.error('❌ Error cleaning service workers:', error);
+        }
+      }
+    };
+
+    (window as any).debugNotifications = debugTools;
+    console.log('🔧 Debug tools available: window.debugNotifications');
   }
 
   /**
@@ -1093,6 +1433,13 @@ export class NotificationService {
     this._pushToken.set(null);
     this._preferences.set(null);
     this._isInitialized.set(false);
+    
+    // Limpiar intervalos
+    if (this.tokenMonitorInterval) {
+      clearInterval(this.tokenMonitorInterval);
+      this.tokenMonitorInterval = null;
+    }
+    
     console.log('🔄 NotificationService reset');
   }
 
