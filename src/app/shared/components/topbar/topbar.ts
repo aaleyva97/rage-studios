@@ -130,7 +130,8 @@ export class Topbar implements OnInit, OnDestroy {
       this.currentUser.set(user);
       
       if (user && !this.profileLoadAttempted()) {
-        this.loadUserProfile(user.id);
+        // CARGA ASÍNCRONA DEL PERFIL ANTES DE ACTUALIZAR MENÚS
+        await this.loadUserProfile(user.id);
         // 🔄 ESTABLECER USUARIO EN BOOKING SERVICE PARA TRACKING REACTIVO
         this.bookingService.setCurrentUser(user.id);
       } else if (!user) {
@@ -140,6 +141,7 @@ export class Topbar implements OnInit, OnDestroy {
         this.bookingService.setCurrentUser(null);
       }
       
+      // ACTUALIZAR MENÚS DESPUÉS DE CARGAR EL PERFIL
       this.updateMenuItems();
       this.updateUserMenu();
     });
@@ -150,20 +152,27 @@ export class Topbar implements OnInit, OnDestroy {
   }
   
   private updateMenuItems() {
+    const loggedIn = this.isLoggedIn();
+    const isAdmin = this.isAdmin();
+    
+    console.log('📋 Updating menu items:', { loggedIn, isAdmin });
+    
     // Update left menu items based on user status
-    if (!this.isLoggedIn()) {
+    if (!loggedIn) {
       this.leftMenuItems.set(this.leftNavItems);
-    } else if (this.isAdmin()) {
+    } else if (isAdmin) {
       this.leftMenuItems.set(this.leftNavItemsAdmin);
+      console.log('✅ Admin left menu items set');
     } else {
       this.leftMenuItems.set(this.leftNavItemsLoggedIn);
     }
     
-    // Update right menu items based on user status
-    if (!this.isLoggedIn()) {
+    // Update right menu items based on user status  
+    if (!loggedIn) {
       this.rightMenuItems.set(this.rightNavItems);
-    } else if (this.isAdmin()) {
+    } else if (isAdmin) {
       this.rightMenuItems.set(this.rightNavItemsAdmin);
+      console.log('✅ Admin right menu items set (includes Admin option)');
     } else {
       this.rightMenuItems.set(this.rightNavItemsLoggedIn);
     }
@@ -241,6 +250,7 @@ export class Topbar implements OnInit, OnDestroy {
     try {
       const profile = await this.supabaseService.getProfile(userId);
       this.userProfile.set(profile);
+      console.log('👤 Profile loaded:', { userId, role: profile?.role });
     } catch (error: any) {
       console.warn('User profile not found, using basic info:', error?.message);
       this.userProfile.set(null);
@@ -263,7 +273,12 @@ export class Topbar implements OnInit, OnDestroy {
   
   isAdmin(): boolean {
     const profile = this.userProfile();
-    return profile?.role === 'admin';
+    const isAdminUser = profile?.role === 'admin';
+    console.log('🔐 isAdmin check:', { 
+      profile: profile ? { id: profile.id, role: profile.role } : null, 
+      isAdmin: isAdminUser 
+    });
+    return isAdminUser;
   }
   
   closeMobileMenu() {
