@@ -1,7 +1,9 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable, signal, PLATFORM_ID, Inject } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
 import { createClient, SupabaseClient, User } from '@supabase/supabase-js';
 import { environment } from '../../../environments/environment';
-import { BehaviorSubject, Observable } from 'rxjs';
+import { BehaviorSubject, Observable, debounceTime } from 'rxjs';
+import { AuthTokenManagerService } from './auth-token-manager.service';
 
 export interface Profile {
   id: string;
@@ -32,11 +34,27 @@ export interface AdminStats {
 export class SupabaseService {
   private supabaseClient: SupabaseClient;
   private currentUser = new BehaviorSubject<User | null>(null);
-  public currentUser$ = this.currentUser.asObservable();
+  public currentUser$ = this.currentUser.asObservable().pipe(
+    // Solo usar debounce ligero, permitir todos los cambios de usuario para que el topbar funcione correctamente
+    debounceTime(50) // Reducido de 100ms a 50ms para mejor responsividad
+  );
+  private isBrowser: boolean;
+  private tokenManager: AuthTokenManagerService;
   
-  constructor() {
-    this.supabaseClient = createClient(environment.SUPABASE_URL, environment.SUPABASE_KEY);
-    this.loadUser();
+  constructor(@Inject(PLATFORM_ID) private platformId: Object) {
+    this.isBrowser = isPlatformBrowser(platformId);
+    this.tokenManager = new AuthTokenManagerService(platformId);
+    
+    this.supabaseClient = createClient(environment.SUPABASE_URL, environment.SUPABASE_KEY, {
+      auth: {
+        autoRefreshToken: true,
+        persistSession: this.isBrowser,
+        detectSessionInUrl: this.isBrowser
+      }
+    });
+    if (this.isBrowser) {
+      this.loadUser();
+    }
   }
 
   // Public getter para acceso controlado al client
@@ -45,12 +63,60 @@ export class SupabaseService {
   }
 
   private async loadUser() {
-    const { data: { user } } = await this.supabaseClient.auth.getUser();
-    this.currentUser.next(user);
+    try {
+      const { data: { user } } = await this.supabaseClient.auth.getUser();
+      this.currentUser.next(user);
+      
+      // Solo registrar un listener de estado de auth, con manejo de rate limiting
+      this.supabaseClient.auth.onAuthStateChange((event, session) => {
+        if (event === 'TOKEN_REFRESHED') {
+          console.log('🔄 Token refreshed successfully');
+          // No emitir cambios solo por refresh de token para reducir rate limiting
+          return;
+        }
+        
+        if (event === 'SIGNED_OUT') {
+          this.tokenManager.reset();
+        }
+        
+        // Para eventos importantes (SIGNED_IN, SIGNED_OUT), siempre emitir
+        // Para otros eventos, solo emitir si hay cambio real en el usuario
+        if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'USER_UPDATED') {
+          this.currentUser.next(session?.user ?? null);
+        } else {
+          // Para otros eventos, verificar cambios
+          const currentUserId = this.currentUser.value?.id;
+          const newUserId = session?.user?.id;
+          if (currentUserId !== newUserId) {
+            this.currentUser.next(session?.user ?? null);
+          }
+        }
+      });
+    } catch (error) {
+      console.warn('Error loading user:', error);
+      this.currentUser.next(null);
+    }
+  }
+
+  // Método optimizado para obtener sesión con throttling coordinado
+  async getSessionSafe() {
+    if (!this.isBrowser) {
+      return { data: { session: null }, error: null };
+    }
     
-    this.supabaseClient.auth.onAuthStateChange((event, session) => {
-      this.currentUser.next(session?.user ?? null);
+    const result = await this.tokenManager.executeTokenRefresh(async () => {
+      return await this.supabaseClient.auth.getSession();
+    }).catch(error => {
+      console.warn('Session refresh failed:', error);
+      return { data: { session: null }, error };
     });
+    
+    return result || { data: { session: null }, error: null };
+  }
+
+  // Método para obtener el estado del token manager
+  getTokenManagerStatus() {
+    return this.tokenManager.getRefreshStatus();
   }
 
   async signIn(email: string, password: string) {
