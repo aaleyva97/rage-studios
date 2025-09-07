@@ -18,7 +18,7 @@ firebase.initializeApp(firebaseConfig);
 // Get Firebase Messaging instance
 const messaging = firebase.messaging();
 
-console.log('🔥 [SW] Firebase Messaging Service Worker initialized - v1.0.0');
+console.log('🔥 [SW] Firebase Messaging Service Worker initialized - v3.0.0');
 
 // ============================================
 // BACKGROUND MESSAGE HANDLER
@@ -26,7 +26,13 @@ console.log('🔥 [SW] Firebase Messaging Service Worker initialized - v1.0.0');
 messaging.onBackgroundMessage((payload) => {
   console.log('📨 [SW] Background message received:', payload);
   
-  // Parse notification data
+  // Validar que tenemos datos necesarios
+  if (!payload.notification && !payload.data) {
+    console.warn('⚠️ [SW] Invalid payload structure');
+    return;
+  }
+  
+  // Parse notification data con validación mejorada
   const notificationTitle = payload.notification?.title || 
                           payload.data?.title || 
                           'RageStudios Notification';
@@ -37,7 +43,7 @@ messaging.onBackgroundMessage((payload) => {
           'You have a new notification',
     icon: payload.notification?.icon || '/icons/icon-192x192.png',
     badge: '/icons/badge-72x72.png',
-    tag: payload.data?.notificationType || 'default',
+    tag: payload.data?.notificationType || `notification-${Date.now()}`,
     renotify: true,
     requireInteraction: false,
     silent: false,
@@ -64,6 +70,9 @@ messaging.onBackgroundMessage((payload) => {
     }
   }
 
+  // Log successful processing
+  console.log('✅ [SW] Showing notification:', notificationTitle);
+  
   // Show notification
   return self.registration.showNotification(notificationTitle, notificationOptions);
 });
@@ -119,25 +128,18 @@ self.addEventListener('notificationclick', (event) => {
 
 // Installation
 self.addEventListener('install', (event) => {
-  console.log('📦 [SW] Installing Service Worker...');
+  console.log('📦 [SW] Installing Service Worker v3.0.0...');
   // Force immediate activation
   self.skipWaiting();
 });
 
 // Activation
 self.addEventListener('activate', (event) => {
-  console.log('✅ [SW] Service Worker activated');
-  // Take control of all clients immediately
-  event.waitUntil(clients.claim());
-});
-
-// Fetch event (for debugging)
-self.addEventListener('fetch', (event) => {
-  // Only log API calls, not all resources
-  if (event.request.url.includes('/api/') || 
-      event.request.url.includes('fcm.googleapis.com')) {
-    console.log('🌐 [SW] Fetch:', event.request.url);
-  }
+  console.log('✅ [SW] Service Worker activated v3.0.0');
+  event.waitUntil(
+    // Take control of all clients immediately
+    clients.claim()
+  );
 });
 
 // ============================================
@@ -154,7 +156,46 @@ self.addEventListener('message', (event) => {
     event.ports[0].postMessage({
       type: 'STATUS',
       ready: true,
-      version: '1.0.0'
+      version: '3.0.0',
+      timestamp: Date.now()
+    });
+  }
+  
+  // Validate token
+  if (event.data && event.data.type === 'VALIDATE_TOKEN') {
+    // En Firebase compat, podemos intentar obtener el token
+    messaging.getToken().then((currentToken) => {
+      event.ports[0].postMessage({
+        type: 'TOKEN_VALIDATION',
+        valid: currentToken === event.data.token,
+        currentToken: currentToken
+      });
+    }).catch((err) => {
+      console.error('❌ [SW] Error validating token:', err);
+      event.ports[0].postMessage({
+        type: 'TOKEN_VALIDATION',
+        valid: false,
+        error: err.message
+      });
+    });
+  }
+  
+  // Report token refresh (manual check)
+  if (event.data && event.data.type === 'CHECK_TOKEN_REFRESH') {
+    messaging.getToken().then((currentToken) => {
+      if (currentToken !== event.data.lastKnownToken) {
+        // Token changed, notify main app
+        self.clients.matchAll().then(clients => {
+          clients.forEach(client => {
+            client.postMessage({
+              type: 'TOKEN_REFRESHED',
+              token: currentToken
+            });
+          });
+        });
+      }
+    }).catch((err) => {
+      console.error('❌ [SW] Error checking token:', err);
     });
   }
 });
@@ -170,15 +211,23 @@ self.addEventListener('push', (event) => {
       const data = event.data.json();
       console.log('📱 [SW] Push data:', data);
       
+      // Verificar si Firebase ya manejó el mensaje
+      if (data.notification || data.FCM_MSG) {
+        console.log('✅ [SW] Message handled by Firebase');
+        return;
+      }
+      
       // Handle the push message if Firebase doesn't
-      if (!data.notification && data.data) {
+      if (data.data) {
         const notificationPromise = self.registration.showNotification(
           data.data.title || 'RageStudios',
           {
             body: data.data.body || 'New notification',
             icon: '/icons/icon-192x192.png',
             badge: '/icons/badge-72x72.png',
-            data: data.data
+            data: data.data,
+            tag: `push-${Date.now()}`,
+            renotify: true
           }
         );
         event.waitUntil(notificationPromise);
@@ -194,6 +243,15 @@ self.addEventListener('push', (event) => {
 // ============================================
 self.addEventListener('error', (event) => {
   console.error('❌ [SW] Service Worker error:', event.error);
+  // Reportar error al cliente
+  self.clients.matchAll().then(clients => {
+    clients.forEach(client => {
+      client.postMessage({
+        type: 'SW_ERROR',
+        error: event.error?.message || 'Unknown error'
+      });
+    });
+  });
 });
 
 self.addEventListener('unhandledrejection', (event) => {
@@ -201,4 +259,4 @@ self.addEventListener('unhandledrejection', (event) => {
 });
 
 // Log SW version on load
-console.log('🚀 [SW] RageStudios Service Worker ready - v1.0.0');
+console.log('🚀 [SW] RageStudios Service Worker ready - v3.0.0');
