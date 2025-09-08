@@ -677,153 +677,109 @@ export class NotificationService implements OnDestroy {
     }
   }
 
-  /**
-   * 📅 SCHEDULE BOOKING NOTIFICATIONS - MÉTODO PRINCIPAL
-   */
-  async scheduleBookingNotifications(booking: any): Promise<{ success: boolean; reason?: string; count?: number }> {
-    const canSchedule = this.canScheduleNotifications();
-    const canSendPush = this.canSendPushNotifications();
-    const status = this.getStatus();
+ /**
+ * 📅 SCHEDULE BOOKING NOTIFICATIONS - VERSIÓN MÉXICO CON HORA DEL SERVIDOR
+ */
+async scheduleBookingNotifications(booking: any): Promise<{ success: boolean; reason?: string; count?: number }> {
+  const canSchedule = this.canScheduleNotifications();
+  const status = this.getStatus();
 
-    if (!canSchedule) {
-      const reason = `Cannot schedule notifications - Preferences disabled`;
-      console.warn('⚠️ Cannot schedule notifications:', reason);
-      return { success: false, reason };
-    }
+  if (!canSchedule) {
+    const reason = `Cannot schedule notifications - Preferences disabled`;
+    console.warn('⚠️ Cannot schedule notifications:', reason);
+    return { success: false, reason };
+  }
 
-    console.log('📅 Scheduling notifications with status:', {
-      canSchedule,
-      canSendPush,
-      permission: status.permission,
-      hasToken: status.hasToken,
+  console.log('📅 Scheduling notifications (Mexico Server Time):', {
+    booking_id: booking.id,
+    session_date: booking.session_date,
+    session_time: booking.session_time,
+    canSchedule,
+    permission: status.permission,
+    hasToken: status.hasToken,
+  });
+
+  try {
+    const user = await this.getCurrentUser();
+    if (!user) throw new Error('User not authenticated');
+
+    const preferences = this._preferences();
+    if (!preferences) throw new Error('User preferences not loaded');
+
+    // Preparar los payloads de las notificaciones
+    const confirmationPayload = await this.buildNotificationPayload('booking_confirmation', booking);
+    const reminder24hPayload = await this.buildNotificationPayload('reminder_24h', booking);
+    const reminder1hPayload = await this.buildNotificationPayload('reminder_1h', booking);
+
+    // Obtener el token push actual (puede ser null)
+    const pushToken = this.canSendPushNotifications() ? this._pushToken() : null;
+
+    console.log('📡 Calling server function with push token:', !!pushToken);
+
+    // LLAMAR A LA FUNCIÓN SQL QUE USA HORA DEL SERVIDOR
+    const { data, error } = await this.supabase.client.rpc('schedule_booking_notifications_mexico', {
+      p_booking_id: booking.id,
+      p_user_id: user.id,
+      p_session_date: booking.session_date,
+      p_session_time: booking.session_time,
+      p_push_token: pushToken || null,
+      p_confirmation_payload: confirmationPayload,
+      p_reminder_24h_payload: reminder24hPayload,
+      p_reminder_1h_payload: reminder1hPayload,
+      p_preferences: {
+        booking_confirmation_enabled: preferences.booking_confirmation_enabled,
+        reminder_24h_enabled: preferences.reminder_24h_enabled,
+        reminder_1h_enabled: preferences.reminder_1h_enabled
+      }
     });
 
-    try {
-      console.log('📅 Scheduling notifications for booking:', booking.id);
+    if (error) {
+      console.error('❌ Error calling server function:', error);
+      throw error;
+    }
 
-      const user = await this.getCurrentUser();
-      if (!user) throw new Error('User not authenticated');
-
-      const preferences = this._preferences();
-      if (!preferences) throw new Error('User preferences not loaded');
-
-      const notifications: Partial<NotificationSchedule>[] = [];
-      const bookingDateTime = new Date(`${booking.session_date}T${booking.session_time}`);
-      const now = new Date();
-
-      const availableChannels = this.getAvailableDeliveryChannels();
-      const pushToken = canSendPush ? this._pushToken() : null;
-
-      // Convertir null a undefined para la BD
-      const pushTokenForDB = pushToken || undefined;
-
-      console.log('📡 Available delivery channels:', availableChannels, 'Push token:', !!pushToken);
-
-      // 1. Booking Confirmation
-      if (preferences.booking_confirmation_enabled !== false) {
-        notifications.push({
-          booking_id: booking.id,
-          user_id: user.id,
-          notification_type: 'booking_confirmation',
-          scheduled_for: now.toISOString(),
-          status: 'scheduled',
-          priority: 5,
-          retry_count: 0,
-          max_retries: 3,
-          message_payload: await this.buildNotificationPayload('booking_confirmation', booking),
-          push_token: pushTokenForDB,
-          delivery_channels: availableChannels,
-          expires_at: new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString(),
-          session_data: this.extractSessionData(booking),
-          user_preferences: {
-            message_style: preferences.message_style,
-            fallback_to_db_only: !canSendPush,
-          },
-        });
-      }
-
-      // 2. 24 Hour Reminder
-      if (preferences.reminder_24h_enabled !== false) {
-        const reminder24h = new Date(bookingDateTime.getTime() - 24 * 60 * 60 * 1000);
-        if (reminder24h > now) {
-          notifications.push({
-            booking_id: booking.id,
-            user_id: user.id,
-            notification_type: 'reminder_24h',
-            scheduled_for: reminder24h.toISOString(),
-            status: 'scheduled',
-            priority: 4,
-            retry_count: 0,
-            max_retries: 3,
-            message_payload: await this.buildNotificationPayload('reminder_24h', booking),
-            push_token: pushTokenForDB,
-            delivery_channels: availableChannels,
-            expires_at: new Date(bookingDateTime.getTime() + 60 * 60 * 1000).toISOString(),
-            session_data: this.extractSessionData(booking),
-            user_preferences: { message_style: preferences.message_style },
-          });
-        }
-      }
-
-      // 3. 1 Hour Reminder
-      if (preferences.reminder_1h_enabled !== false) {
-        const reminder1h = new Date(bookingDateTime.getTime() - 60 * 60 * 1000);
-        if (reminder1h > now) {
-          notifications.push({
-            booking_id: booking.id,
-            user_id: user.id,
-            notification_type: 'reminder_1h',
-            scheduled_for: reminder1h.toISOString(),
-            status: 'scheduled',
-            priority: 5,
-            retry_count: 0,
-            max_retries: 3,
-            message_payload: await this.buildNotificationPayload('reminder_1h', booking),
-            push_token: pushTokenForDB,
-            delivery_channels: availableChannels,
-            expires_at: new Date(bookingDateTime.getTime() + 30 * 60 * 1000).toISOString(),
-            session_data: this.extractSessionData(booking),
-            user_preferences: { message_style: preferences.message_style },
-          });
-        }
-      }
-
-      // Store in database
-      if (notifications.length > 0) {
-        const { error } = await this.supabase.client
-          .from('notification_schedules')
-          .insert(notifications);
-
-        if (error) {
-          console.error('❌ Error storing schedules:', error);
-          throw error;
-        }
-
-        console.log(`✅ Scheduled ${notifications.length} notifications`);
-
-        await this.logEvent('notifications_scheduled', {
-          bookingId: booking.id,
-          count: notifications.length,
-          types: notifications.map((n) => n.notification_type),
-        });
-
-        return { success: true, count: notifications.length };
-      } else {
-        console.log('ℹ️ No notifications scheduled');
-        return { success: true, count: 0, reason: 'All disabled or past due' };
-      }
-    } catch (error) {
-      console.error('❌ Error in scheduleBookingNotifications:', error);
-      await this.logEvent('scheduling_failed', {
-        bookingId: booking.id,
-        error: error instanceof Error ? error.message : String(error),
+    if (data && data.success) {
+      console.log('✅ Notifications scheduled successfully:', {
+        count: data.count,
+        server_time_mexico: data.server_time_mexico,
+        session_time_mexico: data.session_datetime_mexico,
+        notifications: data.notifications
       });
-      return {
-        success: false,
-        reason: error instanceof Error ? error.message : String(error),
+
+      // Log del evento
+      await this.logEvent('notifications_scheduled', {
+        bookingId: booking.id,
+        count: data.count,
+        serverTimeMexico: data.server_time_mexico,
+        notifications: data.notifications
+      });
+
+      return { 
+        success: true, 
+        count: data.count 
+      };
+    } else {
+      console.error('❌ Server function returned error:', data);
+      return { 
+        success: false, 
+        reason: data?.error || 'Unknown server error' 
       };
     }
+
+  } catch (error) {
+    console.error('❌ Error in scheduleBookingNotifications:', error);
+    
+    await this.logEvent('scheduling_failed', {
+      bookingId: booking.id,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    
+    return {
+      success: false,
+      reason: error instanceof Error ? error.message : String(error),
+    };
   }
+}
 
   /**
    * 🚫 CANCEL BOOKING NOTIFICATIONS
