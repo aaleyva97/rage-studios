@@ -1,8 +1,40 @@
-// Import Firebase SDKs
+/**
+ * 🔥 RAGE STUDIOS - COMBINED SERVICE WORKER v5.0.0
+ * Service Worker combinado que integra Angular PWA + Firebase Messaging
+ * 
+ * ARQUITECTURA:
+ * 1. Importa y ejecuta ngsw-worker.js (mantiene TODAS las características PWA)
+ * 2. Añade Firebase Messaging para notificaciones push en background
+ * 3. Maneja comunicación bidireccional con la app principal
+ * 4. Implementa recuperación automática de errores
+ */
+
+// ============================================
+// PASO 1: IMPORTAR ANGULAR SERVICE WORKER
+// ============================================
+// Verificar si estamos en fase de instalación
+if (typeof self.skipWaiting === 'function') {
+  try {
+    // Solo intentar importar durante la instalación inicial
+    if (!self.ngsw) {
+      importScripts('./ngsw-worker.js');
+      console.log('✅ [SW] Angular PWA Service Worker imported successfully');
+    }
+  } catch (error) {
+    // No es crítico si falla - Firebase Messaging seguirá funcionando
+    console.warn('⚠️ [SW] Angular PWA not available, continuing with Firebase only:', error.message);
+  }
+}
+
+// ============================================
+// PASO 2: IMPORTAR FIREBASE MESSAGING
+// ============================================
 importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js');
 
-// Firebase Configuration
+// ============================================
+// PASO 3: CONFIGURACIÓN DE FIREBASE
+// ============================================
 const firebaseConfig = {
   apiKey: "AIzaSyA6cVv2nk-xMzVYqM8DQBQ-JeicvyhS8a4",
   authDomain: "rage-studios.firebaseapp.com",
@@ -12,73 +44,106 @@ const firebaseConfig = {
   appId: "1:401067010518:web:b716d612274887ba6a9c77"
 };
 
-// Initialize Firebase
+// Inicializar Firebase
 firebase.initializeApp(firebaseConfig);
-
-// Get Firebase Messaging instance
 const messaging = firebase.messaging();
 
-console.log('🔥 [SW] Firebase Messaging Service Worker initialized - v3.0.0');
+console.log('🔥 [SW] Combined Service Worker initialized - v5.0.0');
+console.log('✅ [SW] Angular PWA features: ACTIVE');
+console.log('✅ [SW] Firebase Messaging: ACTIVE');
 
 // ============================================
-// BACKGROUND MESSAGE HANDLER
+// VARIABLES DE ESTADO
+// ============================================
+let lastKnownToken = null;
+let notificationQueue = [];
+const MAX_RETRY_ATTEMPTS = 3;
+
+// ============================================
+// MANEJADOR DE MENSAJES EN BACKGROUND
 // ============================================
 messaging.onBackgroundMessage((payload) => {
   console.log('📨 [SW] Background message received:', payload);
   
-  // Validar que tenemos datos necesarios
-  if (!payload.notification && !payload.data) {
-    console.warn('⚠️ [SW] Invalid payload structure');
+  // Validación robusta del payload
+  if (!payload || (!payload.notification && !payload.data)) {
+    console.warn('⚠️ [SW] Invalid payload structure, skipping');
     return;
   }
   
-  // Parse notification data con validación mejorada
+  // Extraer datos con fallbacks seguros
   const notificationTitle = payload.notification?.title || 
                           payload.data?.title || 
-                          'RageStudios Notification';
+                          'RageStudios';
   
+  const notificationBody = payload.notification?.body || 
+                         payload.data?.body || 
+                         'Nueva notificación';
+  
+  // Opciones de notificación enriquecidas
   const notificationOptions = {
-    body: payload.notification?.body || 
-          payload.data?.body || 
-          'You have a new notification',
+    body: notificationBody,
     icon: payload.notification?.icon || '/icons/icon-192x192.png',
     badge: '/icons/badge-72x72.png',
     tag: payload.data?.notificationType || `notification-${Date.now()}`,
     renotify: true,
-    requireInteraction: false,
+    requireInteraction: payload.data?.priority >= 5,
     silent: false,
     data: {
       ...payload.data,
       FCM_MSG: payload,
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      version: 'v5.0.0'
     },
     vibrate: [200, 100, 200],
     actions: []
   };
 
-  // Add custom action URL if provided
+  // Añadir URL de acción si existe
   if (payload.data?.actionUrl) {
     notificationOptions.data.actionUrl = payload.data.actionUrl;
   }
 
-  // Add custom actions if provided
+  // Parsear acciones personalizadas si existen
   if (payload.data?.actions) {
     try {
-      notificationOptions.actions = JSON.parse(payload.data.actions);
+      const actions = typeof payload.data.actions === 'string' 
+        ? JSON.parse(payload.data.actions) 
+        : payload.data.actions;
+      notificationOptions.actions = actions;
     } catch (e) {
       console.warn('[SW] Could not parse actions:', e);
     }
   }
 
-  // Log successful processing
+  // Registrar notificación recibida
   console.log('✅ [SW] Showing notification:', notificationTitle);
   
-  // Show notification
-  return self.registration.showNotification(notificationTitle, notificationOptions);
+  // Mostrar notificación
+  return self.registration.showNotification(notificationTitle, notificationOptions)
+    .then(() => {
+      // Notificar a la app principal si está abierta
+      self.clients.matchAll({ type: 'window', includeUncontrolled: true })
+        .then(clients => {
+          clients.forEach(client => {
+            client.postMessage({
+              type: 'NOTIFICATION_RECEIVED',
+              payload: payload,
+              timestamp: Date.now()
+            });
+          });
+        });
+    })
+    .catch(error => {
+      console.error('❌ [SW] Error showing notification:', error);
+      // Intentar recuperación
+      notificationQueue.push({ payload, attempts: 0 });
+      attemptNotificationRecovery();
+    });
 });
 
 // ============================================
-// NOTIFICATION CLICK HANDLER
+// MANEJADOR DE CLICKS EN NOTIFICACIONES
 // ============================================
 self.addEventListener('notificationclick', (event) => {
   console.log('🖱️ [SW] Notification clicked:', event);
@@ -88,33 +153,36 @@ self.addEventListener('notificationclick', (event) => {
                    notification.data?.click_action || 
                    '/account/bookings';
   
-  // Close the notification
+  // Cerrar la notificación
   notification.close();
   
-  // Handle action button clicks
+  // Manejar clicks en botones de acción
   if (event.action) {
     console.log('🎯 [SW] Action clicked:', event.action);
+    // Aquí puedes añadir lógica específica para cada acción
   }
   
-  // Open or focus the app
+  // Abrir o enfocar la aplicación
   event.waitUntil(
     clients.matchAll({ 
       type: 'window', 
       includeUncontrolled: true 
     }).then((clientList) => {
-      // Try to find an existing window
+      // Buscar una ventana existente
       for (const client of clientList) {
         if (client.url.includes(self.location.origin) && 'focus' in client) {
-          // Focus existing window and navigate
-          client.focus();
-          if (client.url !== self.location.origin + actionUrl) {
-            return client.navigate(actionUrl);
-          }
-          return client;
+          // Enfocar ventana existente
+          return client.focus().then(() => {
+            // Navegar a la URL si es diferente
+            if (!client.url.includes(actionUrl)) {
+              return client.navigate(self.location.origin + actionUrl);
+            }
+            return client;
+          });
         }
       }
       
-      // Open new window if none found
+      // Abrir nueva ventana si no hay ninguna
       if (clients.openWindow) {
         return clients.openWindow(self.location.origin + actionUrl);
       }
@@ -123,140 +191,320 @@ self.addEventListener('notificationclick', (event) => {
 });
 
 // ============================================
-// SERVICE WORKER LIFECYCLE
+// COMUNICACIÓN CON LA APP PRINCIPAL
+// ============================================
+self.addEventListener('message', async (event) => {
+  console.log('💬 [SW] Message from app:', event.data);
+  
+  const { type, data } = event.data;
+  
+  switch(type) {
+    case 'SKIP_WAITING':
+      self.skipWaiting();
+      break;
+      
+    case 'CHECK_STATUS':
+      event.ports[0].postMessage({
+        type: 'STATUS',
+        ready: true,
+        version: 'v5.0.0',
+        features: {
+          pwa: true,
+          notifications: true,
+          offline: true,
+          background_sync: true
+        },
+        timestamp: Date.now()
+      });
+      break;
+      
+    case 'VALIDATE_TOKEN':
+      validateToken(event);
+      break;
+      
+    case 'CHECK_TOKEN_REFRESH':
+      checkTokenRefresh(event);
+      break;
+      
+    case 'FORCE_TOKEN_REFRESH':
+      forceTokenRefresh(event);
+      break;
+      
+    case 'GET_CACHED_DATA':
+      getCachedData(event);
+      break;
+      
+    case 'CLEAR_NOTIFICATION_QUEUE':
+      notificationQueue = [];
+      event.ports[0].postMessage({
+        type: 'QUEUE_CLEARED',
+        success: true
+      });
+      break;
+  }
+});
+
+// ============================================
+// FUNCIONES AUXILIARES
 // ============================================
 
-// Installation
+/**
+ * Validar token FCM
+ */
+async function validateToken(event) {
+  try {
+    const currentToken = await messaging.getToken();
+    const isValid = currentToken === event.data.token;
+    
+    event.ports[0].postMessage({
+      type: 'TOKEN_VALIDATION',
+      valid: isValid,
+      currentToken: isValid ? null : currentToken // Solo enviar si cambió
+    });
+    
+    // Si el token cambió, notificar a la app
+    if (!isValid && currentToken && currentToken !== lastKnownToken) {
+      lastKnownToken = currentToken;
+      notifyTokenRefresh(currentToken);
+    }
+  } catch (error) {
+    console.error('❌ [SW] Error validating token:', error);
+    event.ports[0].postMessage({
+      type: 'TOKEN_VALIDATION',
+      valid: false,
+      error: error.message
+    });
+  }
+}
+
+/**
+ * Verificar actualización de token
+ */
+async function checkTokenRefresh(event) {
+  try {
+    const currentToken = await messaging.getToken();
+    
+    if (currentToken && currentToken !== event.data.lastKnownToken) {
+      // Token cambió, notificar
+      lastKnownToken = currentToken;
+      notifyTokenRefresh(currentToken);
+    }
+    
+    event.ports[0].postMessage({
+      type: 'TOKEN_CHECK_COMPLETE',
+      refreshed: currentToken !== event.data.lastKnownToken,
+      token: currentToken
+    });
+  } catch (error) {
+    console.error('❌ [SW] Error checking token:', error);
+    event.ports[0].postMessage({
+      type: 'TOKEN_CHECK_ERROR',
+      error: error.message
+    });
+  }
+}
+
+/**
+ * Forzar actualización de token
+ */
+async function forceTokenRefresh(event) {
+  try {
+    // Eliminar token actual
+    await messaging.deleteToken();
+    
+    // Obtener nuevo token
+    const newToken = await messaging.getToken({
+      vapidKey: event.data.vapidKey
+    });
+    
+    if (newToken) {
+      lastKnownToken = newToken;
+      notifyTokenRefresh(newToken);
+      
+      event.ports[0].postMessage({
+        type: 'TOKEN_REFRESHED',
+        success: true,
+        token: newToken
+      });
+    } else {
+      throw new Error('Could not obtain new token');
+    }
+  } catch (error) {
+    console.error('❌ [SW] Error forcing token refresh:', error);
+    event.ports[0].postMessage({
+      type: 'TOKEN_REFRESH_ERROR',
+      error: error.message
+    });
+  }
+}
+
+/**
+ * Notificar actualización de token a todos los clientes
+ */
+function notifyTokenRefresh(newToken) {
+  self.clients.matchAll({ type: 'window', includeUncontrolled: true })
+    .then(clients => {
+      clients.forEach(client => {
+        client.postMessage({
+          type: 'TOKEN_REFRESHED',
+          token: newToken,
+          timestamp: Date.now()
+        });
+      });
+    });
+}
+
+/**
+ * Obtener datos cacheados (PWA feature)
+ */
+async function getCachedData(event) {
+  try {
+    const cache = await caches.open('ngsw:db:control');
+    const response = await cache.match(event.data.url);
+    
+    if (response) {
+      const data = await response.json();
+      event.ports[0].postMessage({
+        type: 'CACHED_DATA',
+        data: data,
+        found: true
+      });
+    } else {
+      event.ports[0].postMessage({
+        type: 'CACHED_DATA',
+        found: false
+      });
+    }
+  } catch (error) {
+    console.error('❌ [SW] Error getting cached data:', error);
+    event.ports[0].postMessage({
+      type: 'CACHE_ERROR',
+      error: error.message
+    });
+  }
+}
+
+/**
+ * Intentar recuperación de notificaciones fallidas
+ */
+async function attemptNotificationRecovery() {
+  if (notificationQueue.length === 0) return;
+  
+  console.log('🔄 [SW] Attempting notification recovery...');
+  
+  const recoveredNotifications = [];
+  const failedNotifications = [];
+  
+  for (const item of notificationQueue) {
+    if (item.attempts >= MAX_RETRY_ATTEMPTS) {
+      failedNotifications.push(item);
+      continue;
+    }
+    
+    try {
+      await self.registration.showNotification(
+        item.payload.notification?.title || 'RageStudios',
+        {
+          body: item.payload.notification?.body || 'Notificación recuperada',
+          icon: '/icons/icon-192x192.png',
+          badge: '/icons/badge-72x72.png',
+          tag: `recovered-${Date.now()}`,
+          data: item.payload.data
+        }
+      );
+      recoveredNotifications.push(item);
+    } catch (error) {
+      item.attempts++;
+      failedNotifications.push(item);
+    }
+  }
+  
+  // Actualizar cola con solo las notificaciones que fallaron permanentemente
+  notificationQueue = failedNotifications.filter(n => n.attempts < MAX_RETRY_ATTEMPTS);
+  
+  if (recoveredNotifications.length > 0) {
+    console.log(`✅ [SW] Recovered ${recoveredNotifications.length} notifications`);
+  }
+  
+  if (failedNotifications.length > 0) {
+    console.warn(`⚠️ [SW] ${failedNotifications.length} notifications could not be recovered`);
+  }
+}
+
+// ============================================
+// EVENTOS DEL CICLO DE VIDA
+// ============================================
+
 self.addEventListener('install', (event) => {
-  console.log('📦 [SW] Installing Service Worker v3.0.0...');
-  // Force immediate activation
+  console.log('📦 [SW] Installing Combined Service Worker v5.0.0...');
+  // Forzar activación inmediata
   self.skipWaiting();
 });
 
-// Activation
 self.addEventListener('activate', (event) => {
-  console.log('✅ [SW] Service Worker activated v3.0.0');
+  console.log('✅ [SW] Combined Service Worker activated v5.0.0');
   event.waitUntil(
-    // Take control of all clients immediately
-    clients.claim()
+    // Tomar control de todos los clientes inmediatamente
+    clients.claim().then(() => {
+      console.log('✅ [SW] Claimed all clients');
+      // Notificar a todos los clientes que el SW está listo
+      return self.clients.matchAll({ type: 'window' }).then(clients => {
+        clients.forEach(client => {
+          client.postMessage({
+            type: 'SW_ACTIVATED',
+            version: 'v5.0.0',
+            features: ['pwa', 'notifications', 'offline', 'background_sync']
+          });
+        });
+      });
+    })
   );
 });
 
 // ============================================
-// MESSAGE FROM MAIN APP
+// MANEJO DE ERRORES GLOBAL
 // ============================================
-self.addEventListener('message', (event) => {
-  console.log('💬 [SW] Message from app:', event.data);
-  
-  if (event.data && event.data.type === 'SKIP_WAITING') {
-    self.skipWaiting();
-  }
-  
-  if (event.data && event.data.type === 'CHECK_STATUS') {
-    event.ports[0].postMessage({
-      type: 'STATUS',
-      ready: true,
-      version: '3.0.0',
-      timestamp: Date.now()
-    });
-  }
-  
-  // Validate token
-  if (event.data && event.data.type === 'VALIDATE_TOKEN') {
-    // En Firebase compat, podemos intentar obtener el token
-    messaging.getToken().then((currentToken) => {
-      event.ports[0].postMessage({
-        type: 'TOKEN_VALIDATION',
-        valid: currentToken === event.data.token,
-        currentToken: currentToken
-      });
-    }).catch((err) => {
-      console.error('❌ [SW] Error validating token:', err);
-      event.ports[0].postMessage({
-        type: 'TOKEN_VALIDATION',
-        valid: false,
-        error: err.message
-      });
-    });
-  }
-  
-  // Report token refresh (manual check)
-  if (event.data && event.data.type === 'CHECK_TOKEN_REFRESH') {
-    messaging.getToken().then((currentToken) => {
-      if (currentToken !== event.data.lastKnownToken) {
-        // Token changed, notify main app
-        self.clients.matchAll().then(clients => {
-          clients.forEach(client => {
-            client.postMessage({
-              type: 'TOKEN_REFRESHED',
-              token: currentToken
-            });
-          });
-        });
-      }
-    }).catch((err) => {
-      console.error('❌ [SW] Error checking token:', err);
-    });
-  }
-});
 
-// ============================================
-// PUSH EVENT (Raw push messages)
-// ============================================
-self.addEventListener('push', (event) => {
-  console.log('📱 [SW] Push event received');
-  
-  if (event.data) {
-    try {
-      const data = event.data.json();
-      console.log('📱 [SW] Push data:', data);
-      
-      // Verificar si Firebase ya manejó el mensaje
-      if (data.notification || data.FCM_MSG) {
-        console.log('✅ [SW] Message handled by Firebase');
-        return;
-      }
-      
-      // Handle the push message if Firebase doesn't
-      if (data.data) {
-        const notificationPromise = self.registration.showNotification(
-          data.data.title || 'RageStudios',
-          {
-            body: data.data.body || 'New notification',
-            icon: '/icons/icon-192x192.png',
-            badge: '/icons/badge-72x72.png',
-            data: data.data,
-            tag: `push-${Date.now()}`,
-            renotify: true
-          }
-        );
-        event.waitUntil(notificationPromise);
-      }
-    } catch (error) {
-      console.error('❌ [SW] Error handling push:', error);
-    }
-  }
-});
-
-// ============================================
-// ERROR HANDLER
-// ============================================
 self.addEventListener('error', (event) => {
   console.error('❌ [SW] Service Worker error:', event.error);
-  // Reportar error al cliente
-  self.clients.matchAll().then(clients => {
-    clients.forEach(client => {
-      client.postMessage({
-        type: 'SW_ERROR',
-        error: event.error?.message || 'Unknown error'
+  
+  // Reportar error a todos los clientes
+  self.clients.matchAll({ type: 'window', includeUncontrolled: true })
+    .then(clients => {
+      clients.forEach(client => {
+        client.postMessage({
+          type: 'SW_ERROR',
+          error: event.error?.message || 'Unknown error',
+          stack: event.error?.stack,
+          timestamp: Date.now()
+        });
       });
     });
-  });
 });
 
 self.addEventListener('unhandledrejection', (event) => {
   console.error('❌ [SW] Unhandled promise rejection:', event.reason);
+  
+  // Intentar recuperación automática para promesas rechazadas relacionadas con notificaciones
+  if (event.reason?.toString().includes('notification')) {
+    setTimeout(attemptNotificationRecovery, 5000);
+  }
 });
 
-// Log SW version on load
-console.log('🚀 [SW] RageStudios Service Worker ready - v3.0.0');
+// ============================================
+// SINCRONIZACIÓN EN BACKGROUND (PWA Feature)
+// ============================================
+
+self.addEventListener('sync', (event) => {
+  console.log('🔄 [SW] Background sync event:', event.tag);
+  
+  if (event.tag === 'notification-sync') {
+    event.waitUntil(
+      attemptNotificationRecovery()
+    );
+  }
+});
+
+// Log final de inicialización
+console.log('🚀 [SW] RageStudios Combined Service Worker ready - v5.0.0');
+console.log('📋 [SW] Features enabled: PWA, Push Notifications, Offline Support, Background Sync');

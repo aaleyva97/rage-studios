@@ -4,6 +4,7 @@ import {
   provideBrowserGlobalErrorListeners,
   provideZonelessChangeDetection,
   LOCALE_ID,
+  isDevMode,
 } from '@angular/core';
 import { registerLocaleData } from '@angular/common';
 import localeEs from '@angular/common/locales/es';
@@ -28,6 +29,39 @@ import { provideServiceWorker } from '@angular/service-worker';
 // Registrar locale español
 registerLocaleData(localeEs, 'es');
 
+// Función para obtener la configuración del Service Worker
+function getServiceWorkerProviders() {
+  const swConfig = environment.serviceWorker;
+  
+  if (!swConfig || !swConfig.enabled) {
+    console.warn('⚠️ Service Worker is disabled in environment configuration');
+    return [];
+  }
+
+  console.log('🔧 Service Worker Configuration:', {
+    environment: environment.production ? 'production' : 'development',
+    enabled: swConfig.enabled,
+    script: swConfig.script,
+    strategy: swConfig.registrationStrategy
+  });
+
+  // Construir opciones con tipos correctos
+  const swOptions: any = {
+    enabled: swConfig.enabled,
+    registrationStrategy: swConfig.registrationStrategy,
+    scope: swConfig.scope || '/'
+  };
+
+  // Solo añadir updateViaCache si existe y es válido
+  if (swConfig.updateViaCache) {
+    swOptions.updateViaCache = swConfig.updateViaCache as 'all' | 'imports' | 'none';
+  }
+
+  return [
+    provideServiceWorker(swConfig.script, swOptions)
+  ];
+}
+
 export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
@@ -44,10 +78,10 @@ export const appConfig: ApplicationConfig = {
         preset: Aura,
         options: {
           darkModeSelector: '.my-app-dark',
-            cssLayer: {
-                name: 'primeng',
-                order: 'theme, base, primeng'
-            }
+          cssLayer: {
+            name: 'primeng',
+            order: 'theme, base, primeng'
+          }
         }
       },
       ripple: true,
@@ -57,12 +91,9 @@ export const appConfig: ApplicationConfig = {
       NgxStripeModule.forRoot(environment.STRIPE_PUBLISHABLE_KEY)
     ),
     { provide: LOCALE_ID, useValue: 'es' },
-    MessageService, // Global MessageService for PrimeNG Toast
-    // 🔥 PWA Service Worker - Solo en producción para evitar conflictos con Firebase SW en desarrollo
-    // Firebase Messaging SW se registra separadamente en NotificationService
-    provideServiceWorker('ngsw-worker.js', {
-      enabled: environment.production, // Solo en producción para evitar conflictos
-      registrationStrategy: 'registerWithDelay:30000' // Delay para evitar conflictos
-    })
+    MessageService,
+    
+    // SERVICE WORKER - Ahora lee desde environment
+    ...getServiceWorkerProviders()
   ],
 };
