@@ -32,6 +32,8 @@ import {
   MessagePayload,
   Unsubscribe,
 } from 'firebase/messaging';
+import { Router } from '@angular/router';
+import { environment } from '../../../environments/environment';
 
 @Injectable({
   providedIn: 'root',
@@ -40,6 +42,7 @@ export class NotificationService implements OnDestroy {
   private readonly supabase = inject(SupabaseService);
   private readonly platformId = inject(PLATFORM_ID);
   private readonly isBrowser = isPlatformBrowser(this.platformId);
+   private readonly router = inject(Router);
 
   // 🔥 Firebase Instances
   private firebaseApp: FirebaseApp | null = null;
@@ -113,16 +116,6 @@ export class NotificationService implements OnDestroy {
       this.initializeWhenReady();
     } else {
       console.log('🖥️ [SSR] Server-side rendering detected');
-    }
-  }
-
-  ngOnDestroy(): void {
-    // Limpiar intervalos y suscripciones
-    if (this.tokenMonitorInterval) {
-      clearInterval(this.tokenMonitorInterval);
-    }
-    if (this.messageUnsubscribe) {
-      this.messageUnsubscribe();
     }
   }
 
@@ -235,86 +228,6 @@ export class NotificationService implements OnDestroy {
     }
   }
 
-  /**
-   * 🔧 REGISTER SERVICE WORKER - MEJORADO
-   */
-  private async registerServiceWorker(): Promise<void> {
-    if (!('serviceWorker' in navigator)) {
-      console.warn('⚠️ Service Worker not supported');
-      return;
-    }
-
-    try {
-      console.log('📦 Registering Firebase Messaging Service Worker...');
-
-      // PASO 1: Limpiar service workers duplicados
-      const registrations = await navigator.serviceWorker.getRegistrations();
-      console.log(`Found ${registrations.length} service worker(s)`);
-
-      // Buscar y limpiar duplicados
-      const firebaseWorkers = registrations.filter((reg) =>
-        reg.active?.scriptURL.includes('firebase-messaging-sw.js')
-      );
-
-      if (firebaseWorkers.length > 1) {
-        console.warn('⚠️ Multiple Firebase service workers detected, cleaning up...');
-        // Mantener solo el más reciente
-        for (let i = 0; i < firebaseWorkers.length - 1; i++) {
-          await firebaseWorkers[i].unregister();
-          console.log('🗑️ Unregistered duplicate service worker');
-        }
-      }
-
-      // PASO 2: Verificar si ya existe uno válido
-      let registration = await navigator.serviceWorker.getRegistration('/');
-
-      if (registration?.active?.scriptURL.includes('firebase-messaging-sw.js')) {
-        console.log('✅ Using existing Firebase service worker');
-        // Forzar actualización si es necesario
-        await registration.update();
-      } else {
-        // PASO 3: Registrar nuevo service worker
-        registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js', {
-          scope: '/',
-          updateViaCache: 'none',
-        });
-        console.log('✅ New Firebase Service Worker registered');
-      }
-
-      // PASO 4: Esperar a que esté listo
-      await navigator.serviceWorker.ready;
-      this._serviceWorkerReady.set(true);
-
-      // PASO 5: Configurar listener para mensajes del SW
-      this.setupServiceWorkerListener();
-      
-    } catch (error) {
-      console.error('❌ Firebase Service Worker registration failed:', error);
-      this._serviceWorkerReady.set(false);
-    }
-  }
-
-  /**
-   * 🔄 SETUP SERVICE WORKER LISTENER
-   */
-  private setupServiceWorkerListener(): void {
-    if (!('serviceWorker' in navigator)) return;
-
-    navigator.serviceWorker.addEventListener('message', async (event) => {
-      console.log('📨 Message from SW:', event.data);
-
-      if (event.data.type === 'TOKEN_REFRESHED') {
-        console.log('🔄 Token refreshed by SW, updating database...');
-        await this.handleTokenRefresh(event.data.token);
-      }
-
-      if (event.data.type === 'SW_ERROR') {
-        console.error('❌ SW Error:', event.data.error);
-        // Intentar recuperación
-        await this.attemptTokenRecovery();
-      }
-    });
-  }
 
   /**
    * 🔄 HANDLE TOKEN REFRESH
@@ -1499,4 +1412,240 @@ export class NotificationService implements OnDestroy {
   getPermissionStatus(): NotificationPermission {
     return this._permissionStatus();
   }
+
+
+
+
+
+
+/**
+ * 🔧 REGISTER SERVICE WORKER - VERSIÓN MEJORADA PARA SW COMBINADO
+ */
+private async registerServiceWorker(): Promise<void> {
+  if (!('serviceWorker' in navigator)) {
+    console.warn('⚠️ Service Worker not supported');
+    return;
+  }
+
+  try {
+    console.log('📦 Starting Service Worker registration process...');
+    
+    // Detectar el entorno
+    const isDevelopment = !environment.production;
+    console.log('🔍 Environment:', isDevelopment ? 'development' : 'production');
+    
+    // Validar configuración
+    if (!environment.serviceWorker?.enabled) {
+      console.warn('⚠️ Service Worker disabled in environment');
+      this._serviceWorkerReady.set(false);
+      return;
+    }
+
+    // Limpiar SW antiguos
+    const existingRegs = await navigator.serviceWorker.getRegistrations();
+    for (const reg of existingRegs) {
+      if (reg.active?.scriptURL.includes('ngsw-worker.js')) {
+        console.log('🧹 Removing old Angular SW...');
+        await reg.unregister();
+      }
+    }
+
+    // Esperar a que Angular registre el SW
+    console.log('⏳ Waiting for Service Worker registration...');
+    
+    let attempts = 0;
+    const maxAttempts = isDevelopment ? 20 : 60; // 10s dev, 30s prod
+    
+    while (attempts < maxAttempts) {
+      const reg = await navigator.serviceWorker.getRegistration('/');
+      
+      if (reg?.active?.scriptURL.includes('firebase-messaging-sw.js')) {
+        console.log('✅ Combined Service Worker registered!');
+        this._serviceWorkerReady.set(true);
+        this.setupServiceWorkerListener();
+        await this.verifyServiceWorkerStatus();
+        return;
+      }
+      
+      await new Promise(resolve => setTimeout(resolve, 500));
+      attempts++;
+      
+      if (attempts % 4 === 0) {
+        console.log(`⏳ Still waiting... (${attempts/2}s)`);
+      }
+    }
+    
+    // Solo en desarrollo, intentar registro manual como fallback
+    if (isDevelopment && window.location.hostname === 'localhost') {
+      console.warn('⚠️ Attempting manual registration (dev fallback)...');
+      
+      try {
+        const reg = await navigator.serviceWorker.register('/firebase-messaging-sw.js', {
+          scope: '/',
+          updateViaCache: 'none'
+        });
+        
+        await navigator.serviceWorker.ready;
+        console.log('✅ Manual registration successful');
+        this._serviceWorkerReady.set(true);
+        this.setupServiceWorkerListener();
+        await this.verifyServiceWorkerStatus();
+        
+      } catch (error) {
+        console.error('❌ Manual registration failed:', error);
+        this._serviceWorkerReady.set(false);
+      }
+    } else {
+      console.error('❌ Service Worker registration timeout');
+      this._serviceWorkerReady.set(false);
+    }
+    
+  } catch (error) {
+    console.error('❌ Service Worker registration error:', error);
+    this._serviceWorkerReady.set(false);
+  }
+}
+
+/**
+ * 🔄 SETUP SERVICE WORKER LISTENER - MEJORADO
+ */
+private setupServiceWorkerListener(): void {
+  if (!('serviceWorker' in navigator)) return;
+
+  // Remover listeners anteriores si existen
+  if (this.swMessageHandler) {
+    navigator.serviceWorker.removeEventListener('message', this.swMessageHandler);
+  }
+
+  // Crear nuevo handler
+  this.swMessageHandler = async (event: MessageEvent) => {
+    console.log('📨 Message from SW:', event.data);
+
+    const { type, data } = event.data;
+
+    switch(type) {
+      case 'TOKEN_REFRESHED':
+        console.log('🔄 Token refreshed by SW');
+        await this.handleTokenRefresh(event.data.token);
+        break;
+
+      case 'SW_ERROR':
+        console.error('❌ SW Error:', event.data.error);
+        await this.attemptTokenRecovery();
+        break;
+
+      case 'NOTIFICATION_RECEIVED':
+        console.log('📨 Notification received in foreground');
+        this.handleForegroundNotification(event.data.payload);
+        break;
+
+      case 'SW_ACTIVATED':
+        console.log('✅ SW Activated with features:', event.data.features);
+        this._serviceWorkerReady.set(true);
+        break;
+
+      case 'STATUS':
+        console.log('📊 SW Status:', event.data);
+        break;
+    }
+  };
+
+  // Añadir listener
+  navigator.serviceWorker.addEventListener('message', this.swMessageHandler);
+  console.log('✅ Service Worker listener configured');
+}
+
+/**
+ * 🔍 VERIFICAR ESTADO DEL SERVICE WORKER
+ */
+private async verifyServiceWorkerStatus(): Promise<void> {
+  try {
+    const registration = await navigator.serviceWorker.ready;
+    
+    if (!registration.active) {
+      console.warn('⚠️ No active Service Worker');
+      return;
+    }
+
+    // Crear canal de mensajes para comunicación bidireccional
+    const messageChannel = new MessageChannel();
+    
+    // Configurar listener para la respuesta
+    messageChannel.port1.onmessage = (event) => {
+      if (event.data.type === 'STATUS') {
+        console.log('✅ Service Worker status verified:', event.data);
+        
+        // Verificar que tiene todas las características necesarias
+        if (event.data.features?.pwa && event.data.features?.notifications) {
+          console.log('✅ All required features are active');
+        } else {
+          console.warn('⚠️ Some features may not be active:', event.data.features);
+        }
+      }
+    };
+
+    // Enviar mensaje de verificación
+    registration.active.postMessage(
+      { type: 'CHECK_STATUS' },
+      [messageChannel.port2]
+    );
+    
+  } catch (error) {
+    console.error('❌ Error verifying SW status:', error);
+  }
+}
+
+/**
+   * 🔄 MANEJAR NOTIFICACIÓN EN FOREGROUND - CORREGIDO
+   */
+  private handleForegroundNotification(payload: any): void {
+    // Convertir a NotificationPayload
+    const notification: NotificationPayload = {
+      title: payload.notification?.title || 'RageStudios',
+      body: payload.notification?.body || 'Nueva notificación',
+      icon: payload.notification?.icon,
+      badge: payload.data?.['badge'], // ✅ CORREGIDO: Index signature access
+      data: payload.data
+    };
+    
+    // Emitir a suscriptores
+    this._notificationReceived.next(notification);
+    
+    // Mostrar notificación nativa si está permitido
+    if (Notification.permission === 'granted' && this._preferences()?.notifications_enabled) {
+      const nativeNotification = new Notification(notification.title, {
+        body: notification.body,
+        icon: '/icons/icon-192x192.png',
+        badge: '/icons/badge-72x72.png',
+        data: notification.data,
+        requireInteraction: false,
+        silent: false
+      });
+      
+      nativeNotification.onclick = () => {
+        window.focus();
+        // ✅ CORREGIDO: Acceso correcto con index signature
+        const url = notification.data?.['actionUrl'] || '/account/bookings';
+        // ✅ CORREGIDO: Usar router inyectado
+        this.router.navigate([url]);
+        nativeNotification.close();
+      };
+      
+      // Auto cerrar después de 5 segundos
+      setTimeout(() => nativeNotification.close(), 5000);
+    }
+  }
+
+// IMPORTANTE: Añadir esta propiedad a la clase
+private swMessageHandler: ((event: MessageEvent) => void) | null = null;
+
+// IMPORTANTE: En el método ngOnDestroy, limpiar el listener
+ngOnDestroy(): void {
+  // ... resto del código de limpieza ...
+  
+  // Limpiar listener del Service Worker
+  if (this.swMessageHandler && 'serviceWorker' in navigator) {
+    navigator.serviceWorker.removeEventListener('message', this.swMessageHandler);
+  }
+}
 }
