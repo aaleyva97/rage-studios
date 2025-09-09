@@ -106,6 +106,15 @@ export class CreditsService {
       await this.loadUserCredits(user.id);
     }
   }
+
+  // Método para forzar refresh cuando se detectan cambios externos (ej: admin se asigna créditos)
+  async forceRefreshCredits(userId?: string) {
+    if (!this.isBrowser) return;
+    const targetUserId = userId || this.supabaseService.getUser()?.id;
+    if (targetUserId) {
+      await this.loadUserCredits(targetUserId);
+    }
+  }
   
   // Método helper para formatear el display de créditos
   getCreditsDisplay(): string {
