@@ -4,8 +4,6 @@ import { TableModule } from 'primeng/table';
 import { TagModule } from 'primeng/tag';
 import { SkeletonModule } from 'primeng/skeleton';
 import { PaginatorModule } from 'primeng/paginator';
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { environment } from '../../../../../environments/environment';
 import { SupabaseService } from '../../../../core/services/supabase-service';
 
 interface ICreditHistory {
@@ -27,7 +25,6 @@ interface ICreditHistory {
 })
 export class CreditHistory implements OnInit {
   private supabaseService = inject(SupabaseService);
-  private supabaseClient: SupabaseClient;
   
   creditHistory = signal<ICreditHistory[]>([]);
   isLoading = signal(true);
@@ -38,7 +35,7 @@ export class CreditHistory implements OnInit {
   mobileRowsPerPage = signal(10);
   
   constructor() {
-    this.supabaseClient = createClient(environment.SUPABASE_URL, environment.SUPABASE_KEY);
+    // Ya no necesitamos crear una instancia independiente
   }
   
   async ngOnInit() {
@@ -50,7 +47,7 @@ export class CreditHistory implements OnInit {
     const user = this.supabaseService.getUser();
     
     if (user) {
-      const { data, error } = await this.supabaseClient
+      const { data, error } = await this.supabaseService.client
         .from('credit_history')
         .select('*')
         .eq('user_id', user.id)

@@ -32,7 +32,7 @@ export class CreditsService {
       // Usar el observable ya optimizado del SupabaseService
       this.supabaseService.currentUser$
         .pipe(
-          debounceTime(200) // Debounce adicional para créditos
+          debounceTime(100) // 🔄 REDUCED: 100ms instead of 200ms (base now has 500ms)
         )
         .subscribe((user: any) => {
           if (user && user.id) {
@@ -104,6 +104,15 @@ export class CreditsService {
     const user = this.supabaseService.getUser();
     if (user) {
       await this.loadUserCredits(user.id);
+    }
+  }
+
+  // Método para forzar refresh cuando se detectan cambios externos (ej: admin se asigna créditos)
+  async forceRefreshCredits(userId?: string) {
+    if (!this.isBrowser) return;
+    const targetUserId = userId || this.supabaseService.getUser()?.id;
+    if (targetUserId) {
+      await this.loadUserCredits(targetUserId);
     }
   }
   
