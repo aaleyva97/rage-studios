@@ -1,6 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { environment } from '../../../../environments/environment';
+import { SupabaseService } from '../../../core/services/supabase-service';
 
 export interface Session {
   id: string;
@@ -23,14 +22,14 @@ export interface Session {
   providedIn: 'root'
 })
 export class SessionsService {
-  private supabaseClient: SupabaseClient;
+  private supabaseService = inject(SupabaseService);
 
   constructor() {
-    this.supabaseClient = createClient(environment.SUPABASE_URL, environment.SUPABASE_KEY);
+    // Ya no necesitamos crear una instancia independiente
   }
 
   async getSessions() {
-    const { data, error } = await this.supabaseClient
+    const { data, error } = await this.supabaseService.client
       .from('sessions')
       .select('*')
       .eq('is_active', true)
@@ -41,7 +40,7 @@ export class SessionsService {
   }
 
   async getSession(id: string) {
-    const { data, error } = await this.supabaseClient
+    const { data, error } = await this.supabaseService.client
       .from('sessions')
       .select('*')
       .eq('id', id)
@@ -52,7 +51,7 @@ export class SessionsService {
   }
 
   async getAllSessions() {
-    const { data, error } = await this.supabaseClient
+    const { data, error } = await this.supabaseService.client
       .from('sessions')
       .select('*')
       .order('day_of_week', { ascending: true })
@@ -67,7 +66,7 @@ export class SessionsService {
   }
 
   async createSession(sessionData: Omit<Session, 'id' | 'created_at' | 'updated_at'>) {
-    const { data, error } = await this.supabaseClient
+    const { data, error } = await this.supabaseService.client
       .from('sessions')
       .insert([{
         ...sessionData,
@@ -82,7 +81,7 @@ export class SessionsService {
   }
 
   async updateSession(id: string, updates: Partial<Session>) {
-    const { data, error } = await this.supabaseClient
+    const { data, error } = await this.supabaseService.client
       .from('sessions')
       .update({ ...updates, updated_at: new Date().toISOString() })
       .eq('id', id)
@@ -94,7 +93,7 @@ export class SessionsService {
   }
 
   async deleteSession(id: string) {
-    const { error } = await this.supabaseClient
+    const { error } = await this.supabaseService.client
       .from('sessions')
       .delete()
       .eq('id', id);
@@ -104,7 +103,7 @@ export class SessionsService {
   }
 
   async uploadSessionImage(file: File, fileName: string) {
-    const { error } = await this.supabaseClient.storage
+    const { error } = await this.supabaseService.client.storage
       .from('Sesions')
       .upload(fileName, file, {
         cacheControl: '3600',
@@ -116,7 +115,7 @@ export class SessionsService {
   }
 
   async deleteSessionImage(fileName: string) {
-    const { error } = await this.supabaseClient.storage
+    const { error } = await this.supabaseService.client.storage
       .from('Sesions')
       .remove([fileName]);
     
@@ -125,6 +124,6 @@ export class SessionsService {
   }
 
   getPublicUrl(path: string) {
-    return this.supabaseClient.storage.from('Sesions').getPublicUrl(path).data.publicUrl;
+    return this.supabaseService.client.storage.from('Sesions').getPublicUrl(path).data.publicUrl;
   }
 }

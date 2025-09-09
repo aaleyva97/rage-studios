@@ -32,7 +32,7 @@ export class CreditsService {
       // Usar el observable ya optimizado del SupabaseService
       this.supabaseService.currentUser$
         .pipe(
-          debounceTime(200) // Debounce adicional para créditos
+          debounceTime(100) // 🔄 REDUCED: 100ms instead of 200ms (base now has 500ms)
         )
         .subscribe((user: any) => {
           if (user && user.id) {

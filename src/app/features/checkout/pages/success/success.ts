@@ -3,9 +3,8 @@ import { Router, ActivatedRoute } from '@angular/router';
 import { ButtonModule } from 'primeng/button';
 import { CardModule } from 'primeng/card';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
-import { createClient } from '@supabase/supabase-js';
-import { environment } from '../../../../../environments/environment';
 import { CreditsService } from '../../../../core/services/credits.service';
+import { SupabaseService } from '../../../../core/services/supabase-service';
 
 @Component({
   selector: 'app-success',
@@ -16,6 +15,7 @@ import { CreditsService } from '../../../../core/services/credits.service';
 export class Success implements OnInit {
   private router = inject(Router);
   private route = inject(ActivatedRoute);
+  private supabaseService = inject(SupabaseService);
 
   isProcessing = signal(true);
   isSuccess = signal(false);
@@ -32,12 +32,7 @@ export class Success implements OnInit {
 
     try {
       // Llamar al webhook manualmente para procesar el pago
-      const supabase = createClient(
-        environment.SUPABASE_URL,
-        environment.SUPABASE_KEY
-      );
-
-      const { data, error } = await supabase.functions.invoke(
+      const { data, error } = await this.supabaseService.client.functions.invoke(
         'stripe-webhook',
         {
           body: {
