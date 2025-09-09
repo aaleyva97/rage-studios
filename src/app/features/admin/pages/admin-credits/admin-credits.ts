@@ -9,6 +9,7 @@ import { MessageService } from 'primeng/api';
 import { SupabaseService, UserSearchResult } from '../../../../core/services/supabase-service';
 import { PaymentService } from '../../../../core/services/payment.service';
 import { PackagesService, Package } from '../../../landing/services/packages.service';
+import { CreditsService } from '../../../../core/services/credits.service';
 
 interface CreditAssignmentForm {
   selectedUser: UserSearchResult | null;
@@ -33,6 +34,7 @@ export class AdminCredits implements OnInit {
   private paymentService = inject(PaymentService);
   private packagesService = inject(PackagesService);
   private messageService = inject(MessageService);
+  private creditsService = inject(CreditsService);
   
   // Form state
   assignmentForm = signal<CreditAssignmentForm>({
@@ -141,6 +143,11 @@ export class AdminCredits implements OnInit {
         form.selectedUser.id,
         currentUser.id
       );
+      
+      // 🔄 Si el admin se asignó créditos a sí mismo, refrescar inmediatamente el estado de créditos
+      if (form.selectedUser.id === currentUser.id) {
+        await this.creditsService.forceRefreshCredits();
+      }
       
       this.messageService.add({
         severity: 'success',

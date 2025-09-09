@@ -1,6 +1,5 @@
-import { Injectable } from '@angular/core';
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { environment } from '../../../../environments/environment';
+import { Injectable, inject } from '@angular/core';
+import { SupabaseService } from '../../../core/services/supabase-service';
 
 export interface Package {
   id: string;
@@ -21,14 +20,14 @@ export interface Package {
   providedIn: 'root'
 })
 export class PackagesService {
-  private supabaseClient: SupabaseClient;
+  private supabaseService = inject(SupabaseService);
 
   constructor() {
-    this.supabaseClient = createClient(environment.SUPABASE_URL, environment.SUPABASE_KEY);
+    // Ya no necesitamos crear una instancia independiente
   }
 
   async getActivePackages() {
-    const { data, error } = await this.supabaseClient
+    const { data, error } = await this.supabaseService.client
       .from('packages')
       .select('*')
       .eq('is_active', true)
@@ -43,7 +42,7 @@ export class PackagesService {
   }
 
   async getPackage(id: string) {
-    const { data, error } = await this.supabaseClient
+    const { data, error } = await this.supabaseService.client
       .from('packages')
       .select('*')
       .eq('id', id)
@@ -54,7 +53,7 @@ export class PackagesService {
   }
 
   async updatePackage(id: string, updates: Partial<Package>) {
-    const { data, error } = await this.supabaseClient
+    const { data, error } = await this.supabaseService.client
       .from('packages')
       .update({ ...updates, updated_at: new Date().toISOString() })
       .eq('id', id);

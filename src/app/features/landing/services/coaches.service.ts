@@ -1,6 +1,5 @@
-import { Injectable } from '@angular/core';
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { environment } from '../../../../environments/environment';
+import { Injectable, inject } from '@angular/core';
+import { SupabaseService } from '../../../core/services/supabase-service';
 
 export interface Coach {
   id: string;
@@ -17,14 +16,14 @@ export interface Coach {
   providedIn: 'root'
 })
 export class CoachesService {
-  private supabaseClient: SupabaseClient;
+  private supabaseService = inject(SupabaseService);
 
   constructor() {
-    this.supabaseClient = createClient(environment.SUPABASE_URL, environment.SUPABASE_KEY);
+    // Ya no necesitamos crear una instancia independiente
   }
 
   async getActiveCoaches() {
-    const { data, error } = await this.supabaseClient
+    const { data, error } = await this.supabaseService.client
       .from('coaches')
       .select('*')
       .eq('is_active', true)
@@ -39,7 +38,7 @@ export class CoachesService {
   }
 
   async getCoach(id: string) {
-    const { data, error } = await this.supabaseClient
+    const { data, error } = await this.supabaseService.client
       .from('coaches')
       .select('*')
       .eq('id', id)
@@ -50,7 +49,7 @@ export class CoachesService {
   }
 
   async getAllCoaches() {
-    const { data, error } = await this.supabaseClient
+    const { data, error } = await this.supabaseService.client
       .from('coaches')
       .select('*')
       .order('order_index', { ascending: true });
@@ -64,7 +63,7 @@ export class CoachesService {
   }
 
   async createCoach(coachData: Omit<Coach, 'id' | 'created_at' | 'updated_at'>) {
-    const { data, error } = await this.supabaseClient
+    const { data, error } = await this.supabaseService.client
       .from('coaches')
       .insert([{
         ...coachData,
@@ -79,7 +78,7 @@ export class CoachesService {
   }
 
   async updateCoach(id: string, updates: Partial<Coach>) {
-    const { data, error } = await this.supabaseClient
+    const { data, error } = await this.supabaseService.client
       .from('coaches')
       .update({ ...updates, updated_at: new Date().toISOString() })
       .eq('id', id)
@@ -91,7 +90,7 @@ export class CoachesService {
   }
 
   async deleteCoach(id: string) {
-    const { error } = await this.supabaseClient
+    const { error } = await this.supabaseService.client
       .from('coaches')
       .delete()
       .eq('id', id);
@@ -101,7 +100,7 @@ export class CoachesService {
   }
 
   async uploadCoachImage(file: File, fileName: string) {
-    const { error } = await this.supabaseClient.storage
+    const { error } = await this.supabaseService.client.storage
       .from('Coaches')
       .upload(fileName, file, {
         cacheControl: '3600',
@@ -113,7 +112,7 @@ export class CoachesService {
   }
 
   async deleteCoachImage(fileName: string) {
-    const { error } = await this.supabaseClient.storage
+    const { error } = await this.supabaseService.client.storage
       .from('Coaches')
       .remove([fileName]);
     
@@ -122,6 +121,6 @@ export class CoachesService {
   }
 
   getPublicUrl(path: string) {
-    return this.supabaseClient.storage.from('Coaches').getPublicUrl(path).data.publicUrl;
+    return this.supabaseService.client.storage.from('Coaches').getPublicUrl(path).data.publicUrl;
   }
 }

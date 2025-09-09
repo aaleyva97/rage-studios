@@ -7,12 +7,22 @@ import { BehaviorSubject } from 'rxjs';
 })
 export class AuthTokenManagerService {
   private isBrowser: boolean;
-  private readonly TOKEN_REFRESH_COOLDOWN = 30000; // 30 segundos
+  private readonly TOKEN_REFRESH_COOLDOWN = 60000; // 🔄 INCREASED: 60 segundos (era 30)
   private readonly MAX_CONCURRENT_REFRESHES = 1;
   
   private refreshInProgress = new BehaviorSubject<boolean>(false);
   private lastRefreshTime = 0;
   private activeRefreshPromise: Promise<any> | null = null;
+  
+  // 🔄 ENHANCED SESSION CACHING
+  private sessionCache = {
+    session: null as any,
+    timestamp: 0,
+    ttl: 30000 // 30 segundos de cache
+  };
+  
+  // 🔄 SINGLETON PROMISE PATTERN FOR CONCURRENT REQUESTS
+  private static refreshPromiseMap = new Map<string, Promise<any>>();
   
   constructor(@Inject(PLATFORM_ID) platformId: Object) {
     this.isBrowser = isPlatformBrowser(platformId);
@@ -36,9 +46,42 @@ export class AuthTokenManagerService {
   }
   
   /**
-   * Ejecuta un refresh de token de forma coordinada
+   * 🔄 GET CACHED SESSION IF VALID
    */
-  async executeTokenRefresh<T>(refreshFunction: () => Promise<T>): Promise<T | null> {
+  getCachedSession(): any | null {
+    const now = Date.now();
+    if (this.sessionCache.session && (now - this.sessionCache.timestamp) < this.sessionCache.ttl) {
+      return this.sessionCache.session;
+    }
+    return null;
+  }
+  
+  /**
+   * 🔄 UPDATE SESSION CACHE
+   */
+  updateSessionCache(session: any): void {
+    this.sessionCache = {
+      session,
+      timestamp: Date.now(),
+      ttl: this.sessionCache.ttl
+    };
+  }
+  
+  /**
+   * Ejecuta un refresh de token de forma coordinada con cache mejorado
+   */
+  async executeTokenRefresh<T>(refreshFunction: () => Promise<T>, cacheKey?: string): Promise<T | null> {
+    // 🔄 CHECK SINGLETON PROMISE PATTERN
+    if (cacheKey && AuthTokenManagerService.refreshPromiseMap.has(cacheKey)) {
+      console.log('🔄 Reusing existing refresh promise for key:', cacheKey);
+      try {
+        return await AuthTokenManagerService.refreshPromiseMap.get(cacheKey)!;
+      } catch (error) {
+        AuthTokenManagerService.refreshPromiseMap.delete(cacheKey);
+        throw error;
+      }
+    }
+    
     if (!this.canRefreshToken()) {
       // Si ya hay un refresh en progreso, esperar a que termine
       if (this.activeRefreshPromise) {
@@ -57,6 +100,12 @@ export class AuthTokenManagerService {
     
     try {
       this.activeRefreshPromise = refreshFunction();
+      
+      // 🔄 STORE IN SINGLETON MAP IF CACHE KEY PROVIDED
+      if (cacheKey) {
+        AuthTokenManagerService.refreshPromiseMap.set(cacheKey, this.activeRefreshPromise);
+      }
+      
       const result = await this.activeRefreshPromise;
       
       console.log('✅ Token refresh successful');
@@ -77,6 +126,11 @@ export class AuthTokenManagerService {
     } finally {
       this.refreshInProgress.next(false);
       this.activeRefreshPromise = null;
+      
+      // 🔄 CLEAN UP SINGLETON MAP
+      if (cacheKey) {
+        AuthTokenManagerService.refreshPromiseMap.delete(cacheKey);
+      }
     }
   }
   
@@ -87,16 +141,30 @@ export class AuthTokenManagerService {
     this.refreshInProgress.next(false);
     this.lastRefreshTime = 0;
     this.activeRefreshPromise = null;
+    
+    // 🔄 CLEAR SESSION CACHE
+    this.sessionCache = {
+      session: null,
+      timestamp: 0,
+      ttl: this.sessionCache.ttl
+    };
+    
+    // 🔄 CLEAR SINGLETON MAP
+    AuthTokenManagerService.refreshPromiseMap.clear();
   }
   
   /**
-   * Obtiene el estado actual del refresh
+   * Obtiene el estado actual del refresh con información de cache
    */
   getRefreshStatus() {
+    const now = Date.now();
     return {
       inProgress: this.refreshInProgress.value,
       lastRefreshTime: this.lastRefreshTime,
-      cooldownRemaining: Math.max(0, this.TOKEN_REFRESH_COOLDOWN - (Date.now() - this.lastRefreshTime))
+      cooldownRemaining: Math.max(0, this.TOKEN_REFRESH_COOLDOWN - (now - this.lastRefreshTime)),
+      sessionCached: !!this.sessionCache.session,
+      sessionCacheAge: this.sessionCache.session ? now - this.sessionCache.timestamp : null,
+      activeSingletonPromises: AuthTokenManagerService.refreshPromiseMap.size
     };
   }
 }
