@@ -1,6 +1,5 @@
 import { Injectable, inject, signal } from '@angular/core';
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { environment } from '../../../environments/environment';
+import { SupabaseService } from './supabase-service';
 
 export interface AppSetting {
   key: string;
@@ -14,7 +13,7 @@ export interface AppSetting {
   providedIn: 'root'
 })
 export class AppSettingsService {
-  private supabaseClient: SupabaseClient;
+  private supabaseService = inject(SupabaseService);
   
   // 🔄 SIGNALS para configuraciones críticas
   private _bookingsEnabled = signal(true); // Valor por defecto: habilitado
@@ -27,11 +26,6 @@ export class AppSettingsService {
   private readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutos
   
   constructor() {
-    this.supabaseClient = createClient(
-      environment.SUPABASE_URL,
-      environment.SUPABASE_KEY
-    );
-    
     // Cargar configuraciones al inicializar
     this.loadCriticalSettings();
   }
@@ -81,7 +75,7 @@ export class AppSettingsService {
       }
       
       // 🔍 Buscar en base de datos
-      const { data, error } = await this.supabaseClient
+      const { data, error } = await this.supabaseService.client
         .from('app_settings')
         .select('value')
         .eq('key', key)
@@ -117,7 +111,7 @@ export class AppSettingsService {
       this._isLoading.set(true);
       
       // 🔍 Verificar si existe o crear nueva
-      const { data: existing } = await this.supabaseClient
+      const { data: existing } = await this.supabaseService.client
         .from('app_settings')
         .select('key')
         .eq('key', key)
@@ -127,7 +121,7 @@ export class AppSettingsService {
       
       if (existing) {
         // Actualizar existente
-        result = await this.supabaseClient
+        result = await this.supabaseService.client
           .from('app_settings')
           .update({
             value,
@@ -137,7 +131,7 @@ export class AppSettingsService {
           .eq('key', key);
       } else {
         // Crear nueva
-        result = await this.supabaseClient
+        result = await this.supabaseService.client
           .from('app_settings')
           .insert({
             key,
@@ -192,7 +186,7 @@ export class AppSettingsService {
       console.log('🔍 Verificando estado actual de reservas...');
       
       // Consulta directa a BD sin usar cache
-      const { data, error } = await this.supabaseClient
+      const { data, error } = await this.supabaseService.client
         .from('app_settings')
         .select('value')
         .eq('key', 'bookings_enabled')
@@ -253,7 +247,7 @@ export class AppSettingsService {
    */
   async getAllSettings(): Promise<AppSetting[]> {
     try {
-      const { data, error } = await this.supabaseClient
+      const { data, error } = await this.supabaseService.client
         .from('app_settings')
         .select('*')
         .order('key', { ascending: true });

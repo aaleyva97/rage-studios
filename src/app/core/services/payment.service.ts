@@ -1,10 +1,10 @@
 import { Injectable, inject, PLATFORM_ID } from '@angular/core';
 import { StripeService } from 'ngx-stripe';
 import { environment } from '../../../environments/environment';
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { Package } from '../../features/landing/services/packages.service';
 import { firstValueFrom } from 'rxjs';
 import { isPlatformBrowser } from '@angular/common';
+import { SupabaseService } from './supabase-service';
 
 export interface Purchase {
   id: string;
@@ -51,14 +51,11 @@ export interface CreditHistory {
 })
 export class PaymentService {
   private stripeService = inject(StripeService);
-  private supabaseClient: SupabaseClient;
+  private supabaseService = inject(SupabaseService);
   private platformId = inject(PLATFORM_ID);
 
   constructor() {
-    this.supabaseClient = createClient(
-      environment.SUPABASE_URL,
-      environment.SUPABASE_KEY
-    );
+    // Ya no necesitamos crear una instancia independiente
   }
 
   async createCheckoutSession(packageData: Package, userId: string) {
@@ -69,7 +66,7 @@ export class PaymentService {
       }
 
       // Crear registro de compra pendiente
-      const { data: purchase, error: purchaseError } = await this.supabaseClient
+      const { data: purchase, error: purchaseError } = await this.supabaseService.client
         .from('purchases')
         .insert({
           user_id: userId,
@@ -90,7 +87,7 @@ export class PaymentService {
       console.log('Creating checkout with URLs:', { successUrl, cancelUrl });
 
       // Llamar a Edge Function
-      const { data, error } = await this.supabaseClient.functions.invoke(
+      const { data, error } = await this.supabaseService.client.functions.invoke(
         'create-checkout-session',
         {
           body: {
@@ -124,7 +121,7 @@ export class PaymentService {
   ) {
     try {
       // Crear registro de compra manual
-      const { data: purchase, error: purchaseError } = await this.supabaseClient
+      const { data: purchase, error: purchaseError } = await this.supabaseService.client
         .from('purchases')
         .insert({
           user_id: userId,
@@ -157,7 +154,7 @@ export class PaymentService {
     userId: string
   ) {
     // Crear lote de créditos
-    const { data: creditBatch, error: creditError } = await this.supabaseClient
+    const { data: creditBatch, error: creditError } = await this.supabaseService.client
       .from('credit_batches')
       .insert({
         user_id: userId,
@@ -179,7 +176,7 @@ export class PaymentService {
     if (creditError) throw creditError;
 
     // Registrar en historial
-    await this.supabaseClient.from('credit_history').insert({
+    await this.supabaseService.client.from('credit_history').insert({
       user_id: userId,
       credit_batch_id: creditBatch.id,
       type: 'added',
@@ -193,7 +190,7 @@ export class PaymentService {
   // Manejar pago exitoso de Stripe
   async handleSuccessfulPayment(sessionId: string) {
     // Obtener la compra por session_id
-    const { data: purchase, error: purchaseError } = await this.supabaseClient
+    const { data: purchase, error: purchaseError } = await this.supabaseService.client
       .from('purchases')
       .select('*, packages(*)')
       .eq('stripe_session_id', sessionId)
@@ -202,7 +199,7 @@ export class PaymentService {
     if (purchaseError) throw purchaseError;
 
     // Actualizar estado de la compra
-    await this.supabaseClient
+    await this.supabaseService.client
       .from('purchases')
       .update({
         status: 'completed',
@@ -222,7 +219,7 @@ export class PaymentService {
 
   // Obtener historial de créditos
   async getCreditHistory(userId: string): Promise<CreditHistory[]> {
-    const { data, error } = await this.supabaseClient
+    const { data, error } = await this.supabaseService.client
       .from('credit_history')
       .select('*')
       .eq('user_id', userId)
@@ -234,7 +231,7 @@ export class PaymentService {
 
   // Obtener historial de pagos
   async getPurchaseHistory(userId: string): Promise<Purchase[]> {
-    const { data, error } = await this.supabaseClient
+    const { data, error } = await this.supabaseService.client
       .from('purchases')
       .select('*, packages(*)')
       .eq('user_id', userId)
@@ -246,7 +243,7 @@ export class PaymentService {
 
   // Obtener créditos disponibles
   async getAvailableCredits(userId: string): Promise<number> {
-    const { data, error } = await this.supabaseClient
+    const { data, error } = await this.supabaseService.client
       .from('user_available_credits')
       .select('total_credits')
       .eq('user_id', userId)
@@ -267,7 +264,7 @@ export class PaymentService {
     bookingId: string
   ): Promise<boolean> {
     // Obtener lotes de créditos ordenados por fecha de expiración
-    const { data: batches, error } = await this.supabaseClient
+    const { data: batches, error } = await this.supabaseService.client
       .from('credit_batches')
       .select('*')
       .eq('user_id', userId)
@@ -289,7 +286,7 @@ export class PaymentService {
         const expirationDate = new Date();
         expirationDate.setDate(expirationDate.getDate() + batch.validity_days);
 
-        await this.supabaseClient
+        await this.supabaseService.client
           .from('credit_batches')
           .update({
             expiration_activated: true,
@@ -302,7 +299,7 @@ export class PaymentService {
       const creditsFromBatch = Math.min(creditsToUse, batch.credits_remaining);
 
       // Actualizar créditos restantes
-      await this.supabaseClient
+      await this.supabaseService.client
         .from('credit_batches')
         .update({
           credits_remaining: batch.credits_remaining - creditsFromBatch,
@@ -310,7 +307,7 @@ export class PaymentService {
         .eq('id', batch.id);
 
       // Registrar en historial
-      await this.supabaseClient.from('credit_history').insert({
+      await this.supabaseService.client.from('credit_history').insert({
         user_id: userId,
         credit_batch_id: batch.id,
         type: 'used',
@@ -333,14 +330,14 @@ export class PaymentService {
     batchId: string
   ): Promise<void> {
     // Actualizar créditos en el lote
-    const { data: batch } = await this.supabaseClient
+    const { data: batch } = await this.supabaseService.client
       .from('credit_batches')
       .select('*')
       .eq('id', batchId)
       .single();
 
     if (batch) {
-      await this.supabaseClient
+      await this.supabaseService.client
         .from('credit_batches')
         .update({
           credits_remaining: batch.credits_remaining + amount,
@@ -348,7 +345,7 @@ export class PaymentService {
         .eq('id', batchId);
 
       // Registrar en historial
-      await this.supabaseClient.from('credit_history').insert({
+      await this.supabaseService.client.from('credit_history').insert({
         user_id: userId,
         credit_batch_id: batchId,
         type: 'refunded',
@@ -367,7 +364,7 @@ export class PaymentService {
   ): Promise<{ success: boolean; batchId?: string; error?: string }> {
     try {
       // Obtener lotes de créditos ordenados por prioridad
-      const { data: batches, error } = await this.supabaseClient
+      const { data: batches, error } = await this.supabaseService.client
         .from('credit_batches')
         .select('*')
         .eq('user_id', userId)
@@ -397,7 +394,7 @@ export class PaymentService {
             expirationDate.getDate() + batch.validity_days
           );
 
-          await this.supabaseClient
+          await this.supabaseService.client
             .from('credit_batches')
             .update({
               expiration_activated: true,
@@ -413,7 +410,7 @@ export class PaymentService {
         );
 
         // Actualizar créditos restantes
-        await this.supabaseClient
+        await this.supabaseService.client
           .from('credit_batches')
           .update({
             credits_remaining: batch.credits_remaining - creditsFromBatch,
@@ -421,7 +418,7 @@ export class PaymentService {
           .eq('id', batch.id);
 
         // Registrar en historial
-        await this.supabaseClient.from('credit_history').insert({
+        await this.supabaseService.client.from('credit_history').insert({
           user_id: userId,
           credit_batch_id: batch.id,
           type: 'used',
@@ -452,7 +449,7 @@ export class PaymentService {
   ): Promise<{ success: boolean; error?: string }> {
     try {
       // 🔄 NUEVA LÓGICA: Buscar TODOS los registros de créditos usados para esta reserva
-      const { data: historyRecords, error: historyError } = await this.supabaseClient
+      const { data: historyRecords, error: historyError } = await this.supabaseService.client
         .from('credit_history')
         .select('credit_batch_id, amount')
         .eq('booking_id', bookingId)
@@ -477,7 +474,7 @@ export class PaymentService {
         // Crear promesa para procesar este lote en paralelo
         const refundBatchPromise = async () => {
           // Obtener el batch
-          const { data: batch, error: batchError } = await this.supabaseClient
+          const { data: batch, error: batchError } = await this.supabaseService.client
             .from('credit_batches')
             .select('*')
             .eq('id', historyRecord.credit_batch_id)
@@ -496,7 +493,7 @@ export class PaymentService {
           }
 
           // Devolver los créditos a este lote específico
-          await this.supabaseClient
+          await this.supabaseService.client
             .from('credit_batches')
             .update({
               credits_remaining: batch.credits_remaining + creditsUsedFromBatch,
@@ -504,7 +501,7 @@ export class PaymentService {
             .eq('id', batch.id);
 
           // Registrar en historial la devolución específica de este lote
-          await this.supabaseClient.from('credit_history').insert({
+          await this.supabaseService.client.from('credit_history').insert({
             user_id: userId,
             credit_batch_id: batch.id,
             type: 'refunded',
