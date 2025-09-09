@@ -1,7 +1,6 @@
-import { Injectable } from '@angular/core';
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { environment } from '../../../environments/environment';
+import { Injectable, inject } from '@angular/core';
 import { signal } from '@angular/core';
+import { SupabaseService } from './supabase-service';
 
 export interface ScheduleSlot {
   id: string;
@@ -34,16 +33,13 @@ export interface TimeSlot {
   providedIn: 'root',
 })
 export class ScheduleService {
-  private supabaseClient: SupabaseClient;
+  private supabaseService = inject(SupabaseService);
   private _scheduleCache = signal<ScheduleSlot[]>([]);
   private _lastCacheUpdate = signal<Date | null>(null);
   private readonly CACHE_DURATION_MS = 5 * 60 * 1000; // 5 minutos
 
   constructor() {
-    this.supabaseClient = createClient(
-      environment.SUPABASE_URL,
-      environment.SUPABASE_KEY
-    );
+    // Ya no necesitamos crear una instancia independiente
   }
 
   /**
@@ -63,7 +59,7 @@ export class ScheduleService {
     }
 
     try {
-      const { data, error } = await this.supabaseClient
+      const { data, error } = await this.supabaseService.client
         .rpc('get_schedule_slots_with_coaches');
 
       if (error) throw error;
@@ -96,7 +92,7 @@ export class ScheduleService {
    */
   async getScheduleSlotsForDay(dayOfWeek: number): Promise<ScheduleSlot[]> {
     try {
-      const { data, error } = await this.supabaseClient
+      const { data, error } = await this.supabaseService.client
         .rpc('get_schedule_slots_with_coaches', { target_day_of_week: dayOfWeek });
 
       if (error) throw error;
@@ -209,7 +205,7 @@ export class ScheduleService {
    */
   async createScheduleSlot(slot: Omit<ScheduleSlot, 'id' | 'coaches'>): Promise<{ success: boolean; error?: string; slot_id?: string }> {
     try {
-      const { data, error } = await this.supabaseClient
+      const { data, error } = await this.supabaseService.client
         .rpc('create_schedule_slot_admin', {
           p_day_of_week: slot.day_of_week,
           p_day_name: slot.day_name,
@@ -241,7 +237,7 @@ export class ScheduleService {
    */
   async updateScheduleSlot(slotId: string, updates: Partial<Omit<ScheduleSlot, 'id' | 'coaches'>>): Promise<{ success: boolean; error?: string }> {
     try {
-      const { data, error } = await this.supabaseClient
+      const { data, error } = await this.supabaseService.client
         .rpc('update_schedule_slot_admin', {
           p_slot_id: slotId,
           p_day_of_week: updates.day_of_week || null,
@@ -274,7 +270,7 @@ export class ScheduleService {
    */
   async deleteScheduleSlot(slotId: string): Promise<{ success: boolean; error?: string }> {
     try {
-      const { data, error } = await this.supabaseClient
+      const { data, error } = await this.supabaseService.client
         .rpc('delete_schedule_slot_admin', {
           p_slot_id: slotId
         });
@@ -300,7 +296,7 @@ export class ScheduleService {
    */
   async assignCoachToSlot(slotId: string, coachId: string, isPrimary = false): Promise<{ success: boolean; error?: string }> {
     try {
-      const { data, error } = await this.supabaseClient
+      const { data, error } = await this.supabaseService.client
         .rpc('assign_coach_to_slot_admin', {
           p_slot_id: slotId,
           p_coach_id: coachId,
@@ -328,7 +324,7 @@ export class ScheduleService {
    */
   async removeCoachFromSlot(slotId: string, coachId: string): Promise<{ success: boolean; error?: string }> {
     try {
-      const { data, error } = await this.supabaseClient
+      const { data, error } = await this.supabaseService.client
         .rpc('remove_coach_from_slot_admin', {
           p_slot_id: slotId,
           p_coach_id: coachId
@@ -355,7 +351,7 @@ export class ScheduleService {
    */
   async getAllCoaches(): Promise<any[]> {
     try {
-      const { data, error } = await this.supabaseClient
+      const { data, error } = await this.supabaseService.client
         .from('coaches')
         .select('*')
         .eq('is_active', true)

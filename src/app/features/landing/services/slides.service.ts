@@ -1,6 +1,5 @@
-import { Injectable } from '@angular/core';
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { environment } from '../../../../environments/environment';
+import { Injectable, inject } from '@angular/core';
+import { SupabaseService } from '../../../core/services/supabase-service';
 
 export interface HeroSlide {
   id: string;
@@ -17,14 +16,14 @@ export interface HeroSlide {
   providedIn: 'root'
 })
 export class SlidesService {
-  private supabaseClient: SupabaseClient;
+  private supabaseService = inject(SupabaseService);
 
   constructor() {
-    this.supabaseClient = createClient(environment.SUPABASE_URL, environment.SUPABASE_KEY);
+    // Ya no necesitamos crear una instancia independiente
   }
 
   async getActiveSlides() {
-    const { data, error } = await this.supabaseClient
+    const { data, error } = await this.supabaseService.client
       .from('hero_slides')
       .select('*')
       .eq('is_active', true)
@@ -39,7 +38,7 @@ export class SlidesService {
   }
 
   async getSlide(id: string) {
-    const { data, error } = await this.supabaseClient
+    const { data, error } = await this.supabaseService.client
       .from('hero_slides')
       .select('*')
       .eq('id', id)
@@ -50,7 +49,7 @@ export class SlidesService {
   }
 
   async updateSlide(id: string, updates: Partial<HeroSlide>) {
-    const { data, error } = await this.supabaseClient
+    const { data, error } = await this.supabaseService.client
       .from('hero_slides')
       .update({ ...updates, updated_at: new Date().toISOString() })
       .eq('id', id);
@@ -60,7 +59,7 @@ export class SlidesService {
   }
 
   async createSlide(slide: Omit<HeroSlide, 'id' | 'created_at' | 'updated_at'>) {
-    const { data, error } = await this.supabaseClient
+    const { data, error } = await this.supabaseService.client
       .from('hero_slides')
       .insert(slide);
     
@@ -69,7 +68,7 @@ export class SlidesService {
   }
 
   async deleteSlide(id: string) {
-    const { data, error } = await this.supabaseClient
+    const { data, error } = await this.supabaseService.client
       .from('hero_slides')
       .delete()
       .eq('id', id);
@@ -79,7 +78,7 @@ export class SlidesService {
   }
 
   async uploadSlideImage(file: File, fileName: string) {
-    const { data, error } = await this.supabaseClient.storage
+    const { data, error } = await this.supabaseService.client.storage
       .from('hero-slides')
       .upload(fileName, file, {
         cacheControl: '3600',
@@ -91,6 +90,6 @@ export class SlidesService {
   }
 
   getPublicUrl(path: string) {
-    return this.supabaseClient.storage.from('hero-slides').getPublicUrl(path).data.publicUrl;
+    return this.supabaseService.client.storage.from('hero-slides').getPublicUrl(path).data.publicUrl;
   }
 }

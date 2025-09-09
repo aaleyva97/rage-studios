@@ -1,7 +1,5 @@
 import { Injectable, inject, signal, Inject, PLATFORM_ID } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { environment } from '../../../environments/environment';
 import { SupabaseService } from './supabase-service';
 
 export interface ICreditBatch {
@@ -54,7 +52,6 @@ export interface IPurchase {
   providedIn: 'root'
 })
 export class PurchasesService {
-  private supabaseClient: SupabaseClient | null = null;
   private supabaseService = inject(SupabaseService);
   private isBrowser: boolean;
   
@@ -65,21 +62,18 @@ export class PurchasesService {
   
   constructor(@Inject(PLATFORM_ID) platformId: Object) {
     this.isBrowser = isPlatformBrowser(platformId);
-    if (this.isBrowser) {
-      this.supabaseClient = createClient(environment.SUPABASE_URL, environment.SUPABASE_KEY);
-    }
   }
   
   /**
    * Load credit batches with related package and purchase info
    */
   async loadUserCreditBatches(userId: string): Promise<ICreditBatch[]> {
-    if (!this.isBrowser || !this.supabaseClient) return [];
+    if (!this.isBrowser) return [];
     
     this.isLoading.set(true);
     
     try {
-      const { data, error } = await this.supabaseClient
+      const { data, error } = await this.supabaseService.client
         .from('credit_batches')
         .select(`
           *,
@@ -107,10 +101,10 @@ export class PurchasesService {
    * Load all active packages
    */
   async loadPackages(): Promise<IPackage[]> {
-    if (!this.isBrowser || !this.supabaseClient) return [];
+    if (!this.isBrowser) return [];
     
     try {
-      const { data, error } = await this.supabaseClient
+      const { data, error } = await this.supabaseService.client
         .from('packages')
         .select('*')
         .eq('is_active', true)

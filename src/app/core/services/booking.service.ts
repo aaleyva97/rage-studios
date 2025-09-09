@@ -1,8 +1,7 @@
 import { Injectable, inject } from '@angular/core';
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { environment } from '../../../environments/environment';
 import { signal } from '@angular/core';
 import { ScheduleService } from './schedule.service';
+import { SupabaseService } from './supabase-service';
 
 export interface TimeSlot {
   time: string;
@@ -29,20 +28,16 @@ export interface Booking {
   providedIn: 'root',
 })
 export class BookingService {
-  private supabaseClient: SupabaseClient;
-  
   // 🔄 SIGNAL REACTIVO CENTRALIZADO PARA ACTIVE BOOKINGS COUNT
   private _activeBookingsCount = signal(0);
   private _currentUserId: string | null = null;
 
   // 🔄 NUEVO: Servicio de horarios dinámicos
   private scheduleService = inject(ScheduleService);
+  private supabaseService = inject(SupabaseService);
 
   constructor() {
-    this.supabaseClient = createClient(
-      environment.SUPABASE_URL,
-      environment.SUPABASE_KEY
-    );
+    // Ya no necesitamos crear una instancia independiente
   }
   
   // 📊 GETTER PÚBLICO PARA ACTIVE BOOKINGS COUNT (READONLY)
@@ -90,7 +85,7 @@ export class BookingService {
     const daySchedule = await this.getDaySchedule(date);
 
     // Obtener reservas existentes para esa fecha
-    const { data: bookings, error } = await this.supabaseClient
+    const { data: bookings, error } = await this.supabaseService.client
       .from('bookings')
       .select('session_time, bed_numbers')
       .eq('session_date', date)
@@ -121,7 +116,7 @@ export class BookingService {
   async getOccupiedBeds(date: string, time: string): Promise<number[]> {
     try {
       // 🔥 USAR FUNCIÓN SECURITY DEFINER PARA VER TODAS LAS CAMAS OCUPADAS
-      const { data, error } = await this.supabaseClient
+      const { data, error } = await this.supabaseService.client
         .rpc('get_occupied_beds_public', {
           p_session_date: date,
           p_session_time: time
@@ -142,7 +137,7 @@ export class BookingService {
   
   // 🛡️ FALLBACK: Consulta directa (filtrada por RLS)
   private async getOccupiedBedsFallback(date: string, time: string): Promise<number[]> {
-    const { data, error } = await this.supabaseClient
+    const { data, error } = await this.supabaseService.client
       .from('bookings')
       .select('bed_numbers')
       .eq('session_date', date)
@@ -166,7 +161,7 @@ export class BookingService {
     totalBookings: number;
     lastUpdated: Date;
   }> {
-    const { data, error } = await this.supabaseClient
+    const { data, error } = await this.supabaseService.client
       .from('bookings')
       .select('bed_numbers, created_at, updated_at')
       .eq('session_date', date)
@@ -199,7 +194,7 @@ export class BookingService {
   ): Promise<{ success: boolean; data?: any; error?: string }> {
     try {
       // 🔥 USAR FUNCIÓN ATÓMICA V2 CON BYPASS RLS  
-      const { data, error } = await this.supabaseClient
+      const { data, error } = await this.supabaseService.client
         .rpc('create_booking_atomic_v2', {
           p_user_id: booking.user_id,
           p_session_date: booking.session_date,
@@ -235,7 +230,7 @@ export class BookingService {
     batchId: string
   ): Promise<void> {
     try {
-      const { error } = await this.supabaseClient
+      const { error } = await this.supabaseService.client
         .from('bookings')
         .update({ credit_batch_id: batchId })
         .eq('id', bookingId);
@@ -248,7 +243,7 @@ export class BookingService {
 
   async cancelBooking(bookingId: string): Promise<void> {
     try {
-      const { error } = await this.supabaseClient
+      const { error } = await this.supabaseService.client
         .from('bookings')
         .update({
           status: 'cancelled',
@@ -277,7 +272,7 @@ export class BookingService {
 
   // Obtener las reservas del usuario
   async getUserBookings(userId: string): Promise<any[]> {
-    const { data, error } = await this.supabaseClient
+    const { data, error } = await this.supabaseService.client
       .from('bookings')
       .select('*')
       .eq('user_id', userId)
@@ -296,7 +291,7 @@ export class BookingService {
   async getUserActiveBookings(userId: string): Promise<any[]> {
     const today = new Date().toISOString().split('T')[0];
     
-    const { data, error } = await this.supabaseClient
+    const { data, error } = await this.supabaseService.client
       .from('bookings')
       .select('*')
       .eq('user_id', userId)
@@ -315,7 +310,7 @@ export class BookingService {
 
   // Obtener reservas activas para una fecha específica
   async getUserBookingsForDate(userId: string, date: string): Promise<any[]> {
-    const { data, error } = await this.supabaseClient
+    const { data, error } = await this.supabaseService.client
       .from('bookings')
       .select('*')
       .eq('user_id', userId)
@@ -335,7 +330,7 @@ export class BookingService {
   async getUserBookingDates(userId: string): Promise<string[]> {
     const today = new Date().toISOString().split('T')[0];
     
-    const { data, error } = await this.supabaseClient
+    const { data, error } = await this.supabaseService.client
       .from('bookings')
       .select('session_date')
       .eq('user_id', userId)
@@ -360,7 +355,7 @@ export class BookingService {
   ): Promise<{ success: boolean; error?: string }> {
     try {
       // Obtener la reserva
-      const { data: booking, error: bookingError } = await this.supabaseClient
+      const { data: booking, error: bookingError } = await this.supabaseService.client
         .from('bookings')
         .select('*')
         .eq('id', bookingId)
@@ -380,7 +375,7 @@ export class BookingService {
       }
 
       // Cancelar la reserva
-      const { error: cancelError } = await this.supabaseClient
+      const { error: cancelError } = await this.supabaseService.client
         .from('bookings')
         .update({
           status: 'cancelled',
@@ -407,7 +402,7 @@ export class BookingService {
   ): Promise<{ success: boolean; error?: string }> {
     try {
       // Obtener la reserva sin filtrar por user_id (admin puede cancelar cualquiera)
-      const { data: booking, error: bookingError } = await this.supabaseClient
+      const { data: booking, error: bookingError } = await this.supabaseService.client
         .from('bookings')
         .select('*')
         .eq('id', bookingId)
@@ -420,7 +415,7 @@ export class BookingService {
       // Los admins pueden cancelar sin restricción de tiempo
       
       // Cancelar la reserva
-      const { error: cancelError } = await this.supabaseClient
+      const { error: cancelError } = await this.supabaseService.client
         .from('bookings')
         .update({
           status: 'cancelled',
@@ -456,7 +451,7 @@ export class BookingService {
     amount: number
   ): Promise<void> {
     // 🔄 NUEVA LÓGICA: Buscar TODOS los registros de créditos usados para esta reserva
-    const { data: historyRecords, error: historyError } = await this.supabaseClient
+    const { data: historyRecords, error: historyError } = await this.supabaseService.client
       .from('credit_history')
       .select('credit_batch_id, amount')
       .eq('booking_id', bookingId)
@@ -478,7 +473,7 @@ export class BookingService {
       // Crear promesa para procesar este lote en paralelo
       const refundBatchPromise = async () => {
         // Obtener el batch
-        const { data: batch, error: batchError } = await this.supabaseClient
+        const { data: batch, error: batchError } = await this.supabaseService.client
           .from('credit_batches')
           .select('*')
           .eq('id', historyRecord.credit_batch_id)
@@ -497,7 +492,7 @@ export class BookingService {
         }
 
         // Devolver los créditos a este lote específico
-        await this.supabaseClient
+        await this.supabaseService.client
           .from('credit_batches')
           .update({
             credits_remaining: batch.credits_remaining + creditsUsedFromBatch,
@@ -505,7 +500,7 @@ export class BookingService {
           .eq('id', batch.id);
 
         // Registrar en historial la devolución específica de este lote
-        await this.supabaseClient.from('credit_history').insert({
+        await this.supabaseService.client.from('credit_history').insert({
           user_id: userId,
           credit_batch_id: batch.id,
           type: 'refunded',

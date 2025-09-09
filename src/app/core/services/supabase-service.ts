@@ -2,7 +2,7 @@ import { Injectable, signal, PLATFORM_ID, Inject } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { createClient, SupabaseClient, User } from '@supabase/supabase-js';
 import { environment } from '../../../environments/environment';
-import { BehaviorSubject, Observable, debounceTime } from 'rxjs';
+import { BehaviorSubject, Observable, debounceTime, distinctUntilChanged } from 'rxjs';
 import { AuthTokenManagerService } from './auth-token-manager.service';
 
 export interface Profile {
@@ -35,11 +35,15 @@ export class SupabaseService {
   private supabaseClient: SupabaseClient;
   private currentUser = new BehaviorSubject<User | null>(null);
   public currentUser$ = this.currentUser.asObservable().pipe(
-    // Solo usar debounce ligero, permitir todos los cambios de usuario para que el topbar funcione correctamente
-    debounceTime(50) // Reducido de 100ms a 50ms para mejor responsividad
+    // 🔄 IMPROVED DEBOUNCING: Increased to 500ms and added distinctUntilChanged
+    debounceTime(500), // 🔄 INCREASED from 50ms to 500ms
+    distinctUntilChanged((prev, curr) => prev?.id === curr?.id) // 🔄 PREVENT DUPLICATE EMISSIONS
   );
   private isBrowser: boolean;
   private tokenManager: AuthTokenManagerService;
+  
+  // 🔄 SSR OPTIMIZATION: Prevent duplicate initialization during hydration
+  private userLoadAttempted = false;
   
   constructor(@Inject(PLATFORM_ID) private platformId: Object) {
     this.isBrowser = isPlatformBrowser(platformId);
@@ -63,9 +67,13 @@ export class SupabaseService {
   }
 
   private async loadUser() {
-    try {
-      const { data: { user } } = await this.supabaseClient.auth.getUser();
-      this.currentUser.next(user);
+    // 🔄 SSR OPTIMIZATION: Prevent duplicate load during hydration
+    if (this.isBrowser && !this.userLoadAttempted) {
+      this.userLoadAttempted = true;
+      
+      try {
+        const { data: { user } } = await this.supabaseClient.auth.getUser();
+        this.currentUser.next(user);
       
       // Solo registrar un listener de estado de auth, con manejo de rate limiting
       this.supabaseClient.auth.onAuthStateChange((event, session) => {
@@ -92,9 +100,10 @@ export class SupabaseService {
           }
         }
       });
-    } catch (error) {
-      console.warn('Error loading user:', error);
-      this.currentUser.next(null);
+      } catch (error) {
+        console.warn('Error loading user:', error);
+        this.currentUser.next(null);
+      }
     }
   }
 
