@@ -677,8 +677,8 @@ export class NotificationService implements OnDestroy {
     }
   }
 
- /**
- * 📅 SCHEDULE BOOKING NOTIFICATIONS - VERSIÓN MÉXICO CON HORA DEL SERVIDOR
+/**
+ * 📅 SCHEDULE BOOKING NOTIFICATIONS - VERSIÓN ROBUSTA CON HORA DEL SERVIDOR
  */
 async scheduleBookingNotifications(booking: any): Promise<{ success: boolean; reason?: string; count?: number }> {
   const canSchedule = this.canScheduleNotifications();
@@ -690,7 +690,7 @@ async scheduleBookingNotifications(booking: any): Promise<{ success: boolean; re
     return { success: false, reason };
   }
 
-  console.log('📅 Scheduling notifications (Mexico Server Time):', {
+  console.log('📅 Scheduling notifications (Server Time):', {
     booking_id: booking.id,
     session_date: booking.session_date,
     session_time: booking.session_time,
@@ -706,65 +706,64 @@ async scheduleBookingNotifications(booking: any): Promise<{ success: boolean; re
     const preferences = this._preferences();
     if (!preferences) throw new Error('User preferences not loaded');
 
-    // Preparar los payloads de las notificaciones
+    // Preparar los payloads
     const confirmationPayload = await this.buildNotificationPayload('booking_confirmation', booking);
     const reminder24hPayload = await this.buildNotificationPayload('reminder_24h', booking);
     const reminder1hPayload = await this.buildNotificationPayload('reminder_1h', booking);
 
-    // Obtener el token push actual (puede ser null)
+    // Token push (puede ser null)
     const pushToken = this.canSendPushNotifications() ? this._pushToken() : null;
 
-    console.log('📡 Calling server function with push token:', !!pushToken);
+    console.log('📡 Calling server function with token:', !!pushToken);
 
-    // LLAMAR A LA FUNCIÓN SQL QUE USA HORA DEL SERVIDOR
-    const { data, error } = await this.supabase.client.rpc('schedule_booking_notifications_mexico', {
+    // LLAMAR A LA FUNCIÓN ROBUSTA DEL SERVIDOR
+    const { data, error } = await this.supabase.client.rpc('schedule_all_booking_notifications', {
       p_booking_id: booking.id,
       p_user_id: user.id,
       p_session_date: booking.session_date,
       p_session_time: booking.session_time,
-      p_push_token: pushToken || null,
       p_confirmation_payload: confirmationPayload,
       p_reminder_24h_payload: reminder24hPayload,
       p_reminder_1h_payload: reminder1hPayload,
+      p_token: pushToken,
       p_preferences: {
-        booking_confirmation_enabled: preferences.booking_confirmation_enabled,
-        reminder_24h_enabled: preferences.reminder_24h_enabled,
-        reminder_1h_enabled: preferences.reminder_1h_enabled
+        booking_confirmation_enabled: preferences.booking_confirmation_enabled !== false,
+        reminder_24h_enabled: preferences.reminder_24h_enabled !== false,
+        reminder_1h_enabled: preferences.reminder_1h_enabled !== false
       }
     });
 
     if (error) {
-      console.error('❌ Error calling server function:', error);
+      console.error('❌ RPC Error:', error);
       throw error;
     }
 
-    if (data && data.success) {
-      console.log('✅ Notifications scheduled successfully:', {
-        count: data.count,
-        server_time_mexico: data.server_time_mexico,
-        session_time_mexico: data.session_datetime_mexico,
-        notifications: data.notifications
-      });
-
-      // Log del evento
-      await this.logEvent('notifications_scheduled', {
-        bookingId: booking.id,
-        count: data.count,
-        serverTimeMexico: data.server_time_mexico,
-        notifications: data.notifications
-      });
-
-      return { 
-        success: true, 
-        count: data.count 
-      };
-    } else {
-      console.error('❌ Server function returned error:', data);
-      return { 
-        success: false, 
-        reason: data?.error || 'Unknown server error' 
+    if (!data || !data.success) {
+      console.error('❌ Server returned error:', data);
+      return {
+        success: false,
+        reason: data?.error || 'Unknown server error'
       };
     }
+
+    console.log('✅ Notifications scheduled successfully:', {
+      count: data.count,
+      server_time_mexico: data.server_time_mexico,
+      details: data.notifications
+    });
+
+    // Log del evento
+    await this.logEvent('notifications_scheduled', {
+      bookingId: booking.id,
+      count: data.count,
+      serverTime: data.server_time_mexico,
+      types: data.notifications?.map((n: any) => n.type) || []
+    });
+
+    return {
+      success: true,
+      count: data.count || 0
+    };
 
   } catch (error) {
     console.error('❌ Error in scheduleBookingNotifications:', error);
