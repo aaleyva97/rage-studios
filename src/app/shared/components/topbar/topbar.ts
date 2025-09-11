@@ -1,6 +1,6 @@
 import { Component, signal, OnInit, OnDestroy, inject, ViewChild } from '@angular/core';
 import { UpperCasePipe } from '@angular/common';
-import { RouterModule, Router } from '@angular/router';
+import { RouterModule, Router, RouterLink } from '@angular/router';
 import { Button } from 'primeng/button';
 import { Drawer } from 'primeng/drawer';
 import { Menu } from 'primeng/menu';
@@ -51,7 +51,8 @@ interface Profile {
     OverlayBadge,
     Tooltip,
     BookingDialog,
-    BookingsDialog
+    BookingsDialog, 
+    RouterLink
   ],
   providers: [MessageService],
   templateUrl: './topbar.html',
