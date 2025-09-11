@@ -16,16 +16,24 @@ export class Success implements OnInit {
   private router = inject(Router);
   private route = inject(ActivatedRoute);
   private supabaseService = inject(SupabaseService);
+  private creditsService = inject(CreditsService);
 
+  // 🚨 FIX: Estados mejorados para evitar el flash de error
   isProcessing = signal(true);
   isSuccess = signal(false);
+  hasError = signal(false); // Nuevo estado explícito para errores
   errorMessage = signal('');
 
   async ngOnInit() {
+    // 🔄 Asegurar que estamos procesando desde el inicio
+    this.isProcessing.set(true);
+    this.hasError.set(false);
+    
     const sessionId = this.route.snapshot.queryParamMap.get('session_id');
 
     if (!sessionId) {
       this.errorMessage.set('Sesión de pago no válida');
+      this.hasError.set(true);
       this.isProcessing.set(false);
       return;
     }
@@ -44,12 +52,23 @@ export class Success implements OnInit {
 
       if (error) throw error;
 
+      // 🎯 Marcar como exitoso
       this.isSuccess.set(true);
-      // Refrescar los créditos en el estado global inmediatamente tras éxito
-      const creditsService = inject(CreditsService);
-      await creditsService.refreshCredits();
+      
+      // Esperar un momento para que la BD se actualice
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Refrescar los créditos
+      await this.creditsService.refreshCredits();
+      
+      // Refresh adicional como respaldo
+      setTimeout(async () => {
+        await this.creditsService.refreshCredits();
+      }, 2000);
+      
     } catch (error: any) {
       this.errorMessage.set(error.message || 'Error al procesar el pago');
+      this.hasError.set(true);
     } finally {
       this.isProcessing.set(false);
     }
