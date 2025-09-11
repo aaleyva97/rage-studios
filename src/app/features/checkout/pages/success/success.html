@@ -1,5 +1,6 @@
 <div class="success-container min-h-screen bg-gradient-to-br from-green-50 to-blue-50 py-12 px-4">
   <div class="max-w-md mx-auto">
+    <!-- 🔄 Siempre mostrar spinner mientras se procesa -->
     @if (isProcessing()) {
       <p-card styleClass="text-center">
         <div class="py-12">
@@ -7,7 +8,9 @@
           <p class="mt-4 text-gray-600">Procesando tu pago...</p>
         </div>
       </p-card>
-    } @else if (isSuccess()) {
+    } 
+    <!-- ✅ Mostrar éxito solo cuando realmente es exitoso -->
+    @else if (isSuccess()) {
       <p-card styleClass="text-center shadow-xl">
         <div class="py-8">
           <div class="mb-6">
@@ -39,7 +42,9 @@
           </div>
         </div>
       </p-card>
-    } @else {
+    } 
+    <!-- ❌ Mostrar error SOLO cuando hay un error real -->
+    @else if (hasError()) {
       <p-card styleClass="text-center shadow-xl">
         <div class="py-8">
           <div class="mb-6">
