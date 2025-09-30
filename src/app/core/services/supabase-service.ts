@@ -235,6 +235,15 @@ export class SupabaseService {
     if (error) throw error;
   }
 
+  async resetPasswordForEmail(email: string) {
+    const { data, error } = await this.supabaseClient.auth.resetPasswordForEmail(email, {
+      redirectTo: `${environment.baseUrl}/mi-cuenta`
+    });
+    
+    if (error) throw error;
+    return data;
+  }
+
   getUser() {
     return this.currentUser.value;
   }

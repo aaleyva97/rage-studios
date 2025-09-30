@@ -3,76 +3,68 @@ import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angula
 import { DialogModule } from 'primeng/dialog';
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
-import { PasswordModule } from 'primeng/password';
 import { ToastModule } from 'primeng/toast';
 import { MessageService } from 'primeng/api';
 import { SupabaseService } from '../../../core/services/supabase-service';
 
 @Component({
-  selector: 'app-login-dialog',
+  selector: 'app-forgot-password-dialog',
   standalone: true,
   imports: [
     ReactiveFormsModule,
     DialogModule,
     ButtonModule,
     InputTextModule,
-    PasswordModule,
     ToastModule
   ],
   providers: [MessageService],
-  templateUrl: './login-dialog.html',
-  styleUrl: './login-dialog.scss'
+  templateUrl: './forgot-password-dialog.html',
+  styleUrl: './forgot-password-dialog.scss'
 })
-export class LoginDialog {
+export class ForgotPasswordDialog {
   visible = model<boolean>(false);
-  openRegister = output<void>();
-  openForgotPassword = output<void>();
+  openLogin = output<void>();
   
   private fb = inject(FormBuilder);
   private supabaseService = inject(SupabaseService);
   private messageService = inject(MessageService);
   
-  loginForm: FormGroup;
+  forgotPasswordForm: FormGroup;
   isLoading = false;
   
   constructor() {
-    this.loginForm = this.fb.group({
-      email: ['', [Validators.required, Validators.email]],
-      password: ['', [Validators.required, Validators.minLength(6)]]
+    this.forgotPasswordForm = this.fb.group({
+      email: ['', [Validators.required, Validators.email]]
     });
   }
   
   get email() {
-    return this.loginForm.get('email');
+    return this.forgotPasswordForm.get('email');
   }
   
-  get password() {
-    return this.loginForm.get('password');
-  }
-  
-  async onLogin() {
-    if (this.loginForm.invalid) {
-      this.loginForm.markAllAsTouched();
+  async onSubmit() {
+    if (this.forgotPasswordForm.invalid) {
+      this.forgotPasswordForm.markAllAsTouched();
       return;
     }
     
     this.isLoading = true;
-    const { email, password } = this.loginForm.value;
+    const { email } = this.forgotPasswordForm.value;
     
     try {
-      await this.supabaseService.signIn(email, password);
+      await this.supabaseService.resetPasswordForEmail(email);
       
       this.messageService.add({
         severity: 'success',
-        summary: 'Éxito',
-        detail: 'Sesión iniciada correctamente',
-        life: 3000
+        summary: 'Correo enviado',
+        detail: 'Te hemos enviado un enlace. Al hacer clic, iniciarás sesión automáticamente y serás dirigido a "Mi Cuenta" para cambiar tu contraseña',
+        life: 7000
       });
       
       setTimeout(() => {
         this.visible.set(false);
-        this.loginForm.reset();
-      }, 500);
+        this.forgotPasswordForm.reset();
+      }, 1000);
       
     } catch (error: any) {
       this.messageService.add({
@@ -87,29 +79,23 @@ export class LoginDialog {
   }
   
   private getErrorMessage(error: any): string {
-    if (error.message === 'Invalid login credentials') {
-      return 'Credenciales inválidas';
+    if (error.message?.includes('Email rate limit exceeded')) {
+      return 'Has solicitado demasiados correos. Espera unos minutos antes de intentar de nuevo';
     }
-    if (error.message === 'Email not confirmed') {
-      return 'Por favor confirma tu email antes de iniciar sesión';
+    if (error.message?.includes('User not found')) {
+      return 'No encontramos una cuenta con ese correo electrónico';
     }
-    return error.message || 'Error al iniciar sesión';
+    return error.message || 'Error al enviar el correo de recuperación';
   }
   
-  onOpenRegister() {
+  onOpenLogin() {
     this.visible.set(false);
-    this.loginForm.reset();
-    this.openRegister.emit();
-  }
-  
-  onOpenForgotPassword() {
-    this.visible.set(false);
-    this.loginForm.reset();
-    this.openForgotPassword.emit();
+    this.forgotPasswordForm.reset();
+    this.openLogin.emit();
   }
   
   onDialogHide() {
     this.visible.set(false);
-    this.loginForm.reset();
+    this.forgotPasswordForm.reset();
   }
 }
