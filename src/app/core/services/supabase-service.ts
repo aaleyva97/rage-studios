@@ -237,7 +237,7 @@ export class SupabaseService {
 
   async resetPasswordForEmail(email: string) {
     const { data, error } = await this.supabaseClient.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`
+      redirectTo: `${environment.baseUrl}/mi-cuenta`
     });
     
     if (error) throw error;
