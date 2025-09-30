@@ -61,6 +61,15 @@
         [disabled]="loginForm.invalid || isLoading" />
     </div>
     
+    <div class="text-center mt-3">
+      <button 
+        type="button"
+        class="text-sm text-blue-600 hover:text-blue-800 underline cursor-pointer bg-transparent border-none"
+        (click)="onOpenForgotPassword()">
+        ¿Has olvidado tu contraseña?
+      </button>
+    </div>
+    
     <div class="text-center mt-4 pt-4 border-t border-gray-200">
       <p class="text-sm text-gray-600 mb-2">¿No tienes una cuenta?</p>
       <p-button 
