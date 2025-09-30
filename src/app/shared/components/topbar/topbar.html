@@ -230,13 +230,19 @@
 
 <app-login-dialog 
   [(visible)]="showLoginDialog" 
-  (openRegister)="onOpenRegisterFromLogin()">
+  (openRegister)="onOpenRegisterFromLogin()"
+  (openForgotPassword)="onOpenForgotPasswordFromLogin()">
 </app-login-dialog>
 
 <app-register-dialog 
   [(visible)]="showRegisterDialog" 
   (openLogin)="onOpenLoginFromRegister()">
 </app-register-dialog>
+
+<app-forgot-password-dialog 
+  [(visible)]="showForgotPasswordDialog" 
+  (openLogin)="onOpenLoginFromForgotPassword()">
+</app-forgot-password-dialog>
 
 <app-booking-dialog 
   [(visible)]="showBookingDialog">
