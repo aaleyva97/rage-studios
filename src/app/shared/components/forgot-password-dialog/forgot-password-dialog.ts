@@ -57,8 +57,8 @@ export class ForgotPasswordDialog {
       this.messageService.add({
         severity: 'success',
         summary: 'Correo enviado',
-        detail: 'Te hemos enviado un enlace para restablecer tu contraseña',
-        life: 5000
+        detail: 'Te hemos enviado un enlace. Al hacer clic, iniciarás sesión automáticamente y serás dirigido a "Mi Cuenta" para cambiar tu contraseña',
+        life: 7000
       });
       
       setTimeout(() => {
