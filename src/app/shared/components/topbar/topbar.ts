@@ -8,6 +8,7 @@ import { ToastModule } from 'primeng/toast';
 import { MessageService, MenuItem } from 'primeng/api';
 import { LoginDialog } from '../login-dialog/login-dialog';
 import { RegisterDialog } from '../register-dialog/register-dialog';
+import { ForgotPasswordDialog } from '../forgot-password-dialog/forgot-password-dialog';
 import { Subscription } from 'rxjs';
 import { SupabaseService } from '../../../core/services/supabase-service';
 import { NavigationService } from '../../../core/services/navigation.service';
@@ -46,7 +47,8 @@ interface Profile {
     Drawer, 
     Menu, 
     LoginDialog, 
-    RegisterDialog, 
+    RegisterDialog,
+    ForgotPasswordDialog,
     ToastModule,
     OverlayBadge,
     Tooltip,
@@ -80,6 +82,7 @@ export class Topbar implements OnInit, OnDestroy {
   rightMenuItems = signal<NavItem[]>([]);
   showLoginDialog = this.authUiService.showLoginDialog;
   showRegisterDialog = this.authUiService.showRegisterDialog;
+  showForgotPasswordDialog = this.authUiService.showForgotPasswordDialog;
   showBookingDialog = this.bookingUiService.showBookingDialog;
   mobileMenuVisible = signal(false);
   userMenuVisible = signal(false);
@@ -232,6 +235,18 @@ export class Topbar implements OnInit, OnDestroy {
   
   onOpenLoginFromRegister() {
     this.authUiService.openLoginDialog();
+  }
+  
+  onOpenForgotPasswordFromLogin() {
+    this.authUiService.openForgotPasswordDialog();
+  }
+  
+  onOpenLoginFromForgotPassword() {
+    this.authUiService.openLoginDialog();
+  }
+  
+  onForgotPasswordDialogClose() {
+    this.authUiService.closeForgotPasswordDialog();
   }
   
   toggleMobileMenu() {
