@@ -11,7 +11,7 @@
         <div class="flex items-center justify-between">
           <div>
             <p class="text-sm font-medium text-gray-600">Total Reservas</p>
-            <p class="text-xl font-bold text-blue-600">{{ bookings().length }}</p>
+            <p class="text-xl font-bold text-blue-600">{{ filteredBookings.length }}</p>
           </div>
           <i class="pi pi-calendar text-blue-500 text-2xl"></i>
         </div>
@@ -41,7 +41,7 @@
     <!-- Filters -->
     <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200 mb-6">
       <h3 class="text-lg font-semibold mb-4">Filtros</h3>
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <!-- Date Range Picker -->
         <div class="form-field">
           <label class="text-sm font-medium text-gray-700 mb-2 block">Rango de fechas</label>
@@ -61,7 +61,7 @@
             </small>
           }
         </div>
-        
+
         <!-- Status Filter -->
         <div class="form-field">
           <label class="text-sm font-medium text-gray-700 mb-2 block">Estado</label>
@@ -75,11 +75,50 @@
             (onChange)="onStatusChange()">
           </p-select>
         </div>
+
+        <!-- Search by Name Filter (Front-end only) -->
+        <div class="form-field">
+          <label class="text-sm font-medium text-gray-700 mb-2 block">Buscar por nombre</label>
+          <p-iconfield iconPosition="left">
+            <p-inputicon styleClass="pi pi-search" />
+            <input
+              type="text"
+              pInputText
+              [(ngModel)]="searchTerm"
+              placeholder="Buscar usuario..."
+              class="w-full" />
+          </p-iconfield>
+        </div>
+
+        <!-- Time Filter (Front-end only) -->
+        <div class="form-field">
+          <label class="text-sm font-medium text-gray-700 mb-2 block">Hora</label>
+          <p-select
+            [(ngModel)]="selectedTime"
+            [options]="availableTimes()"
+            optionLabel="label"
+            optionValue="value"
+            placeholder="Seleccionar hora"
+            class="w-full">
+          </p-select>
+        </div>
+      </div>
+
+      <!-- Clear Filters Button -->
+      <div class="flex justify-end mt-4">
+        <p-button
+          label="Limpiar filtros"
+          icon="pi pi-filter-slash"
+          severity="secondary"
+          [outlined]="true"
+          size="small"
+          (onClick)="clearFilters()">
+        </p-button>
       </div>
     </div>
   </div>
   
-  @if (!isLoading() && bookings().length === 0) {
+  @if (!isLoading() && filteredBookings.length === 0) {
     <div class="text-center py-12">
       <i class="pi pi-calendar text-5xl text-gray-300 mb-4"></i>
       <p class="text-gray-500 text-lg">No se encontraron reservas</p>
@@ -182,11 +221,11 @@
       }
       
       <!-- Mobile Pagination -->
-      @if (!isLoading() && bookings().length > 10) {
+      @if (!isLoading() && filteredBookings.length > 10) {
         <div class="mt-6">
           <p-paginator
             [rows]="mobileRowsPerPage()"
-            [totalRecords]="bookings().length"
+            [totalRecords]="filteredBookings.length"
             [rowsPerPageOptions]="[10, 20, 30]"
             [showCurrentPageReport]="true"
             currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} reservas"
@@ -198,8 +237,8 @@
 
     <!-- Desktop Table Layout -->
     <div class="hidden md:block">
-      <p-table 
-        [value]="isLoading() ? skeletonData : bookings()"
+      <p-table
+        [value]="isLoading() ? skeletonData : filteredBookings"
         [rows]="15"
         [paginator]="true"
         [tableStyle]="{ 'min-width': '60rem' }"
