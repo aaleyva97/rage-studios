@@ -11,6 +11,9 @@ import { SkeletonModule } from 'primeng/skeleton';
 import { PaginatorModule } from 'primeng/paginator';
 import { CardModule } from 'primeng/card';
 import { TooltipModule } from 'primeng/tooltip';
+import { IconFieldModule } from 'primeng/iconfield';
+import { InputIconModule } from 'primeng/inputicon';
+import { InputTextModule } from 'primeng/inputtext';
 import { MessageService, ConfirmationService } from 'primeng/api';
 import { BookingService } from '../../../../core/services/booking.service';
 import { SupabaseService } from '../../../../core/services/supabase-service';
@@ -36,7 +39,10 @@ interface StatusOption {
     SkeletonModule,
     PaginatorModule,
     CardModule,
-    TooltipModule
+    TooltipModule,
+    IconFieldModule,
+    InputIconModule,
+    InputTextModule
   ],
   providers: [ConfirmationService],
   templateUrl: './admin-reservas.html',
@@ -55,7 +61,10 @@ export class AdminReservas implements OnInit {
   
   // Filters
   dateRange = signal<Date[] | null>(null);
-  selectedStatus = signal<string>('all');
+  selectedStatus = signal<string>('active');
+  searchTerm = signal<string>('');
+  selectedTime = signal<string>('all');
+  availableTimes = signal<{ label: string; value: string; }[]>([]);
   
   // Status options
   statusOptions: StatusOption[] = [
@@ -75,34 +84,29 @@ export class AdminReservas implements OnInit {
   
   private setCurrentWeekRange() {
     const today = new Date();
-    const monday = new Date(today);
-    monday.setDate(today.getDate() - today.getDay() + 1); // Monday
-    
-    const sunday = new Date(monday);
-    sunday.setDate(monday.getDate() + 6); // Sunday
-    
-    this.dateRange.set([monday, sunday]);
+    // Set both start and end date to today
+    this.dateRange.set([today, today]);
   }
   
   async loadBookings() {
     const dateRange = this.dateRange();
-    
+
     // Don't load if we don't have a complete date range
     if (!dateRange || dateRange.length !== 2 || !dateRange[0] || !dateRange[1]) {
       return;
     }
-    
+
     this.isLoading.set(true);
-    
+
     try {
       const status = this.selectedStatus();
-      
+
       const bookings = await this.supabaseService.getAdminBookings(
         dateRange[0],
         dateRange[1],
         status
       );
-      
+
       // Format booking data for display
       const formattedBookings = bookings.map(booking => ({
         ...booking,
@@ -113,9 +117,12 @@ export class AdminReservas implements OnInit {
         canCancel: booking.status === 'active' ? this.bookingService.canCancelBooking(booking.session_date, booking.session_time) : false,
         userDisplayName: booking.profiles?.full_name || booking.profiles?.email?.split('@')[0] || 'Usuario desconocido'
       }));
-      
+
       this.bookings.set(formattedBookings);
-      
+
+      // Load available times based on selected date range
+      await this.loadAvailableTimes();
+
     } catch (error) {
       console.error('Error loading admin bookings:', error);
       this.messageService.add({
@@ -125,6 +132,57 @@ export class AdminReservas implements OnInit {
       });
     } finally {
       this.isLoading.set(false);
+    }
+  }
+
+  async loadAvailableTimes() {
+    const dateRange = this.dateRange();
+
+    if (!dateRange || !dateRange[0]) {
+      this.availableTimes.set([{ label: 'Todas las horas', value: 'all' }]);
+      return;
+    }
+
+    // Get the day of week from the start date (0 = Sunday, 1 = Monday, etc.)
+    const startDate = dateRange[0];
+    let dayOfWeek = startDate.getDay();
+
+    // Convert JavaScript day (0-6, Sunday-Saturday) to database day (1-7, Monday-Sunday)
+    dayOfWeek = dayOfWeek === 0 ? 7 : dayOfWeek;
+
+    try {
+      // Query schedule_slots table for times on this day of week
+      const { data, error } = await this.supabaseService.client
+        .from('schedule_slots')
+        .select('start_time, end_time')
+        .eq('day_of_week', dayOfWeek)
+        .eq('is_active', true)
+        .order('start_time');
+
+      if (error) {
+        console.error('Error loading available times:', error);
+        this.availableTimes.set([{ label: 'Todas las horas', value: 'all' }]);
+        return;
+      }
+
+      // Format times for dropdown
+      const times = [{ label: 'Todas las horas', value: 'all' }];
+
+      if (data && data.length > 0) {
+        data.forEach(slot => {
+          const startTime = slot.start_time.substring(0, 5); // Get HH:MM format
+          times.push({
+            label: startTime,
+            value: startTime
+          });
+        });
+      }
+
+      this.availableTimes.set(times);
+
+    } catch (error) {
+      console.error('Error loading available times:', error);
+      this.availableTimes.set([{ label: 'Todas las horas', value: 'all' }]);
     }
   }
   
@@ -139,6 +197,24 @@ export class AdminReservas implements OnInit {
   }
   
   onStatusChange() {
+    this.loadBookings();
+  }
+
+  clearFilters() {
+    // Reset date to today
+    const today = new Date();
+    this.dateRange.set([today, today]);
+
+    // Reset status to active
+    this.selectedStatus.set('active');
+
+    // Clear search term
+    this.searchTerm.set('');
+
+    // Reset time filter
+    this.selectedTime.set('all');
+
+    // Reload bookings
     this.loadBookings();
   }
   
@@ -250,11 +326,34 @@ export class AdminReservas implements OnInit {
     }
   }
   
+  // Filtered bookings (applied at front-end level)
+  get filteredBookings() {
+    let filtered = this.bookings();
+
+    // Apply search filter by name
+    const searchTerm = this.searchTerm().toLowerCase().trim();
+    if (searchTerm) {
+      filtered = filtered.filter(booking =>
+        booking.userDisplayName.toLowerCase().includes(searchTerm)
+      );
+    }
+
+    // Apply time filter
+    const selectedTime = this.selectedTime();
+    if (selectedTime && selectedTime !== 'all') {
+      filtered = filtered.filter(booking =>
+        booking.formattedTime === selectedTime
+      );
+    }
+
+    return filtered;
+  }
+
   // Mobile pagination methods
   get paginatedBookings() {
     const start = this.mobileCurrentPage() * this.mobileRowsPerPage();
     const end = start + this.mobileRowsPerPage();
-    return this.bookings().slice(start, end);
+    return this.filteredBookings.slice(start, end);
   }
 
   onMobilePageChange(event: any) {
@@ -262,17 +361,17 @@ export class AdminReservas implements OnInit {
     this.mobileRowsPerPage.set(event.rows);
   }
   
-  // Utility methods
+  // Utility methods (use filteredBookings for display)
   getTotalCreditsUsed(): number {
-    return this.bookings().reduce((total, booking) => total + (booking.credits_used || 0), 0);
+    return this.filteredBookings.reduce((total, booking) => total + (booking.credits_used || 0), 0);
   }
-  
+
   getActiveBookingsCount(): number {
-    return this.bookings().filter(booking => booking.status === 'active').length;
+    return this.filteredBookings.filter(booking => booking.status === 'active').length;
   }
-  
+
   getCancelledBookingsCount(): number {
-    return this.bookings().filter(booking => booking.status === 'cancelled').length;
+    return this.filteredBookings.filter(booking => booking.status === 'cancelled').length;
   }
 
   formatDateForDisplay = formatDateForDisplay;
