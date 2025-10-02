@@ -165,15 +165,30 @@ export class AdminReservas implements OnInit {
         return;
       }
 
-      // Format times for dropdown
+      // Generate 1-hour time slots from schedule slots
       const times = [{ label: 'Todas las horas', value: 'all' }];
+      const generatedTimes = new Set<string>(); // Use Set to avoid duplicates
 
       if (data && data.length > 0) {
         data.forEach(slot => {
-          const startTime = slot.start_time.substring(0, 5); // Get HH:MM format
+          // Parse start and end times
+          const startHour = parseInt(slot.start_time.split(':')[0]);
+          const endHour = parseInt(slot.end_time.split(':')[0]);
+
+          // Generate 1-hour slots within the range
+          for (let hour = startHour; hour < endHour; hour++) {
+            const timeStr = `${hour.toString().padStart(2, '0')}:00`;
+            generatedTimes.add(timeStr);
+          }
+        });
+
+        // Convert Set to array and sort
+        const sortedTimes = Array.from(generatedTimes).sort();
+
+        sortedTimes.forEach(time => {
           times.push({
-            label: startTime,
-            value: startTime
+            label: time,
+            value: time
           });
         });
       }
