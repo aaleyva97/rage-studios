@@ -260,14 +260,14 @@ export class BookingService {
     }
   }
 
-  // Verificar si una reserva puede ser cancelada (12 horas antes)
+  // Verificar si una reserva puede ser cancelada (6 horas antes)
   canCancelBooking(bookingDate: string, bookingTime: string): boolean {
     const now = new Date();
     const bookingDateTime = new Date(`${bookingDate}T${bookingTime}`);
     const hoursUntilBooking =
       (bookingDateTime.getTime() - now.getTime()) / (1000 * 60 * 60);
 
-    return hoursUntilBooking >= 12;
+    return hoursUntilBooking >= 6;
   }
 
   // Obtener las reservas del usuario
@@ -370,7 +370,7 @@ export class BookingService {
       if (!this.canCancelBooking(booking.session_date, booking.session_time)) {
         return {
           success: false,
-          error: 'No se puede cancelar con menos de 12 horas de anticipación',
+          error: 'No se puede cancelar con menos de 6 horas de anticipación',
         };
       }
 
