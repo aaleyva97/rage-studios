@@ -1,17 +1,24 @@
 <div class="success-container min-h-screen bg-gradient-to-br from-green-50 to-blue-50 py-12 px-4">
   <div class="max-w-md mx-auto">
-    <!-- 🔄 Siempre mostrar spinner mientras se procesa -->
-    @if (isProcessing()) {
-      <p-card styleClass="text-center">
+
+    <!-- 🔄 ESTADO: Procesando -->
+    @if (paymentState() === 'processing') {
+      <p-card class="text-center">
         <div class="py-12">
           <p-progressSpinner />
-          <p class="mt-4 text-gray-600">Procesando tu pago...</p>
+          <p class="mt-4 text-gray-600 font-medium">{{ statusMessage() }}</p>
+          @if (retryAttempt() > 0) {
+            <p class="mt-2 text-sm text-gray-500">
+              Intento {{ retryAttempt() }} de {{ 3 }}
+            </p>
+          }
         </div>
       </p-card>
-    } 
-    <!-- ✅ Mostrar éxito solo cuando realmente es exitoso -->
-    @else if (isSuccess()) {
-      <p-card styleClass="text-center shadow-xl">
+    }
+
+    <!-- ✅ ESTADO: Éxito -->
+    @else if (paymentState() === 'success') {
+      <p-card class="text-center shadow-xl">
         <div class="py-8">
           <div class="mb-6">
             <i class="pi pi-check-circle text-6xl text-green-500"></i>
@@ -23,16 +30,16 @@
             Tu paquete ha sido activado correctamente.
             Los créditos ya están disponibles en tu cuenta.
           </p>
-          
+
           <div class="flex flex-col gap-3">
-            <p-button 
+            <p-button
               label="Ver Mis Créditos"
               severity="primary"
               icon="pi pi-wallet"
               (onClick)="goToAccount()"
               styleClass="w-full" />
-            
-            <p-button 
+
+            <p-button
               label="Volver al Inicio"
               severity="secondary"
               [outlined]="true"
@@ -42,10 +49,94 @@
           </div>
         </div>
       </p-card>
-    } 
-    <!-- ❌ Mostrar error SOLO cuando hay un error real -->
-    @else if (hasError()) {
-      <p-card styleClass="text-center shadow-xl">
+    }
+
+    <!-- ℹ️ ESTADO: Ya procesado anteriormente -->
+    @else if (paymentState() === 'already_processed') {
+      <p-card class="text-center shadow-xl">
+        <div class="py-8">
+          <div class="mb-6">
+            <i class="pi pi-info-circle text-6xl text-blue-500"></i>
+          </div>
+          <h1 class="text-2xl font-bold text-gray-800 mb-4">
+            Pago Ya Procesado
+          </h1>
+          <p class="text-gray-600 mb-8">
+            {{ statusMessage() }}
+            <br>
+            <span class="text-sm text-gray-500">Tus créditos ya están en tu cuenta.</span>
+          </p>
+
+          <div class="flex flex-col gap-3">
+            <p-button
+              label="Ver Mis Créditos"
+              severity="primary"
+              icon="pi pi-wallet"
+              (onClick)="goToAccount()"
+              styleClass="w-full" />
+
+            <p-button
+              label="Volver al Inicio"
+              severity="secondary"
+              [outlined]="true"
+              icon="pi pi-home"
+              (onClick)="goToHome()"
+              styleClass="w-full" />
+          </div>
+        </div>
+      </p-card>
+    }
+
+    <!-- ⏱️ ESTADO: Timeout -->
+    @else if (paymentState() === 'timeout') {
+      <p-card class="text-center shadow-xl">
+        <div class="py-8">
+          <div class="mb-6">
+            <i class="pi pi-clock text-6xl text-orange-500"></i>
+          </div>
+          <h1 class="text-2xl font-bold text-gray-800 mb-4">
+            Procesamiento Lento
+          </h1>
+          <p class="text-gray-600 mb-4">
+            {{ errorMessage() }}
+          </p>
+          <p class="text-sm text-gray-500 mb-8">
+            {{ statusMessage() }}
+            <br>
+            Si no ves tus créditos, contacta a soporte.
+          </p>
+
+          <div class="flex flex-col gap-3">
+            <p-button
+              label="Reintentar"
+              severity="contrast"
+              icon="pi pi-refresh"
+              (onClick)="retryPayment()"
+              class="w-full" />
+
+            <p-button
+              label="Ver Mi Cuenta"
+              severity="primary"
+              [outlined]="true"
+              icon="pi pi-wallet"
+              (onClick)="goToAccount()"
+              styleClass="w-full" />
+
+            <p-button
+              label="Volver al Inicio"
+              severity="secondary"
+              [outlined]="true"
+              icon="pi pi-home"
+              (onClick)="goToHome()"
+              styleClass="w-full" />
+          </div>
+        </div>
+      </p-card>
+    }
+
+    <!-- ❌ ESTADO: Error -->
+    @else if (paymentState() === 'error') {
+      <p-card class="text-center shadow-xl">
         <div class="py-8">
           <div class="mb-6">
             <i class="pi pi-times-circle text-6xl text-red-500"></i>
@@ -53,18 +144,42 @@
           <h1 class="text-2xl font-bold text-gray-800 mb-4">
             Error en el Proceso
           </h1>
-          <p class="text-red-600 mb-8">
+          <p class="text-red-600 mb-4">
             {{ errorMessage() }}
           </p>
-          
-          <p-button 
-            label="Volver al Inicio"
-            severity="secondary"
-            icon="pi pi-home"
-            (onClick)="goToHome()"
-            styleClass="w-full" />
+          <p class="text-sm text-gray-500 mb-8">
+            Si realizaste el pago, tus créditos se procesarán automáticamente.
+            <br>
+            Puedes verificar en "Mi Cuenta" o reintentar.
+          </p>
+
+          <div class="flex flex-col gap-3">
+            <p-button
+              label="Reintentar"
+              severity="danger"
+              icon="pi pi-refresh"
+              (onClick)="retryPayment()"
+              styleClass="w-full" />
+
+            <p-button
+              label="Ver Mi Cuenta"
+              severity="primary"
+              [outlined]="true"
+              icon="pi pi-wallet"
+              (onClick)="goToAccount()"
+              styleClass="w-full" />
+
+            <p-button
+              label="Volver al Inicio"
+              severity="secondary"
+              [outlined]="true"
+              icon="pi pi-home"
+              (onClick)="goToHome()"
+              styleClass="w-full" />
+          </div>
         </div>
       </p-card>
     }
+
   </div>
 </div>
