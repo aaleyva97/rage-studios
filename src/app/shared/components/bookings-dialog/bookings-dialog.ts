@@ -8,7 +8,7 @@ import { SkeletonModule } from 'primeng/skeleton';
 import { TagModule } from 'primeng/tag';
 import { BookingService } from '../../../core/services/booking.service';
 import { SupabaseService } from '../../../core/services/supabase-service';
-import { formatDateForDisplay } from '../../../core/functions/date-utils';
+import { formatDateForDisplay, formatDateToLocalYYYYMMDD } from '../../../core/functions/date-utils';
 import { Subscription } from 'rxjs';
 
 @Component({
@@ -105,8 +105,14 @@ export class BookingsDialog implements OnInit, OnDestroy {
 
   async loadBookingsForDate(date: Date) {
     this.isLoading.set(true);
-    const dateStr = date.toISOString().split('T')[0];
-    
+
+    // ✅ FIX: Use local timezone conversion to prevent date shift bug
+    // BEFORE: date.toISOString().split('T')[0] - WRONG, converts to UTC causing date shift
+    // AFTER: formatDateToLocalYYYYMMDD(date) - CORRECT, preserves local date
+    const dateStr = formatDateToLocalYYYYMMDD(date);
+
+    console.log('📅 [Bookings Dialog] Loading bookings for local date:', dateStr, 'from Date object:', date);
+
     if (!this.currentUserId) {
       this.isLoading.set(false);
       this.bookingsForDate.set([]);
@@ -115,7 +121,9 @@ export class BookingsDialog implements OnInit, OnDestroy {
 
     try {
       const bookings = await this.bookingService.getUserBookingsForDate(this.currentUserId, dateStr);
-      
+
+      console.log(`📊 [Bookings Dialog] Found ${bookings.length} booking(s) for date ${dateStr}`);
+
       // Formatear bookings
       const formattedBookings = bookings.map(booking => ({
         ...booking,
