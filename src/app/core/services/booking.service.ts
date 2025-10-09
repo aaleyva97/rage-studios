@@ -2,6 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { signal } from '@angular/core';
 import { ScheduleService } from './schedule.service';
 import { SupabaseService } from './supabase-service';
+import { getTodayLocalYYYYMMDD } from '../functions/date-utils';
 
 export interface TimeSlot {
   time: string;
@@ -289,8 +290,12 @@ export class BookingService {
 
   // Obtener reservas activas del usuario desde hoy en adelante
   async getUserActiveBookings(userId: string): Promise<any[]> {
-    const today = new Date().toISOString().split('T')[0];
-    
+    // ✅ FIX: Use local timezone to get today's date
+    // CRITICAL: Prevents timezone bugs in Mexico (UTC-6)
+    const today = getTodayLocalYYYYMMDD();
+
+    console.log('📅 [BookingService] Getting active bookings from today (local):', today);
+
     const { data, error } = await this.supabaseService.client
       .from('bookings')
       .select('*')
@@ -328,8 +333,12 @@ export class BookingService {
 
   // Obtener todas las fechas que tienen reservas activas para el usuario desde hoy en adelante
   async getUserBookingDates(userId: string): Promise<string[]> {
-    const today = new Date().toISOString().split('T')[0];
-    
+    // ✅ FIX: Use local timezone to get today's date
+    // CRITICAL: Prevents timezone bugs in Mexico (UTC-6)
+    const today = getTodayLocalYYYYMMDD();
+
+    console.log('📅 [BookingService] Getting booking dates from today (local):', today);
+
     const { data, error } = await this.supabaseService.client
       .from('bookings')
       .select('session_date')
@@ -345,6 +354,9 @@ export class BookingService {
 
     // Eliminar duplicados y retornar solo las fechas únicas
     const uniqueDates = [...new Set(data?.map(booking => booking.session_date) || [])];
+
+    console.log(`📊 [BookingService] Found ${uniqueDates.length} unique booking dates`);
+
     return uniqueDates;
   }
 
