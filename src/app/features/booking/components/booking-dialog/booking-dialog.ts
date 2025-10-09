@@ -23,6 +23,7 @@ import { PaymentService } from '../../../../core/services/payment.service';
 import { NotificationService } from '../../../../core/services/notification.service';
 import { AppSettingsService } from '../../../../core/services/app-settings.service';
 import { MessageModule } from 'primeng/message';
+import { formatDateToLocalYYYYMMDD } from '../../../../core/functions/date-utils';
 
 @Component({
   selector: 'app-booking-dialog',
@@ -129,7 +130,10 @@ export class BookingDialog {
 
   async loadAvailableSlots(date: Date) {
     this.isLoading.set(true);
-    const dateStr = date.toISOString().split('T')[0];
+
+    // ✅ FIX: Use local timezone conversion
+    const dateStr = formatDateToLocalYYYYMMDD(date);
+
     const slots = await this.bookingService.getAvailableSlots(dateStr);
     this.availableSlots.set(slots);
     this.isLoading.set(false);
@@ -152,16 +156,18 @@ export class BookingDialog {
 
     if (!date || !time) return;
 
-    const dateStr = date.toISOString().split('T')[0];
+    // ✅ FIX: Use local timezone conversion
+    const dateStr = formatDateToLocalYYYYMMDD(date);
+
     const occupied = await this.bookingService.getOccupiedBeds(
       dateStr,
       time + ':00'
     );
     this.occupiedBeds.set(occupied);
-    
+
     // 🕒 TIMESTAMP del último refresco
     this.lastRefresh.set(new Date());
-    
+
     // 🔄 Validar si camas seleccionadas siguen disponibles
     this.validateSelectedBeds();
   }
@@ -338,9 +344,10 @@ export class BookingDialog {
       }
     }
     
+    // ✅ FIX: Use local timezone conversion for booking creation
     const booking = {
       user_id: user.id,
-      session_date: date.toISOString().split('T')[0],
+      session_date: formatDateToLocalYYYYMMDD(date),
       session_time: time + ':00',
       coach_name: coach,
       bed_numbers: finalBeds,
@@ -349,6 +356,8 @@ export class BookingDialog {
       credits_used: requiredCredits,
       status: 'active'
     };
+
+    console.log('📅 [Booking Creation] Creating booking for local date:', booking.session_date, 'from Date object:', date);
     
     // Crear la reserva
     const result = await this.bookingService.createBooking(booking);

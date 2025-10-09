@@ -4,6 +4,7 @@ import { createClient, SupabaseClient, User } from '@supabase/supabase-js';
 import { environment } from '../../../environments/environment';
 import { BehaviorSubject, Observable, debounceTime, distinctUntilChanged } from 'rxjs';
 import { AuthTokenManagerService } from './auth-token-manager.service';
+import { getTodayLocalYYYYMMDD, formatDateToLocalYYYYMMDD } from '../functions/date-utils';
 
 export interface Profile {
   id: string;
@@ -292,14 +293,18 @@ private async getTotalBookings(): Promise<number> {
 }
 
 private async getTodaysBookings(): Promise<number> {
-  const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
-  
+  // ✅ FIX: Use local timezone to get today's date
+  // CRITICAL: Prevents timezone bugs in Mexico (UTC-6)
+  const today = getTodayLocalYYYYMMDD();
+
+  console.log('📅 [SupabaseService] Getting today\'s bookings for date (local):', today);
+
   const { count, error } = await this.supabaseClient
     .from('bookings')
     .select('*', { count: 'exact', head: true })
     .eq('status', 'active')
     .eq('session_date', today);
-  
+
   if (error) throw error;
   return count || 0;
 }
@@ -337,9 +342,13 @@ private async getTotalCredits(): Promise<number> {
 // Admin Bookings Management
 async getAdminBookings(startDate: Date, endDate: Date, statusFilter: string = 'all'): Promise<any[]> {
   try {
-    const startDateString = startDate.toISOString().split('T')[0];
-    const endDateString = endDate.toISOString().split('T')[0];
-    
+    // ✅ FIX: Use local timezone conversion for date range
+    // CRITICAL: Prevents timezone bugs in Mexico (UTC-6)
+    const startDateString = formatDateToLocalYYYYMMDD(startDate);
+    const endDateString = formatDateToLocalYYYYMMDD(endDate);
+
+    console.log('📅 [SupabaseService] Getting admin bookings from', startDateString, 'to', endDateString, 'with status:', statusFilter);
+
     let query = this.supabaseClient
       .from('bookings')
       .select(`
@@ -366,8 +375,11 @@ async getAdminBookings(startDate: Date, endDate: Date, statusFilter: string = 'a
     const { data, error } = await query;
 
     if (error) throw error;
+
+    console.log(`📊 [SupabaseService] Found ${data?.length || 0} booking(s)`);
+
     return data || [];
-    
+
   } catch (error) {
     console.error('Error fetching admin bookings:', error);
     throw error;
