@@ -87,6 +87,8 @@ export class BookingDialog {
     effect(() => {
       if (this.visible()) {
         this.verifyBookingsOnOpen();
+        // 🔄 Actualizar créditos al abrir el diálogo
+        this.refreshCreditsOnOpen();
       }
     });
   }
@@ -104,19 +106,35 @@ export class BookingDialog {
     try {
       console.log('🔍 Verificando estado de reservas al abrir diálogo...');
       this.isVerifyingBookings.set(true);
-      
+
       // Consulta fresca del estado actual
       const isEnabled = await this.appSettingsService.verifyBookingsEnabled();
-      
+
       // Actualizar el estado verificado
       this.verifiedBookingsEnabled.set(isEnabled);
-      
+
       console.log(`✅ Estado verificado: ${isEnabled ? 'habilitadas' : 'deshabilitadas'}`);
     } catch (error) {
       console.error('❌ Error verificando estado de reservas al abrir:', error);
       // En caso de error, mantener valor por defecto optimista
     } finally {
       this.isVerifyingBookings.set(false);
+    }
+  }
+
+  /**
+   * 🔄 Actualizar créditos disponibles al abrir el diálogo
+   * Esto asegura que el badge muestre el número correcto cuando un admin
+   * asigna créditos manualmente y el usuario entra a reservar
+   */
+  private async refreshCreditsOnOpen(): Promise<void> {
+    try {
+      console.log('🔄 Actualizando créditos al abrir diálogo de reservas...');
+      await this.creditsService.refreshCredits();
+      console.log(`✅ Créditos actualizados: ${this.creditsService.totalCredits()}`);
+    } catch (error) {
+      console.error('❌ Error actualizando créditos al abrir diálogo:', error);
+      // En caso de error, continuar sin actualizar créditos
     }
   }
 
