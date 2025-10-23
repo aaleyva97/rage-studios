@@ -264,7 +264,15 @@ export class BookingService {
   // Verificar si una reserva puede ser cancelada (6 horas antes)
   canCancelBooking(bookingDate: string, bookingTime: string): boolean {
     const now = new Date();
-    const bookingDateTime = new Date(`${bookingDate}T${bookingTime}`);
+
+    // ✅ FIX: Create date in LOCAL timezone (Mexico UTC-6) instead of UTC
+    // BEFORE: new Date(`${bookingDate}T${bookingTime}`) - WRONG, interprets as UTC
+    // AFTER: Parse components and create local date - CORRECT
+    const [year, month, day] = bookingDate.split('-').map(Number);
+    const [hours, minutes, seconds] = bookingTime.split(':').map(Number);
+
+    const bookingDateTime = new Date(year, month - 1, day, hours, minutes, seconds || 0);
+
     const hoursUntilBooking =
       (bookingDateTime.getTime() - now.getTime()) / (1000 * 60 * 60);
 
