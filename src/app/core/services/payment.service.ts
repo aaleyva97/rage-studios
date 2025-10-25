@@ -388,10 +388,11 @@ export class PaymentService {
         if (creditsToUse <= 0) break;
 
         // Si es el primer uso y no es ilimitado, activar expiración
+        // 🔧 FIX: Removida condición credits_remaining === credits_total
+        // para permitir activación de expiración incluso después de penalizaciones
         if (
           !batch.expiration_activated &&
-          !batch.is_unlimited &&
-          batch.credits_remaining === batch.credits_total
+          !batch.is_unlimited
         ) {
           const expirationDate = new Date();
           expirationDate.setDate(
