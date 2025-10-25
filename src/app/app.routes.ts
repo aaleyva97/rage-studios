@@ -79,7 +79,20 @@ export const routes: Routes = [
       },
       {
         path: 'credits',
-        loadComponent: () => import('./features/admin/pages/admin-credits/admin-credits').then(m => m.AdminCredits)
+        children: [
+          {
+            path: '',
+            loadComponent: () => import('./features/admin/pages/admin-credits-navigation/admin-credits-navigation').then(m => m.AdminCreditsNavigation)
+          },
+          {
+            path: 'assign',
+            loadComponent: () => import('./features/admin/pages/admin-credits-assign/admin-credits-assign').then(m => m.AdminCreditsAssign)
+          },
+          {
+            path: 'deduct',
+            loadComponent: () => import('./features/admin/pages/admin-credits-deduct/admin-credits-deduct').then(m => m.AdminCreditsDeduct)
+          }
+        ]
       },
       {
         path: 'horarios',

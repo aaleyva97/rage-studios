@@ -1,0 +1,30 @@
+.admin-credits-deduct-container {
+  padding: 2rem;
+  max-width: 900px;
+  margin: 0 auto;
+
+  @media (max-width: 768px) {
+    padding: 1rem;
+  }
+}
+
+.deduction-card {
+  :host ::ng-deep .p-card-body {
+    padding: 1.5rem;
+  }
+}
+
+.user-autocomplete {
+  :host ::ng-deep {
+    .p-autocomplete-input {
+      width: 100%;
+    }
+  }
+}
+
+.field {
+  label {
+    display: flex;
+    align-items: center;
+  }
+}
