@@ -39,7 +39,7 @@ export interface CreditHistory {
   id: string;
   user_id: string;
   credit_batch_id?: string;
-  type: 'added' | 'used' | 'refunded' | 'expired';
+  type: 'added' | 'used' | 'refunded' | 'expired' | 'penalty';
   amount: number;
   description: string;
   booking_id?: string;
@@ -531,6 +531,126 @@ export class PaymentService {
     } catch (error: any) {
       console.error('❌ Error en refundCreditsForBooking:', error);
       return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * 🚫 Descontar créditos como penalización (administrador)
+   * Replica la lógica de descuento de reservas pero registra como 'penalty'
+   * @param userId ID del usuario al que se le descontarán créditos
+   * @param amount Cantidad de créditos a descontar
+   * @param description Descripción opcional de la penalización
+   * @returns Resultado de la operación con detalles de los batches afectados
+   */
+  async deductCreditsAsPenalty(
+    userId: string,
+    amount: number,
+    description?: string
+  ): Promise<{
+    success: boolean;
+    error?: string;
+    batchesAffected?: number;
+    creditsDeducted?: number;
+  }> {
+    try {
+      // Validación de cantidad
+      if (amount <= 0) {
+        return { success: false, error: 'La cantidad debe ser mayor a 0' };
+      }
+
+      // Obtener lotes de créditos ordenados por prioridad (misma lógica que reservas)
+      const { data: batches, error } = await this.supabaseService.client
+        .from('credit_batches')
+        .select('*')
+        .eq('user_id', userId)
+        .gt('credits_remaining', 0)
+        .or('expiration_date.is.null,expiration_date.gt.' + new Date().toISOString())
+        .order('expiration_activated', { ascending: false }) // Primero los ya activados
+        .order('expiration_date', { ascending: true, nullsFirst: false }) // Luego por fecha de expiración
+        .order('created_at', { ascending: true }); // Finalmente por antigüedad
+
+      if (error) {
+        return { success: false, error: 'Error al consultar créditos disponibles' };
+      }
+
+      if (!batches || batches.length === 0) {
+        return { success: false, error: 'El usuario no tiene créditos disponibles' };
+      }
+
+      // Calcular créditos totales disponibles
+      const totalAvailableCredits = batches.reduce(
+        (acc, batch) => acc + batch.credits_remaining,
+        0
+      );
+
+      // Validar que tenga suficientes créditos
+      if (totalAvailableCredits < amount) {
+        return {
+          success: false,
+          error: `El usuario solo tiene ${totalAvailableCredits} crédito${totalAvailableCredits !== 1 ? 's' : ''} disponible${totalAvailableCredits !== 1 ? 's' : ''}. No se pueden descontar ${amount}.`
+        };
+      }
+
+      let creditsToDeduct = amount;
+      let batchesAffected = 0;
+      const deductionPromises: Promise<void>[] = [];
+      const finalDescription = description || 'Penalización aplicada por administrador';
+
+      // Descontar de los batches según prioridad
+      for (const batch of batches) {
+        if (creditsToDeduct <= 0) break;
+
+        const creditsFromBatch = Math.min(creditsToDeduct, batch.credits_remaining);
+
+        // Crear promesa para procesar este batch
+        const deductBatchPromise = async () => {
+          // Actualizar créditos restantes del batch
+          const { error: updateError } = await this.supabaseService.client
+            .from('credit_batches')
+            .update({
+              credits_remaining: batch.credits_remaining - creditsFromBatch,
+            })
+            .eq('id', batch.id);
+
+          if (updateError) {
+            throw new Error(`Error al actualizar batch ${batch.id}: ${updateError.message}`);
+          }
+
+          // Registrar en historial como penalización
+          const { error: historyError } = await this.supabaseService.client
+            .from('credit_history')
+            .insert({
+              user_id: userId,
+              credit_batch_id: batch.id,
+              type: 'penalty',
+              amount: -creditsFromBatch, // Negativo para indicar descuento
+              description: `${finalDescription} (${creditsFromBatch} de ${amount} créditos)`,
+            });
+
+          if (historyError) {
+            throw new Error(`Error al registrar historial para batch ${batch.id}: ${historyError.message}`);
+          }
+        };
+
+        deductionPromises.push(deductBatchPromise());
+        creditsToDeduct -= creditsFromBatch;
+        batchesAffected++;
+      }
+
+      // Ejecutar todos los descuentos en paralelo
+      await Promise.all(deductionPromises);
+
+      console.log(`✅ Penalización exitosa: ${amount} créditos descontados de ${batchesAffected} lote${batchesAffected !== 1 ? 's' : ''} al usuario ${userId}`);
+
+      return {
+        success: true,
+        batchesAffected,
+        creditsDeducted: amount
+      };
+
+    } catch (error: any) {
+      console.error('❌ Error en deductCreditsAsPenalty:', error);
+      return { success: false, error: error.message || 'Error al descontar créditos' };
     }
   }
 }
