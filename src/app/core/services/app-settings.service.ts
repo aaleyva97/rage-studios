@@ -17,6 +17,7 @@ export class AppSettingsService {
   
   // 🔄 SIGNALS para configuraciones críticas
   private _bookingsEnabled = signal(true); // Valor por defecto: habilitado
+  private _cancellationHoursBefore = signal(6); // Valor por defecto: 6 horas
   private _isLoading = signal(false);
   private _lastUpdated = signal<Date | null>(null);
   
@@ -34,11 +35,15 @@ export class AppSettingsService {
   get bookingsEnabled() {
     return this._bookingsEnabled.asReadonly();
   }
-  
+
+  get cancellationHoursBefore() {
+    return this._cancellationHoursBefore.asReadonly();
+  }
+
   get isLoading() {
     return this._isLoading.asReadonly();
   }
-  
+
   get lastUpdated() {
     return this._lastUpdated.asReadonly();
   }
@@ -49,12 +54,20 @@ export class AppSettingsService {
   private async loadCriticalSettings(): Promise<void> {
     try {
       console.log('🔧 Cargando configuraciones críticas de la aplicación...');
-      
+
       const bookingsEnabled = await this.getSetting('bookings_enabled');
       if (bookingsEnabled !== null) {
         this._bookingsEnabled.set(bookingsEnabled === 'true');
       }
-      
+
+      const cancellationHours = await this.getSetting('cancellation_hours_before');
+      if (cancellationHours !== null) {
+        const hours = parseInt(cancellationHours, 10);
+        if (!isNaN(hours) && hours >= 0) {
+          this._cancellationHoursBefore.set(hours);
+        }
+      }
+
       this._lastUpdated.set(new Date());
       console.log('✅ Configuraciones críticas cargadas exitosamente');
     } catch (error) {
@@ -166,11 +179,11 @@ export class AppSettingsService {
   async refreshCriticalSettings(): Promise<void> {
     try {
       // Limpiar cache de configuraciones críticas
-      this.clearCache(['bookings_enabled']);
-      
+      this.clearCache(['bookings_enabled', 'cancellation_hours_before']);
+
       // Recargar desde BD
       await this.loadCriticalSettings();
-      
+
       console.log('🔄 Configuraciones críticas refrescadas');
     } catch (error) {
       console.error('❌ Error refrescando configuraciones críticas:', error);
@@ -228,17 +241,44 @@ export class AppSettingsService {
    */
   async toggleBookings(enabled: boolean): Promise<{ success: boolean; error?: string }> {
     console.log(`🎛️ ${enabled ? 'Habilitando' : 'Deshabilitando'} sistema de reservas...`);
-    
+
     const result = await this.updateSetting(
       'bookings_enabled',
       enabled.toString(),
       `Sistema de reservas ${enabled ? 'habilitado' : 'deshabilitado'} por administrador`
     );
-    
+
     if (result.success) {
       console.log(`✅ Sistema de reservas ${enabled ? 'habilitado' : 'deshabilitado'} exitosamente`);
     }
-    
+
+    return result;
+  }
+
+  /**
+   * ⏰ Actualizar horas mínimas antes de cancelación (método específico)
+   */
+  async updateCancellationHours(hours: number): Promise<{ success: boolean; error?: string }> {
+    // Validar que las horas sean un número válido y positivo
+    if (!Number.isInteger(hours) || hours < 0 || hours > 72) {
+      return {
+        success: false,
+        error: 'Las horas deben ser un número entero entre 0 y 72'
+      };
+    }
+
+    console.log(`⏰ Actualizando horas mínimas de cancelación a ${hours}...`);
+
+    const result = await this.updateSetting(
+      'cancellation_hours_before',
+      hours.toString(),
+      `Horas mínimas antes de cancelación actualizadas a ${hours} por administrador`
+    );
+
+    if (result.success) {
+      console.log(`✅ Horas mínimas de cancelación actualizadas a ${hours} exitosamente`);
+    }
+
     return result;
   }
   
