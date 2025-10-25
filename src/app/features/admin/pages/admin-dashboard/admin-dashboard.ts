@@ -6,6 +6,8 @@ import { MessageModule } from 'primeng/message';
 import { ToggleSwitchModule } from 'primeng/toggleswitch';
 import { ConfirmDialogModule } from 'primeng/confirmdialog';
 import { ToastModule } from 'primeng/toast';
+import { InputNumberModule } from 'primeng/inputnumber';
+import { Tooltip } from 'primeng/tooltip';
 import { Router } from '@angular/router';
 import { MessageService, ConfirmationService } from 'primeng/api';
 import { SupabaseService, AdminStats } from '../../../../core/services/supabase-service';
@@ -22,6 +24,8 @@ import { FormsModule } from '@angular/forms';
     ToggleSwitchModule,
     ConfirmDialogModule,
     ToastModule,
+    InputNumberModule,
+    Tooltip,
     FormsModule
   ],
   providers: [MessageService, ConfirmationService],
@@ -45,12 +49,9 @@ export class AdminDashboard {
   
   loading = signal(true);
   error = signal<string | null>(null);
-  
-  ngOnInit() {
-    const user = this.supabaseService.getUser();
-    this.currentUser.set(user);
-    this.loadAdminStats();
-  }
+
+  // 📝 Input temporal para editar horas de cancelación
+  tempCancellationHours = signal<number>(6);
   
   private async loadAdminStats() {
     try {
@@ -85,9 +86,22 @@ export class AdminDashboard {
   get bookingsEnabled() {
     return this.appSettingsService.bookingsEnabled();
   }
-  
+
+  get cancellationHoursBefore() {
+    return this.appSettingsService.cancellationHoursBefore();
+  }
+
   get settingsLoading() {
     return this.appSettingsService.isLoading();
+  }
+
+  ngOnInit() {
+    const user = this.supabaseService.getUser();
+    this.currentUser.set(user);
+    this.loadAdminStats();
+
+    // Inicializar el valor temporal con el valor actual
+    this.tempCancellationHours.set(this.cancellationHoursBefore);
   }
   
   /**
@@ -114,7 +128,7 @@ export class AdminDashboard {
   private async executeToggleBookings(enabled: boolean) {
     try {
       const result = await this.appSettingsService.toggleBookings(enabled);
-      
+
       if (result.success) {
         this.messageService.add({
           severity: 'success',
@@ -134,6 +148,75 @@ export class AdminDashboard {
         summary: 'Error',
         detail: 'Error inesperado al actualizar configuración'
       });
+    }
+  }
+
+  /**
+   * ⏰ Actualizar horas de cancelación con validación
+   */
+  async updateCancellationHours() {
+    const hours = this.tempCancellationHours();
+
+    // Validación básica
+    if (hours < 0 || hours > 72) {
+      this.messageService.add({
+        severity: 'warn',
+        summary: 'Valor inválido',
+        detail: 'Las horas deben estar entre 0 y 72'
+      });
+      return;
+    }
+
+    if (!Number.isInteger(hours)) {
+      this.messageService.add({
+        severity: 'warn',
+        summary: 'Valor inválido',
+        detail: 'Las horas deben ser un número entero'
+      });
+      return;
+    }
+
+    // Confirmar cambio
+    this.confirmationService.confirm({
+      message: `¿Actualizar el tiempo mínimo de cancelación a ${hours} hora${hours !== 1 ? 's' : ''} antes de la sesión?`,
+      header: 'Confirmar Cambio',
+      icon: 'pi pi-exclamation-triangle',
+      acceptLabel: 'Sí, actualizar',
+      rejectLabel: 'Cancelar',
+      accept: () => this.executeCancellationHoursUpdate(hours)
+    });
+  }
+
+  /**
+   * 🔧 Ejecutar actualización de horas de cancelación
+   */
+  private async executeCancellationHoursUpdate(hours: number) {
+    try {
+      const result = await this.appSettingsService.updateCancellationHours(hours);
+
+      if (result.success) {
+        this.messageService.add({
+          severity: 'success',
+          summary: 'Éxito',
+          detail: `Horas de cancelación actualizadas a ${hours} hora${hours !== 1 ? 's' : ''}`
+        });
+      } else {
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Error',
+          detail: result.error || 'Error al actualizar configuración'
+        });
+        // Restaurar valor anterior
+        this.tempCancellationHours.set(this.cancellationHoursBefore);
+      }
+    } catch (error: any) {
+      this.messageService.add({
+        severity: 'error',
+        summary: 'Error',
+        detail: 'Error inesperado al actualizar configuración'
+      });
+      // Restaurar valor anterior
+      this.tempCancellationHours.set(this.cancellationHoursBefore);
     }
   }
 }
