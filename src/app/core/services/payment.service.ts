@@ -264,11 +264,13 @@ export class PaymentService {
     bookingId: string
   ): Promise<boolean> {
     // Obtener lotes de créditos ordenados por fecha de expiración
+    // ✅ FIX: Filtrar batches expirados para no usar créditos que ya no son válidos
     const { data: batches, error } = await this.supabaseService.client
       .from('credit_batches')
       .select('*')
       .eq('user_id', userId)
       .gt('credits_remaining', 0)
+      .or('expiration_date.is.null,expiration_date.gt.' + new Date().toISOString())
       .order('expiration_date', { ascending: true, nullsFirst: false })
       .order('created_at', { ascending: true });
 
@@ -364,11 +366,13 @@ export class PaymentService {
   ): Promise<{ success: boolean; batchId?: string; error?: string }> {
     try {
       // Obtener lotes de créditos ordenados por prioridad
+      // ✅ FIX: Filtrar batches expirados para no usar créditos que ya no son válidos
       const { data: batches, error } = await this.supabaseService.client
         .from('credit_batches')
         .select('*')
         .eq('user_id', userId)
         .gt('credits_remaining', 0)
+        .or('expiration_date.is.null,expiration_date.gt.' + new Date().toISOString())
         .order('expiration_activated', { ascending: false }) // Primero los ya activados
         .order('expiration_date', { ascending: true, nullsFirst: false }) // Luego por fecha de expiración
         .order('created_at', { ascending: true }); // Finalmente por antigüedad
