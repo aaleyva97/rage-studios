@@ -66,17 +66,21 @@ export class CreditHistory implements OnInit {
       'purchase': 'Compra',
       'used': 'Usado',
       'refunded': 'Devuelto',
-      'expired': 'Expirado'
+      'expired': 'Expirado',
+      'added': 'Agregado',
+      'penalty': 'Penalización'
     };
     return labels[type] || type;
   }
-  
+
   getTypeSeverity(type: string): string {
     const severities: Record<string, string> = {
       'purchase': 'success',
       'used': 'warning',
       'refunded': 'info',
-      'expired': 'danger'
+      'expired': 'danger',
+      'added': 'success',
+      'penalty': 'danger'
     };
     return severities[type] || 'secondary';
   }
