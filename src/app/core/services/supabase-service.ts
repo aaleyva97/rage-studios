@@ -327,13 +327,15 @@ private async getActiveUsers(): Promise<number> {
 }
 
 private async getTotalCredits(): Promise<number> {
+  // ✅ FIX: Solo contar créditos de batches no expirados para estadísticas precisas
   const { data, error } = await this.supabaseClient
     .from('credit_batches')
-    .select('credits_remaining')
-    .gt('credits_remaining', 0);
-  
+    .select('credits_remaining, expiration_date')
+    .gt('credits_remaining', 0)
+    .or('expiration_date.is.null,expiration_date.gt.' + new Date().toISOString());
+
   if (error) throw error;
-  
+
   // Sum up all remaining credits
   const totalCredits = data?.reduce((sum, batch) => sum + (batch.credits_remaining || 0), 0) || 0;
   return totalCredits;
