@@ -1,0 +1,191 @@
+.admin-credits-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 1.5rem;
+  
+  @media (max-width: 768px) {
+    padding: 1rem;
+  }
+}
+
+.assignment-card {
+  border-radius: 8px;
+  //box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  
+  
+  
+  ::ng-deep .p-card-footer {
+    padding-top: 10px;
+    border-top: 1px solid #e5e7eb;
+    //background-color: #f9fafb;
+  }
+}
+
+.field {
+  label {
+    display: flex;
+    align-items: center;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 0.75rem;
+  }
+  
+  ::ng-deep .p-autocomplete,
+  ::ng-deep .p-select {
+    width: 100%;
+    
+    .p-inputtext,
+    .p-select-label {
+      width: 100%;
+      border-radius: 6px;
+      //border: 1px solid #d1d5db;
+      padding: 0.75rem;
+      font-size: 0.875rem;
+      
+      &:focus {
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+      }
+    }
+  }
+  
+  ::ng-deep .p-autocomplete-panel {
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    border: 1px solid #d1d5db;
+  }
+  
+  ::ng-deep .p-select-panel {
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    border: 1px solid #d1d5db;
+  }
+}
+
+// Fix for AutoComplete selected item display
+::ng-deep .user-autocomplete {
+  .p-inputtext {
+    display: flex;
+    align-items: center;
+  }
+  
+  .p-autocomplete-selected-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+}
+
+// Fix for Select dropdown visual issue - remove extra border line
+::ng-deep .package-select {
+  .p-select {
+    position: relative;
+    
+    .p-select-dropdown {
+      border-left: none !important;
+      padding-left: 0 !important;
+      
+      &::before {
+        display: none !important;
+      }
+    }
+    
+    // Remove any border separator between label and dropdown arrow
+    .p-select-label {
+      border-right: none !important;
+    }
+    
+    // Ensure clean look without extra borders
+    &.p-select-open {
+      .p-select-dropdown {
+        border-left: none !important;
+      }
+    }
+  }
+}
+
+::ng-deep .p-autocomplete-item,
+::ng-deep .p-select-item {
+  padding: 0.5rem;
+  border-bottom: 1px solid #f3f4f6;
+  
+  &:last-child {
+    border-bottom: none;
+  }
+  
+  &:hover {
+    background-color: #f3f4f6;
+  }
+  
+  &.p-highlight {
+    background-color: #dbeafe;
+    color: #1e40af;
+  }
+}
+
+.header-section {
+  h2 {
+    color: #111827;
+    font-weight: 700;
+  }
+  
+  p {
+    color: #6b7280;
+  }
+}
+
+// Responsive adjustments
+@media (max-width: 1024px) {
+  .grid {
+    &.lg\\:grid-cols-2 {
+      grid-template-columns: 1fr;
+    }
+  }
+}
+
+@media (max-width: 768px) {
+  .admin-credits-container {
+    .grid {
+      &.md\\:grid-cols-2 {
+        grid-template-columns: 1fr;
+      }
+    }
+  }
+  
+  ::ng-deep .p-card-footer {
+    .flex {
+      flex-direction: column;
+      gap: 0.75rem;
+      
+      .p-button {
+        width: 100%;
+      }
+    }
+  }
+}
+
+// Custom styling for selected items summary
+.bg-gray-50 {
+  background-color: #f9fafb;
+  
+  h4 {
+    color: #374151;
+    font-weight: 600;
+  }
+}
+
+// Icon styling
+.pi {
+  &.text-blue-500 {
+    color: #3b82f6;
+  }
+  
+  &.text-blue-600 {
+    color: #2563eb;
+  }
+  
+  &.text-green-600 {
+    color: #16a34a;
+  }
+}
+

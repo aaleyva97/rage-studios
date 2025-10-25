@@ -1,0 +1,83 @@
+<div class="admin-credits-navigation">
+  <div class="header-section mb-6">
+    <h2 class="text-2xl font-bold text-gray-900 mb-2">Gestión de Créditos</h2>
+    <p class="text-gray-600">Selecciona una opción para gestionar los créditos de los usuarios</p>
+  </div>
+
+  <!-- Navigation Cards -->
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <!-- Asignar Créditos Card -->
+    <p-card
+      class="navigation-card cursor-pointer hover:shadow-lg transition-shadow"
+      (click)="navigateTo('/admin/credits/assign')">
+      <div class="text-center p-6">
+        <div class="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+          <i class="pi pi-plus-circle text-green-600 text-4xl"></i>
+        </div>
+        <h3 class="text-xl font-bold text-gray-900 mb-3">Asignar Créditos</h3>
+        <p class="text-gray-600 mb-4">
+          Asignar paquetes de créditos manualmente a usuarios
+        </p>
+        <div class="flex items-center justify-center gap-2 text-sm text-green-600 font-medium">
+          <span>Ir a asignación</span>
+          <i class="pi pi-arrow-right"></i>
+        </div>
+      </div>
+    </p-card>
+
+    <!-- Descontar Créditos Card -->
+    <p-card
+      class="navigation-card cursor-pointer hover:shadow-lg transition-shadow"
+      (click)="navigateTo('/admin/credits/deduct')">
+      <div class="text-center p-6">
+        <div class="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+          <i class="pi pi-minus-circle text-red-600 text-4xl"></i>
+        </div>
+        <h3 class="text-xl font-bold text-gray-900 mb-3">Descontar Créditos</h3>
+        <p class="text-gray-600 mb-4">
+          Aplicar penalizaciones descontando créditos a usuarios
+        </p>
+        <div class="flex items-center justify-center gap-2 text-sm text-red-600 font-medium">
+          <span>Ir a descuento</span>
+          <i class="pi pi-arrow-right"></i>
+        </div>
+      </div>
+    </p-card>
+  </div>
+
+  <!-- Info Section -->
+  <div class="mt-8">
+    <p-card>
+      <ng-template pTemplate="header">
+        <div class="flex items-center gap-2 p-4 pb-0">
+          <i class="pi pi-info-circle text-blue-500 text-xl"></i>
+          <h3 class="text-lg font-semibold">Información</h3>
+        </div>
+      </ng-template>
+
+      <div class="space-y-4">
+        <div class="flex items-start gap-3">
+          <i class="pi pi-check-circle text-green-600 mt-1"></i>
+          <div>
+            <p class="font-medium text-gray-900">Asignar Créditos</p>
+            <p class="text-sm text-gray-600">
+              Permite asignar paquetes completos de créditos a usuarios. Los créditos
+              se activarán cuando el usuario haga su primera reserva.
+            </p>
+          </div>
+        </div>
+
+        <div class="flex items-start gap-3">
+          <i class="pi pi-exclamation-triangle text-red-600 mt-1"></i>
+          <div>
+            <p class="font-medium text-gray-900">Descontar Créditos</p>
+            <p class="text-sm text-gray-600">
+              Permite descontar créditos como penalización. El descuento se hará
+              priorizando el paquete en uso y aparecerá en el historial del usuario.
+            </p>
+          </div>
+        </div>
+      </div>
+    </p-card>
+  </div>
+</div>

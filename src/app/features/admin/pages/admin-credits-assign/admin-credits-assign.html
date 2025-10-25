@@ -1,0 +1,232 @@
+<p-toast />
+
+<div class="admin-credits-container">
+  <div class="header-section mb-6">
+    <h2 class="text-2xl font-bold text-gray-900 mb-2">Gestión de Créditos</h2>
+    <p class="text-gray-600">Asignar paquetes de créditos manualmente a usuarios</p>
+  </div>
+
+  <!-- Assignment Form Card -->
+  <p-card class="assignment-card">
+    <ng-template pTemplate="header">
+      <div class="flex items-center gap-2 p-4 pb-0">
+        <i class="pi pi-wallet text-blue-500 text-xl"></i>
+        <h3 class="text-lg font-semibold">Asignar Créditos</h3>
+      </div>
+    </ng-template>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <!-- User Selection -->
+      <div class="field">
+        
+        <p-autoComplete
+          [(ngModel)]="assignmentForm().selectedUser"
+          [suggestions]="filteredUsers()"
+          (completeMethod)="searchUsers($event)"
+          (onSelect)="onUserSelect($event)"
+          optionLabel="full_name"
+          placeholder="Usuario"
+          [minLength]="2"
+          [dropdown]="false"
+          [forceSelection]="true"
+          class="w-full"
+          styleClass="w-full user-autocomplete"
+          [inputStyleClass]="'w-full'">
+          
+          <!-- Custom template for dropdown suggestions -->
+          <ng-template let-user pTemplate="item">
+            <div class="flex items-center gap-3 p-2">
+              <div class="flex-1">
+                <div class="font-medium text-gray-900">{{ user.full_name }}</div>
+                @if (user.phone) {
+                  <div class="text-sm text-gray-600">{{ user.phone }}</div>
+                }
+                <div class="text-xs text-blue-600">{{ user.role }}</div>
+              </div>
+            </div>
+          </ng-template>
+
+          <!-- Custom template for selected item display -->
+          <ng-template let-user pTemplate="selectedItem">
+            <div class="flex items-center gap-2">
+              <i class="pi pi-user text-blue-500"></i>
+              <span>{{ user.full_name }}</span>
+              @if (user.phone) {
+                <span class="text-gray-500">({{ user.phone }})</span>
+              }
+            </div>
+          </ng-template>
+        </p-autoComplete>
+        
+        <small class="text-gray-500 block mt-1 pt-1">
+          Escriba al menos 2 caracteres para buscar por nombre o teléfono
+        </small>
+      </div>
+
+      <!-- Package Selection -->
+      <div class="field">
+        
+        <p-select
+          [(ngModel)]="assignmentForm().selectedPackage"
+          [options]="availablePackages()"
+          (onSelectionChange)="onPackageSelect($event)"
+          optionLabel="title"
+          placeholder="Paquete"
+          class="w-full"
+          
+          [loading]="isLoadingPackages()"
+          [disabled]="isLoadingPackages()">
+          
+          <!-- Custom template for package options -->
+          <ng-template let-pkg pTemplate="item">
+            <div class="flex justify-between p-2 w-full">
+              <div class="flex-1">
+                <div class="font-medium text-gray-900">{{ pkg.title }}</div>
+                <div class="text-sm text-gray-600">
+                  @if (pkg.is_unlimited) {
+                    <span class="text-purple-600 font-medium">ILIMITADO</span>
+                    <span class="mx-1">•</span>
+                    <span>{{ pkg.validity_days }} días</span>
+                  } @else {
+                    <span>{{ pkg.credits_count }} créditos</span>
+                    <span class="mx-1">•</span>
+                    <span>{{ pkg.validity_days }} días</span>
+                  }
+                </div>
+              </div>
+              <div class="text-right">
+                <div class="font-bold text-green-600">${{ pkg.price }}</div>
+              </div>
+            </div>
+          </ng-template>
+        </p-select>
+        
+        <small class="text-gray-500 block mt-1 pt-1">
+          Los créditos se activarán cuando el usuario haga su primera reserva
+        </small>
+      </div>
+    </div>
+
+    <!-- Selected Items Summary -->
+    @if (assignmentForm().selectedUser || assignmentForm().selectedPackage) {
+      <div class="mt-6 p-4 bg-gray-50 rounded-lg">
+        <h4 class="text-sm font-semibold text-gray-700 mb-3">Resumen de Asignación</h4>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <!-- Selected User -->
+          @if (assignmentForm().selectedUser) {
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                <i class="pi pi-user text-blue-600"></i>
+              </div>
+              <div>
+                <div class="font-medium text-gray-900">
+                  {{ assignmentForm().selectedUser!.full_name }}
+                </div>
+                @if (assignmentForm().selectedUser!.phone) {
+                  <div class="text-sm text-gray-600">{{ assignmentForm().selectedUser!.phone }}</div>
+                }
+              </div>
+            </div>
+          } @else {
+            <div class="text-gray-500 italic">Usuario no seleccionado</div>
+          }
+
+          <!-- Selected Package -->
+          @if (assignmentForm().selectedPackage) {
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                <i class="pi pi-shopping-bag text-green-600"></i>
+              </div>
+              <div>
+                <div class="font-medium text-gray-900">
+                  {{ assignmentForm().selectedPackage!.title }}
+                </div>
+                <div class="text-sm text-gray-600">
+                  @if (assignmentForm().selectedPackage!.is_unlimited) {
+                    ILIMITADO • {{ assignmentForm().selectedPackage!.validity_days }} días
+                  } @else {
+                    {{ assignmentForm().selectedPackage!.credits_count }} créditos • {{ assignmentForm().selectedPackage!.validity_days }} días
+                  }
+                </div>
+                <div class="text-sm font-medium text-green-600">
+                  ${{ assignmentForm().selectedPackage!.price }}
+                </div>
+              </div>
+            </div>
+          } @else {
+            <div class="text-gray-500 italic">Paquete no seleccionado</div>
+          }
+        </div>
+      </div>
+    }
+
+    <ng-template pTemplate="footer">
+      <div class="flex gap-3 justify-end">
+        <p-button 
+          label="Limpiar"
+          severity="secondary"
+          (onClick)="resetForm()"
+          [disabled]="isAssigningCredits()">
+        </p-button>
+        
+        <p-button 
+          label="Asignar Créditos"
+          [loading]="isAssigningCredits()"
+          [disabled]="!isFormValid()"
+          (onClick)="assignCredits()">
+        </p-button>
+      </div>
+    </ng-template>
+  </p-card>
+
+  <!-- Instructions Card -->
+  <div class="mt-6">
+    <p-card>
+      <ng-template pTemplate="header">
+        <div class="flex items-center gap-2 p-4 pb-0">
+          <i class="pi pi-info-circle text-blue-500 text-xl"></i>
+          <h3 class="text-lg font-semibold">Instrucciones</h3>
+        </div>
+      </ng-template>
+
+      <div class="space-y-3">
+        <div class="flex items-start gap-3">
+          <div class="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+            <span class="text-xs font-bold text-blue-600">1</span>
+          </div>
+          <div>
+            <p class="text-gray-700">
+              <strong>Buscar Usuario:</strong> Escriba el nombre completo o número de teléfono del usuario. 
+              El sistema buscará coincidencias automáticamente.
+            </p>
+          </div>
+        </div>
+
+        <div class="flex items-start gap-3">
+          <div class="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+            <span class="text-xs font-bold text-blue-600">2</span>
+          </div>
+          <div>
+            <p class="text-gray-700">
+              <strong>Seleccionar Paquete:</strong> Elija el paquete de créditos que desea asignar. 
+              Se mostrará el precio de referencia y la duración de validez.
+            </p>
+          </div>
+        </div>
+
+        <div class="flex items-start gap-3">
+          <div class="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+            <span class="text-xs font-bold text-blue-600">3</span>
+          </div>
+          <div>
+            <p class="text-gray-700">
+              <strong>Asignación:</strong> Los créditos se registrarán como una compra manual y se asignarán 
+              inmediatamente al usuario. La expiración se activará en la primera reserva.
+            </p>
+          </div>
+        </div>
+      </div>
+    </p-card>
+  </div>
+</div>
