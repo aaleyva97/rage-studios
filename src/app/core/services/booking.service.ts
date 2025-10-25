@@ -2,6 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { signal } from '@angular/core';
 import { ScheduleService } from './schedule.service';
 import { SupabaseService } from './supabase-service';
+import { AppSettingsService } from './app-settings.service';
 import { getTodayLocalYYYYMMDD } from '../functions/date-utils';
 
 export interface TimeSlot {
@@ -36,6 +37,7 @@ export class BookingService {
   // 🔄 NUEVO: Servicio de horarios dinámicos
   private scheduleService = inject(ScheduleService);
   private supabaseService = inject(SupabaseService);
+  private appSettingsService = inject(AppSettingsService);
 
   constructor() {
     // Ya no necesitamos crear una instancia independiente
@@ -261,7 +263,7 @@ export class BookingService {
     }
   }
 
-  // Verificar si una reserva puede ser cancelada (6 horas antes)
+  // Verificar si una reserva puede ser cancelada (dinámico basado en configuración)
   canCancelBooking(bookingDate: string, bookingTime: string): boolean {
     const now = new Date();
 
@@ -276,7 +278,10 @@ export class BookingService {
     const hoursUntilBooking =
       (bookingDateTime.getTime() - now.getTime()) / (1000 * 60 * 60);
 
-    return hoursUntilBooking >= 6;
+    // 🔄 USAR CONFIGURACIÓN DINÁMICA desde app_settings
+    const requiredHoursBefore = this.appSettingsService.cancellationHoursBefore();
+
+    return hoursUntilBooking >= requiredHoursBefore;
   }
 
   // Obtener las reservas del usuario
@@ -388,9 +393,10 @@ export class BookingService {
 
       // Verificar si se puede cancelar
       if (!this.canCancelBooking(booking.session_date, booking.session_time)) {
+        const requiredHours = this.appSettingsService.cancellationHoursBefore();
         return {
           success: false,
-          error: 'No se puede cancelar con menos de 6 horas de anticipación',
+          error: `No se puede cancelar con menos de ${requiredHours} hora${requiredHours !== 1 ? 's' : ''} de anticipación`,
         };
       }
 
