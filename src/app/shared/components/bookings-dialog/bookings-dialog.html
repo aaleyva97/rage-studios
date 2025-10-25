@@ -1,5 +1,8 @@
-<p-dialog 
-  [(visible)]="visible" 
+<p-toast />
+<p-confirm-dialog />
+
+<p-dialog
+  [(visible)]="visible"
   [modal]="true"
   [maximizable]="true"
   [style]="{width: '90vw', maxWidth: '1000px'}"
@@ -103,9 +106,27 @@
                 }
               </div>
               
-              <!-- ID de reserva -->
-              <div class="pt-3 border-t border-gray-100 mt-3">
+              <!-- ID de reserva y botón de cancelación -->
+              <div class="flex justify-between items-center pt-3 border-t border-gray-100 mt-3">
                 <span class="text-xs text-gray-400">ID: {{ booking.id.substring(0, 8) }}</span>
+                @if (booking.canCancel) {
+                  <p-button
+                    icon="pi pi-times"
+                    severity="danger"
+                    [text]="true"
+                    [rounded]="true"
+                    size="small"
+                    pTooltip="Cancelar reserva"
+                    (onClick)="confirmCancelBooking(booking)">
+                  </p-button>
+                } @else {
+                  <p-tag
+                    value="No cancelable"
+                    severity="secondary"
+                    [rounded]="true"
+                    size="small">
+                  </p-tag>
+                }
               </div>
             </div>
           }
