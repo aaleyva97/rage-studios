@@ -153,7 +153,7 @@ export class AdminCreditsDeduct {
     // Mostrar confirmación
     this.confirmationService.confirm({
       message: `¿Estás seguro de descontar ${form.creditsToDeduct} crédito${form.creditsToDeduct !== 1 ? 's' : ''} a ${form.selectedUser.full_name}? Esta acción no se puede deshacer.`,
-      header: 'Confirmar Penalización',
+      header: 'Confirmar Descuento',
       icon: 'pi pi-exclamation-triangle',
       acceptLabel: 'Sí, descontar',
       rejectLabel: 'Cancelar',
