@@ -1,0 +1,246 @@
+<p-toast />
+<p-confirmDialog />
+
+<div class="admin-credits-deduct-container">
+  <div class="header-section mb-6">
+    <h2 class="text-2xl font-bold text-gray-900 mb-2">Descontar Créditos</h2>
+    <p class="text-gray-600">Aplicar penalizaciones descontando créditos a usuarios</p>
+  </div>
+
+  <!-- Deduction Form Card -->
+  <p-card class="deduction-card">
+    <ng-template pTemplate="header">
+      <div class="flex items-center gap-2 p-4 pb-0">
+        <i class="pi pi-exclamation-triangle text-red-500 text-xl"></i>
+        <h3 class="text-lg font-semibold">Penalización de Créditos</h3>
+      </div>
+    </ng-template>
+
+    <div class="space-y-6">
+      <!-- User Selection -->
+      <div class="field">
+        <label class="block font-medium text-gray-700 mb-2">
+          <i class="pi pi-user mr-2"></i>
+          Usuario
+        </label>
+        <p-autoComplete
+          [(ngModel)]="deductionForm().selectedUser"
+          [suggestions]="filteredUsers()"
+          (completeMethod)="searchUsers($event)"
+          (onSelect)="onUserSelect($event)"
+          optionLabel="full_name"
+          placeholder="Buscar usuario por nombre o teléfono"
+          [minLength]="2"
+          [dropdown]="false"
+          [forceSelection]="true"
+          class="w-full"
+          styleClass="w-full user-autocomplete"
+          [inputStyleClass]="'w-full'">
+
+          <!-- Custom template for dropdown suggestions -->
+          <ng-template let-user pTemplate="item">
+            <div class="flex items-center gap-3 p-2">
+              <div class="flex-1">
+                <div class="font-medium text-gray-900">{{ user.full_name }}</div>
+                @if (user.phone) {
+                  <div class="text-sm text-gray-600">{{ user.phone }}</div>
+                }
+                <div class="text-xs text-blue-600">{{ user.role }}</div>
+              </div>
+            </div>
+          </ng-template>
+
+          <!-- Custom template for selected item display -->
+          <ng-template let-user pTemplate="selectedItem">
+            <div class="flex items-center gap-2">
+              <i class="pi pi-user text-blue-500"></i>
+              <span>{{ user.full_name }}</span>
+              @if (user.phone) {
+                <span class="text-gray-500">({{ user.phone }})</span>
+              }
+            </div>
+          </ng-template>
+        </p-autoComplete>
+
+        <small class="text-gray-500 block mt-1">
+          Escriba al menos 2 caracteres para buscar por nombre o teléfono
+        </small>
+      </div>
+
+      <!-- Available Credits Display -->
+      @if (deductionForm().selectedUser) {
+        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                <i class="pi pi-wallet text-blue-600 text-xl"></i>
+              </div>
+              <div>
+                <p class="text-sm font-medium text-gray-600">Créditos disponibles</p>
+                <p class="text-2xl font-bold text-blue-600">
+                  @if (isLoadingCredits()) {
+                    <i class="pi pi-spin pi-spinner"></i>
+                  } @else {
+                    {{ userAvailableCredits() }}
+                  }
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      }
+
+      <!-- Credits to Deduct -->
+      @if (deductionForm().selectedUser) {
+        <div class="field">
+          <label class="block font-medium text-gray-700 mb-2">
+            <i class="pi pi-minus-circle mr-2"></i>
+            Cantidad a descontar
+          </label>
+          <p-inputNumber
+            [ngModel]="deductionForm().creditsToDeduct"
+            (ngModelChange)="onCreditsChange($event)"
+            [min]="1"
+            [max]="userAvailableCredits()"
+            [showButtons]="true"
+            [step]="1"
+            buttonLayout="horizontal"
+            incrementButtonIcon="pi pi-plus"
+            decrementButtonIcon="pi pi-minus"
+            placeholder="Cantidad de créditos"
+            [disabled]="isLoadingCredits() || userAvailableCredits() === 0"
+            styleClass="w-full"
+            inputStyleClass="w-full">
+          </p-inputNumber>
+
+          <small class="text-gray-500 block mt-1">
+            Máximo: {{ userAvailableCredits() }} crédito{{ userAvailableCredits() !== 1 ? 's' : '' }}
+          </small>
+        </div>
+
+        <!-- Description (Optional) -->
+        <div class="field">
+          <label class="block font-medium text-gray-700 mb-2">
+            <i class="pi pi-file-edit mr-2"></i>
+            Descripción (opcional)
+          </label>
+          <textarea
+            pInputTextarea
+            [ngModel]="deductionForm().description"
+            (ngModelChange)="onDescriptionChange($event)"
+            placeholder="Describe el motivo de la penalización (ej: No asistió a clase sin previo aviso)"
+            rows="3"
+            class="w-full"
+            [maxlength]="200">
+          </textarea>
+
+          <small class="text-gray-500 block mt-1">
+            Si no se especifica, se usará: "Penalización aplicada por administrador"
+          </small>
+        </div>
+      }
+    </div>
+
+    <!-- Summary -->
+    @if (deductionForm().selectedUser) {
+      <div class="mt-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+        <h4 class="text-sm font-semibold text-red-900 mb-3 flex items-center gap-2">
+          <i class="pi pi-exclamation-circle"></i>
+          Resumen de Penalización
+        </h4>
+
+        <div class="space-y-2 text-sm">
+          <div class="flex justify-between">
+            <span class="text-gray-600">Usuario:</span>
+            <span class="font-medium text-gray-900">{{ deductionForm().selectedUser!.full_name }}</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-gray-600">Créditos actuales:</span>
+            <span class="font-medium text-blue-600">{{ userAvailableCredits() }}</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-gray-600">A descontar:</span>
+            <span class="font-bold text-red-600">-{{ deductionForm().creditsToDeduct }}</span>
+          </div>
+          <div class="border-t border-red-300 pt-2 mt-2"></div>
+          <div class="flex justify-between">
+            <span class="text-gray-600 font-medium">Créditos restantes:</span>
+            <span class="font-bold text-gray-900">
+              {{ userAvailableCredits() - deductionForm().creditsToDeduct }}
+            </span>
+          </div>
+        </div>
+      </div>
+    }
+
+    <ng-template pTemplate="footer">
+      <div class="flex gap-3 justify-end">
+        <p-button
+          label="Limpiar"
+          severity="secondary"
+          (onClick)="resetForm()"
+          [disabled]="isDeductingCredits()">
+        </p-button>
+
+        <p-button
+          label="Descontar Créditos"
+          severity="danger"
+          icon="pi pi-minus-circle"
+          [loading]="isDeductingCredits()"
+          [disabled]="!isFormValid()"
+          (onClick)="deductCredits()">
+        </p-button>
+      </div>
+    </ng-template>
+  </p-card>
+
+  <!-- Warning Card -->
+  <div class="mt-6">
+    <p-card>
+      <ng-template pTemplate="header">
+        <div class="flex items-center gap-2 p-4 pb-0">
+          <i class="pi pi-info-circle text-orange-500 text-xl"></i>
+          <h3 class="text-lg font-semibold">Advertencias Importantes</h3>
+        </div>
+      </ng-template>
+
+      <div class="space-y-3">
+        <div class="flex items-start gap-3">
+          <div class="w-6 h-6 bg-orange-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+            <i class="pi pi-exclamation-triangle text-orange-600 text-xs"></i>
+          </div>
+          <div>
+            <p class="text-gray-700">
+              <strong>Descuento prioritario:</strong> Los créditos se descontarán siguiendo la misma
+              lógica que en las reservas, priorizando el paquete en uso y los que expiran primero.
+            </p>
+          </div>
+        </div>
+
+        <div class="flex items-start gap-3">
+          <div class="w-6 h-6 bg-orange-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+            <i class="pi pi-exclamation-triangle text-orange-600 text-xs"></i>
+          </div>
+          <div>
+            <p class="text-gray-700">
+              <strong>Acción irreversible:</strong> Una vez aplicada la penalización, no se puede
+              deshacer. El usuario verá este descuento en su historial de créditos.
+            </p>
+          </div>
+        </div>
+
+        <div class="flex items-start gap-3">
+          <div class="w-6 h-6 bg-orange-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+            <i class="pi pi-exclamation-triangle text-orange-600 text-xs"></i>
+          </div>
+          <div>
+            <p class="text-gray-700">
+              <strong>Registro visible:</strong> La penalización aparecerá en el historial de créditos
+              del usuario con la descripción proporcionada.
+            </p>
+          </div>
+        </div>
+      </div>
+    </p-card>
+  </div>
+</div>

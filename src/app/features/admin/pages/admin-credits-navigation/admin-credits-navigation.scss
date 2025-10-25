@@ -1,0 +1,18 @@
+.admin-credits-navigation {
+  padding: 2rem;
+
+  @media (max-width: 768px) {
+    padding: 1rem;
+  }
+}
+
+.navigation-card {
+  :host ::ng-deep .p-card-body {
+    padding: 0;
+  }
+
+  &:hover {
+    transform: translateY(-4px);
+    transition: all 0.3s ease;
+  }
+}
