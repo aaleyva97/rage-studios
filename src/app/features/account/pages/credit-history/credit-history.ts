@@ -68,7 +68,7 @@ export class CreditHistory implements OnInit {
       'refunded': 'Devuelto',
       'expired': 'Expirado',
       'added': 'Agregado',
-      'penalty': 'Penalización'
+      'penalty': 'Descuento'
     };
     return labels[type] || type;
   }
