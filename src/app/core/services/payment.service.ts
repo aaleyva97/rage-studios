@@ -595,7 +595,7 @@ export class PaymentService {
       let creditsToDeduct = amount;
       let batchesAffected = 0;
       const deductionPromises: Promise<void>[] = [];
-      const finalDescription = description || 'Penalización aplicada por administrador';
+      const finalDescription = description || 'Descuento aplicado por el administrador';
 
       // Descontar de los batches según prioridad
       for (const batch of batches) {
