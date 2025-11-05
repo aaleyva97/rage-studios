@@ -144,21 +144,52 @@
       <!-- Sistema de Reservas -->
       <p-card class="action-card">
         <div class="text-center">
-          <i class="pi pi-cog text-4xl text-blue-500 mb-4"></i>
+          <i class="pi pi-calendar-clock text-4xl text-blue-500 mb-4"></i>
           <h3 class="text-lg font-semibold mb-2">Sistema de Reservas</h3>
-          <p class="text-gray-600 text-sm mb-4">Habilitar o deshabilitar reservas</p>
+          <p class="text-gray-600 text-sm mb-4">
+            Configuración de reservas
+            @if (bookingsScheduleMode === 'scheduled') {
+              <span class="text-xs text-blue-600 font-medium">(Programado)</span>
+            }
+          </p>
 
           <div class="flex flex-col items-center gap-3">
-            <div class="flex items-center gap-3">
+            <!-- Estado actual -->
+            <div class="flex items-center gap-2 mb-2">
+              <i class="pi text-lg" [class.pi-check-circle]="bookingsEnabled" [class.pi-times-circle]="!bookingsEnabled" [class.text-green-600]="bookingsEnabled" [class.text-red-600]="!bookingsEnabled"></i>
               <span class="text-sm font-medium" [class.text-red-600]="!bookingsEnabled" [class.text-green-600]="bookingsEnabled">
                 {{ bookingsEnabled ? 'Habilitadas' : 'Deshabilitadas' }}
               </span>
-              <p-toggleSwitch
-                [ngModel]="bookingsEnabled"
-                (ngModelChange)="toggleBookings()"
-                [disabled]="settingsLoading">
-              </p-toggleSwitch>
             </div>
+
+            <!-- Información de programación -->
+            @if (bookingsScheduleMode === 'scheduled' && (bookingsCloseDate || bookingsOpenDate)) {
+              <div class="text-xs text-gray-600 space-y-1 max-w-xs">
+                @if (bookingsCloseDate) {
+                  <div class="flex items-center gap-2 justify-center">
+                    <i class="pi pi-lock text-red-500"></i>
+                    <span><strong>Cierre:</strong> {{ formatDateTime(bookingsCloseDate) }}</span>
+                  </div>
+                }
+                @if (bookingsOpenDate) {
+                  <div class="flex items-center gap-2 justify-center">
+                    <i class="pi pi-unlock text-green-500"></i>
+                    <span><strong>Apertura:</strong> {{ formatDateTime(bookingsOpenDate) }}</span>
+                  </div>
+                }
+              </div>
+            }
+
+            <!-- Botón de configuración -->
+            <p-button
+              label="Configurar"
+              icon="pi pi-cog"
+              severity="primary"
+              size="small"
+              (onClick)="openScheduleDialog()"
+              [disabled]="settingsLoading"
+              styleClass="w-full max-w-xs"
+            />
 
             @if (settingsLoading) {
               <div class="flex items-center gap-2 text-xs text-gray-500">
@@ -222,3 +253,10 @@
     </div>
   }
 </div>
+
+<!-- Diálogo de Configuración de Programación de Reservas -->
+<app-booking-schedule-dialog
+  [visible]="showScheduleDialog()"
+  (visibleChange)="showScheduleDialog.set($event)"
+  (scheduleUpdated)="onScheduleUpdated()"
+/>
