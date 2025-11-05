@@ -153,6 +153,8 @@
                       <div class="text-xs mt-1">
                         @if (slot.available) {
                           <span class="text-green-600">{{ 14 - slot.occupiedBeds }} lugares</span>
+                        } @else if (slot.isPast) {
+                          <span class="text-gray-600">Horario pasado</span>
                         } @else {
                           <span class="text-red-600">Completo</span>
                         }
