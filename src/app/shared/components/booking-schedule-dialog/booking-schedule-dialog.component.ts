@@ -1,16 +1,12 @@
-import { Component, inject, input, output, signal } from '@angular/core';
+import { Component, inject, input, output, signal, effect } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { DialogModule } from 'primeng/dialog';
 import { ButtonModule } from 'primeng/button';
 import { DatePickerModule } from 'primeng/datepicker';
-import { SelectButtonModule } from 'primeng/selectbutton';
+import { CheckboxModule } from 'primeng/checkbox';
+import { ToggleSwitchModule } from 'primeng/toggleswitch';
 import { MessageModule } from 'primeng/message';
 import { AppSettingsService } from '../../../core/services/app-settings.service';
-
-interface ScheduleMode {
-  label: string;
-  value: 'manual' | 'scheduled';
-}
 
 @Component({
   selector: 'app-booking-schedule-dialog',
@@ -19,7 +15,8 @@ interface ScheduleMode {
     DialogModule,
     ButtonModule,
     DatePickerModule,
-    SelectButtonModule,
+    CheckboxModule,
+    ToggleSwitchModule,
     MessageModule
   ],
   templateUrl: './booking-schedule-dialog.component.html',
@@ -36,32 +33,33 @@ export class BookingScheduleDialogComponent {
   scheduleUpdated = output<void>();
 
   // State signals
-  selectedMode = signal<'manual' | 'scheduled'>('manual');
+  isManualControl = signal<boolean>(false); // Por defecto en modo programado
+  bookingsEnabled = signal<boolean>(true);
   closeDateTime = signal<Date | null>(null);
   openDateTime = signal<Date | null>(null);
   errorMessage = signal<string>('');
   isSaving = signal<boolean>(false);
 
-  // Mode options for SelectButton
-  modeOptions: ScheduleMode[] = [
-    { label: 'Manual', value: 'manual' },
-    { label: 'Programado', value: 'scheduled' }
-  ];
-
   // DatePicker configuration
   minDate = new Date(); // No permitir fechas pasadas
 
   constructor() {
-    // Cargar configuración actual al inicializar
-    this.loadCurrentConfiguration();
+    // Efecto para recargar configuración cuando se abre el dialog
+    effect(() => {
+      if (this.visible()) {
+        this.loadCurrentConfiguration();
+      }
+    });
   }
 
   private loadCurrentConfiguration(): void {
     const mode = this.appSettingsService.bookingsScheduleMode();
+    const enabled = this.appSettingsService.bookingsEnabled();
     const closeDate = this.appSettingsService.bookingsCloseDate();
     const openDate = this.appSettingsService.bookingsOpenDate();
 
-    this.selectedMode.set(mode);
+    this.isManualControl.set(mode === 'manual');
+    this.bookingsEnabled.set(enabled);
     this.closeDateTime.set(closeDate);
     this.openDateTime.set(openDate);
   }
@@ -71,69 +69,117 @@ export class BookingScheduleDialogComponent {
     this.errorMessage.set('');
   }
 
-  onModeChange(): void {
+  onManualControlChange(): void {
     // Limpiar error al cambiar de modo
     this.errorMessage.set('');
 
     // Si cambia a manual, limpiar fechas
-    if (this.selectedMode() === 'manual') {
+    if (this.isManualControl()) {
       this.closeDateTime.set(null);
       this.openDateTime.set(null);
     }
   }
 
+  // Verificar si las reservas están cerradas y programadas
+  get isScheduledAndClosed(): boolean {
+    if (this.isManualControl()) return false;
+
+    const mode = this.appSettingsService.bookingsScheduleMode();
+    const enabled = this.appSettingsService.bookingsEnabled();
+    const openDate = this.appSettingsService.bookingsOpenDate();
+
+    return mode === 'scheduled' && !enabled && openDate !== null;
+  }
+
   async onSave(): Promise<void> {
     this.errorMessage.set('');
-
-    // Validaciones
-    const mode = this.selectedMode();
-
-    if (mode === 'scheduled') {
-      const closeDate = this.closeDateTime();
-      const openDate = this.openDateTime();
-
-      if (!closeDate || !openDate) {
-        this.errorMessage.set('Debes seleccionar ambas fechas para el modo programado');
-        return;
-      }
-
-      // Validación en zona horaria local (México)
-      const now = new Date();
-      console.log('📅 Validando fechas programadas:');
-      console.log('   - Ahora:', now.toLocaleString('es-MX', { timeZone: 'America/Mexico_City' }));
-      console.log('   - Cierre:', closeDate.toLocaleString('es-MX', { timeZone: 'America/Mexico_City' }));
-      console.log('   - Apertura:', openDate.toLocaleString('es-MX', { timeZone: 'America/Mexico_City' }));
-
-      if (closeDate <= now) {
-        this.errorMessage.set('La fecha de cierre debe ser futura');
-        return;
-      }
-
-      if (openDate <= closeDate) {
-        this.errorMessage.set('La fecha de apertura debe ser posterior a la de cierre');
-        return;
-      }
-    }
-
-    // Guardar configuración
     this.isSaving.set(true);
 
     try {
-      const result = await this.appSettingsService.updateBookingsSchedule(
-        mode,
-        this.closeDateTime() ?? undefined,
-        this.openDateTime() ?? undefined
-      );
+      if (this.isManualControl()) {
+        // MODO MANUAL: Solo actualizar el switch de habilitado/deshabilitado
+        const enabled = this.bookingsEnabled();
+        const result = await this.appSettingsService.updateBookingsSchedule(
+          'manual',
+          undefined,
+          undefined
+        );
+
+        if (!result.success) {
+          this.errorMessage.set(result.error || 'Error al guardar');
+          return;
+        }
+
+        // Si el modo cambió, actualizar también el estado de habilitado
+        const toggleResult = await this.appSettingsService.toggleBookings(enabled);
+
+        if (!toggleResult.success) {
+          this.errorMessage.set(toggleResult.error || 'Error al actualizar estado');
+          return;
+        }
+
+      } else {
+        // MODO PROGRAMADO: Validar y guardar fechas
+        const closeDate = this.closeDateTime();
+        const openDate = this.openDateTime();
+
+        if (!closeDate || !openDate) {
+          this.errorMessage.set('Debes seleccionar ambas fechas para el modo programado');
+          return;
+        }
+
+        // Validación en zona horaria local (México)
+        const now = new Date();
+
+        if (closeDate <= now) {
+          this.errorMessage.set('La fecha de cierre debe ser futura');
+          return;
+        }
+
+        if (openDate <= closeDate) {
+          this.errorMessage.set('La fecha de apertura debe ser posterior a la de cierre');
+          return;
+        }
+
+        const result = await this.appSettingsService.updateBookingsSchedule(
+          'scheduled',
+          closeDate,
+          openDate
+        );
+
+        if (!result.success) {
+          this.errorMessage.set(result.error || 'Error al guardar');
+          return;
+        }
+      }
+
+      // Éxito: notificar y cerrar
+      this.scheduleUpdated.emit();
+      this.onHide();
+
+    } catch (error: any) {
+      this.errorMessage.set(error.message || 'Error inesperado al guardar');
+    } finally {
+      this.isSaving.set(false);
+    }
+  }
+
+  // Abrir reservas inmediatamente
+  async openNow(): Promise<void> {
+    this.isSaving.set(true);
+    this.errorMessage.set('');
+
+    try {
+      const result = await this.appSettingsService.openBookingsNow();
 
       if (result.success) {
-        // Notificar éxito y cerrar
         this.scheduleUpdated.emit();
         this.onHide();
       } else {
-        this.errorMessage.set(result.error || 'Error al guardar la configuración');
+        this.errorMessage.set(result.error || 'Error al abrir reservas');
       }
     } catch (error: any) {
-      this.errorMessage.set(error.message || 'Error inesperado al guardar');
+      this.errorMessage.set(error.message || 'Error inesperado');
     } finally {
       this.isSaving.set(false);
     }

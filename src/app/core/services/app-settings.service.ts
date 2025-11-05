@@ -195,12 +195,11 @@ export class AppSettingsService {
       if (result.error) {
         throw result.error;
       }
-      
-      // 🔄 Actualizar cache y signals
+
+      // 🔄 Actualizar cache (NO refrescar aún para evitar múltiples peticiones)
       this.setCachedValue(key, value);
-      await this.refreshCriticalSettings();
       this._lastUpdated.set(new Date());
-      
+
       console.log(`✅ Configuración '${key}' actualizada exitosamente`);
       return { success: true };
       
@@ -283,6 +282,8 @@ export class AppSettingsService {
     );
 
     if (result.success) {
+      // 🔄 Refrescar signals después de actualizar
+      await this.refreshCriticalSettings();
       console.log(`✅ Sistema de reservas ${enabled ? 'habilitado' : 'deshabilitado'} exitosamente`);
     }
 
@@ -310,6 +311,8 @@ export class AppSettingsService {
     );
 
     if (result.success) {
+      // 🔄 Refrescar signals después de actualizar
+      await this.refreshCriticalSettings();
       console.log(`✅ Horas mínimas de cancelación actualizadas a ${hours} exitosamente`);
     }
 
@@ -402,11 +405,46 @@ export class AppSettingsService {
         await this.updateSetting('bookings_open_datetime', '', 'Fecha de apertura vacía (modo manual)');
       }
 
+      // 🔄 Refrescar UNA SOLA VEZ al final para evitar múltiples peticiones
+      await this.refreshCriticalSettings();
+
       console.log('✅ Programación de reservas actualizada exitosamente');
       return { success: true };
 
     } catch (error: any) {
       console.error('❌ Error actualizando programación de reservas:', error);
+      return { success: false, error: error.message };
+    } finally {
+      this._isLoading.set(false);
+    }
+  }
+
+  /**
+   * 🚀 Abrir reservas inmediatamente (cancela programación activa)
+   */
+  async openBookingsNow(): Promise<{ success: boolean; error?: string }> {
+    try {
+      this._isLoading.set(true);
+      console.log('🚀 Abriendo reservas inmediatamente...');
+
+      // Cambiar a modo manual
+      await this.updateSetting('bookings_schedule_mode', 'manual', 'Modo cambiado a manual');
+
+      // Limpiar fechas programadas
+      await this.updateSetting('bookings_close_datetime', '', 'Fechas de programación canceladas');
+      await this.updateSetting('bookings_open_datetime', '', 'Fechas de programación canceladas');
+
+      // Habilitar reservas
+      await this.updateSetting('bookings_enabled', 'true', 'Reservas habilitadas manualmente');
+
+      // Refrescar UNA SOLA VEZ
+      await this.refreshCriticalSettings();
+
+      console.log('✅ Reservas abiertas inmediatamente');
+      return { success: true };
+
+    } catch (error: any) {
+      console.error('❌ Error abriendo reservas:', error);
       return { success: false, error: error.message };
     } finally {
       this._isLoading.set(false);
