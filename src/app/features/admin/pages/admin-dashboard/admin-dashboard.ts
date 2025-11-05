@@ -7,12 +7,12 @@ import { ToggleSwitchModule } from 'primeng/toggleswitch';
 import { ConfirmDialogModule } from 'primeng/confirmdialog';
 import { ToastModule } from 'primeng/toast';
 import { InputNumberModule } from 'primeng/inputnumber';
+import { Tooltip } from 'primeng/tooltip';
 import { Router } from '@angular/router';
 import { MessageService, ConfirmationService } from 'primeng/api';
 import { SupabaseService, AdminStats } from '../../../../core/services/supabase-service';
 import { AppSettingsService } from '../../../../core/services/app-settings.service';
 import { FormsModule } from '@angular/forms';
-import { BookingScheduleDialogComponent } from '../../../../shared/components/booking-schedule-dialog/booking-schedule-dialog.component';
 
 @Component({
   selector: 'app-admin-dashboard',
@@ -25,8 +25,8 @@ import { BookingScheduleDialogComponent } from '../../../../shared/components/bo
     ConfirmDialogModule,
     ToastModule,
     InputNumberModule,
-    FormsModule,
-    BookingScheduleDialogComponent
+    Tooltip,
+    FormsModule
   ],
   providers: [MessageService, ConfirmationService],
   templateUrl: './admin-dashboard.html',
@@ -52,9 +52,6 @@ export class AdminDashboard {
 
   // 📝 Input temporal para editar horas de cancelación
   tempCancellationHours = signal<number>(6);
-
-  // 📅 Control del diálogo de programación de reservas
-  showScheduleDialog = signal<boolean>(false);
   
   private async loadAdminStats() {
     try {
@@ -94,18 +91,6 @@ export class AdminDashboard {
     return this.appSettingsService.cancellationHoursBefore();
   }
 
-  get bookingsScheduleMode() {
-    return this.appSettingsService.bookingsScheduleMode();
-  }
-
-  get bookingsCloseDate() {
-    return this.appSettingsService.bookingsCloseDate();
-  }
-
-  get bookingsOpenDate() {
-    return this.appSettingsService.bookingsOpenDate();
-  }
-
   get settingsLoading() {
     return this.appSettingsService.isLoading();
   }
@@ -117,40 +102,6 @@ export class AdminDashboard {
 
     // Inicializar el valor temporal con el valor actual
     this.tempCancellationHours.set(this.cancellationHoursBefore);
-  }
-  
-  /**
-   * 📅 Abrir diálogo de configuración de programación
-   */
-  openScheduleDialog() {
-    this.showScheduleDialog.set(true);
-  }
-
-  /**
-   * 🔄 Callback cuando se actualiza la programación
-   */
-  onScheduleUpdated() {
-    this.messageService.add({
-      severity: 'success',
-      summary: 'Éxito',
-      detail: 'Programación de reservas actualizada correctamente'
-    });
-  }
-
-  /**
-   * 🕒 Formatear fecha/hora para mostrar
-   */
-  formatDateTime(date: Date | null): string {
-    if (!date) return 'No configurada';
-
-    return date.toLocaleString('es-MX', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true
-    });
   }
 
   /**
