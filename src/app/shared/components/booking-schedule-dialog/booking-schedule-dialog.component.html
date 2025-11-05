@@ -1,0 +1,137 @@
+<p-dialog
+  [visible]="visible()"
+  (visibleChange)="onHide()"
+  [modal]="true"
+  [closable]="true"
+  [draggable]="false"
+  [resizable]="false"
+  styleClass="w-full max-w-3xl"
+  header="Configuración de Reservas"
+>
+  <div class="flex flex-col gap-6">
+    <!-- Modo de Operación -->
+    <section>
+      <h3 class="text-lg font-semibold text-gray-900 mb-3">Modo de Operación</h3>
+      <p-selectbutton
+        [(ngModel)]="selectedMode"
+        [options]="modeOptions"
+        optionLabel="label"
+        optionValue="value"
+        (onChange)="onModeChange()"
+        styleClass="w-full"
+      />
+
+      <div class="mt-3">
+        @if (selectedMode() === 'manual') {
+          <p-message
+            severity="info"
+            text="En modo manual, debes activar/desactivar las reservas manualmente desde el panel de administración."
+            styleClass="w-full"
+          />
+        } @else {
+          <p-message
+            severity="info"
+            text="En modo programado, el sistema habilitará/deshabilitará las reservas automáticamente según las fechas configuradas."
+            styleClass="w-full"
+          />
+        }
+      </div>
+    </section>
+
+    <!-- Configuración de Fechas (solo visible en modo programado) -->
+    @if (selectedMode() === 'scheduled') {
+      <section class="border-t pt-6">
+        <h3 class="text-lg font-semibold text-gray-900 mb-4">Programación de Fechas</h3>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <!-- Fecha de Cierre -->
+          <div class="flex flex-col gap-2">
+            <label class="font-medium text-gray-700">
+              Fecha de Cierre
+              <span class="text-red-500">*</span>
+            </label>
+            <p-datepicker
+              [(ngModel)]="closeDateTime"
+              [showTime]="true"
+              hourFormat="12"
+              [minDate]="minDate"
+              dateFormat="dd/mm/yy"
+              placeholder="Seleccionar fecha y hora"
+              [showIcon]="true"
+              styleClass="w-full"
+            />
+            <small class="text-gray-600">
+              Las reservas se deshabilitarán automáticamente en esta fecha.
+            </small>
+            @if (closeDateTime()) {
+              <p class="text-sm text-gray-800 font-medium">
+                Cierre programado: {{ formatDateTime(closeDateTime()) }}
+              </p>
+            }
+          </div>
+
+          <!-- Fecha de Apertura -->
+          <div class="flex flex-col gap-2">
+            <label class="font-medium text-gray-700">
+              Fecha de Apertura
+              <span class="text-red-500">*</span>
+            </label>
+            <p-datepicker
+              [(ngModel)]="openDateTime"
+              [showTime]="true"
+              hourFormat="12"
+              [minDate]="minDate"
+              dateFormat="dd/mm/yy"
+              placeholder="Seleccionar fecha y hora"
+              [showIcon]="true"
+              styleClass="w-full"
+            />
+            <small class="text-gray-600">
+              Las reservas se habilitarán automáticamente en esta fecha.
+            </small>
+            @if (openDateTime()) {
+              <p class="text-sm text-gray-800 font-medium">
+                Apertura programada: {{ formatDateTime(openDateTime()) }}
+              </p>
+            }
+          </div>
+        </div>
+
+        <!-- Información adicional -->
+        <div class="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+          <p class="text-sm text-blue-900">
+            <strong>Nota:</strong> El sistema verificará automáticamente las fechas cuando un usuario intente hacer una reserva.
+            Entre la fecha de cierre y apertura, las reservas estarán deshabilitadas.
+          </p>
+        </div>
+      </section>
+    }
+
+    <!-- Mensaje de Error -->
+    @if (errorMessage()) {
+      <p-message
+        severity="error"
+        [text]="errorMessage()"
+        styleClass="w-full"
+      />
+    }
+  </div>
+
+  <ng-template pTemplate="footer">
+    <div class="flex justify-end gap-3">
+      <p-button
+        label="Cancelar"
+        severity="secondary"
+        (onClick)="onHide()"
+        [disabled]="isSaving()"
+      />
+      <p-button
+        label="Guardar"
+        severity="primary"
+        (onClick)="onSave()"
+        [loading]="isSaving()"
+        [disabled]="isSaving()"
+      />
+    </div>
+  </ng-template>
+</p-dialog>
