@@ -58,7 +58,21 @@ export class BookingScheduleDialogComponent {
     const closeDate = this.appSettingsService.bookingsCloseDate();
     const openDate = this.appSettingsService.bookingsOpenDate();
 
-    this.isManualControl.set(mode === 'manual');
+    // Lógica inteligente para checkbox:
+    // - Si modo actual es 'manual' → Marcar checkbox (muestra switch)
+    // - Si modo actual es 'scheduled' → Desmarcar checkbox (muestra fechas)
+    // - Si las reservas están habilitadas (no importa el modo) → Por defecto desmarcar
+    if (mode === 'manual' && !enabled) {
+      // Deshabilitadas por modo manual → Marcar checkbox
+      this.isManualControl.set(true);
+    } else if (mode === 'scheduled') {
+      // Modo programado activo → Desmarcar checkbox
+      this.isManualControl.set(false);
+    } else {
+      // Por defecto (reservas habilitadas) → Desmarcar checkbox
+      this.isManualControl.set(false);
+    }
+
     this.bookingsEnabled.set(enabled);
     this.closeDateTime.set(closeDate);
     this.openDateTime.set(openDate);
