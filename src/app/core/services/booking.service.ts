@@ -10,6 +10,7 @@ export interface TimeSlot {
   coach: string;
   available: boolean;
   occupiedBeds: number;
+  isPast?: boolean; // Indica si el horario ya pasó (solo para día actual)
 }
 
 export interface Booking {
@@ -99,6 +100,16 @@ export class BookingService {
       return daySchedule;
     }
 
+    // 🕒 DETECTAR SI ES HOY para validar horarios pasados (zona horaria México)
+    // NOTA: Este código asume que el usuario está en zona horaria de México.
+    // new Date() usa la zona horaria del navegador del usuario.
+    // Para usuarios fuera de México, considerar usar una librería como date-fns-tz.
+    const today = getTodayLocalYYYYMMDD();
+    const isToday = date === today;
+    const now = new Date();
+    const currentHour = now.getHours();
+    const currentMinute = now.getMinutes();
+
     // Calcular disponibilidad
     return daySchedule.map((slot) => {
       const slotBookings =
@@ -108,10 +119,32 @@ export class BookingService {
         0
       );
 
+      // Verificar disponibilidad por capacidad
+      let isAvailable = occupiedBeds < 14;
+      let isPast = false;
+
+      // 🚫 Si es hoy, deshabilitar horarios que ya pasaron
+      if (isToday) {
+        const [slotHour, slotMinute] = slot.time.split(':').map(Number);
+
+        // El slot ya pasó si:
+        // - La hora es menor que la actual
+        // - O la hora es igual pero los minutos ya pasaron o están en curso
+        const slotHasPassed =
+          slotHour < currentHour ||
+          (slotHour === currentHour && slotMinute <= currentMinute);
+
+        if (slotHasPassed) {
+          isPast = true;
+          isAvailable = false;
+        }
+      }
+
       return {
         ...slot,
-        available: occupiedBeds < 14,
+        available: isAvailable,
         occupiedBeds,
+        isPast,
       };
     });
   }
