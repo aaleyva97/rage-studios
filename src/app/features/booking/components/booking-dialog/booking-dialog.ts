@@ -23,7 +23,7 @@ import { PaymentService } from '../../../../core/services/payment.service';
 import { NotificationService } from '../../../../core/services/notification.service';
 import { AppSettingsService } from '../../../../core/services/app-settings.service';
 import { MessageModule } from 'primeng/message';
-import { formatDateToLocalYYYYMMDD } from '../../../../core/functions/date-utils';
+import { formatDateToLocalYYYYMMDD, parseLocalDate } from '../../../../core/functions/date-utils';
 
 @Component({
   selector: 'app-booking-dialog',
@@ -81,6 +81,8 @@ export class BookingDialog {
 
   // Fecha mínima (hoy)
   minDate = new Date();
+  // Fecha máxima (null por defecto, se calcula según configuración)
+  maxDate: Date | null = null;
   
   constructor() {
     // 🔍 EFECTO: Verificar estado cuando se abre el diálogo
@@ -89,6 +91,8 @@ export class BookingDialog {
         this.verifyBookingsOnOpen();
         // 🔄 Actualizar créditos al abrir el diálogo
         this.refreshCreditsOnOpen();
+        // 📅 Calcular fechas disponibles según configuración
+        this.calculateAvailableDates();
       }
     });
   }
@@ -135,6 +139,47 @@ export class BookingDialog {
     } catch (error) {
       console.error('❌ Error actualizando créditos al abrir diálogo:', error);
       // En caso de error, continuar sin actualizar créditos
+    }
+  }
+
+  /**
+   * 📅 Calcular fechas disponibles según configuración del admin
+   * ✅ TIMEZONE-SAFE: Usa parseLocalDate para evitar bugs de zona horaria en México
+   */
+  private calculateAvailableDates(): void {
+    const mode = this.appSettingsService.bookingAvailabilityMode();
+
+    if (mode === 'available_now') {
+      // Modo disponible ahora: solo minDate (hoy), sin maxDate
+      this.minDate = new Date();
+      this.maxDate = null;
+      console.log('📅 Modo disponible ahora: fechas desde hoy sin límite');
+    } else if (mode === 'date_range') {
+      // Modo rango de fechas: establecer minDate y maxDate según configuración
+      const startDateStr = this.appSettingsService.bookingDateRangeStart();
+      const endDateStr = this.appSettingsService.bookingDateRangeEnd();
+
+      if (startDateStr && endDateStr) {
+        // ✅ FIX: Usar parseLocalDate para evitar problemas de zona horaria
+        // ANTES: new Date(startDateStr) - INCORRECTO (interpreta como UTC)
+        // AHORA: parseLocalDate(startDateStr) - CORRECTO (usa zona horaria local de México)
+        const configuredStartDate = parseLocalDate(startDateStr);
+        const configuredEndDate = parseLocalDate(endDateStr);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        // IMPORTANTE: Si la fecha de inicio configurada es anterior a hoy,
+        // usar hoy como minDate (los días pasados siempre están deshabilitados)
+        this.minDate = configuredStartDate < today ? today : configuredStartDate;
+        this.maxDate = configuredEndDate;
+
+        console.log(`📅 Modo rango de fechas: ${this.minDate.toLocaleDateString('es-MX')} - ${this.maxDate.toLocaleDateString('es-MX')}`);
+      } else {
+        // Si no hay rango configurado, usar modo por defecto
+        console.warn('⚠️ Modo rango de fechas sin fechas configuradas, usando modo disponible ahora');
+        this.minDate = new Date();
+        this.maxDate = null;
+      }
     }
   }
 

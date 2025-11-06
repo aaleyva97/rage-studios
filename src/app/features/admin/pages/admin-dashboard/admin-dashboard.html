@@ -219,6 +219,52 @@
           </div>
         </div>
       </p-card>
+
+      <!-- Gestión de Disponibilidad de Fechas -->
+      <p-card class="action-card">
+        <div class="text-center">
+          <i class="pi pi-calendar-times text-4xl text-blue-500 mb-4"></i>
+          <h3 class="text-lg font-semibold mb-2">Disponibilidad de Fechas</h3>
+          <p class="text-gray-600 text-sm mb-4">Controlar fechas disponibles para reservas</p>
+
+          <div class="flex flex-col items-center gap-3 px-4">
+            <!-- Estado actual -->
+            <div class="w-full p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <div class="text-xs text-blue-800 font-medium mb-1">
+                Modo actual:
+              </div>
+              <div class="text-sm text-blue-900 font-semibold">
+                {{ bookingAvailabilityMode === 'available_now' ? 'Disponible ahora' : 'Rango de fechas' }}
+              </div>
+              @if (bookingAvailabilityMode === 'date_range') {
+                <div class="text-xs text-blue-700 mt-2">
+                  {{ getAvailabilityModeDescription() }}
+                </div>
+              }
+            </div>
+
+            <!-- Botón configurar -->
+            <p-button
+              label="Configurar"
+              icon="pi pi-cog"
+              severity="info"
+              (onClick)="openAvailabilityDialog()"
+              [disabled]="settingsLoading"
+              styleClass="w-full max-w-[200px]">
+            </p-button>
+
+            @if (settingsLoading) {
+              <div class="flex items-center gap-2 text-xs text-gray-500">
+                <i class="pi pi-spin pi-spinner"></i>
+                <span>Actualizando...</span>
+              </div>
+            }
+          </div>
+        </div>
+      </p-card>
     </div>
   }
 </div>
+
+<!-- Dialog de configuración de disponibilidad -->
+<app-availability-config-dialog #availabilityDialog />
