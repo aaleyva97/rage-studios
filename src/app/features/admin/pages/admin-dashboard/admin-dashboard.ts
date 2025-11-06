@@ -7,7 +7,6 @@ import { ToggleSwitchModule } from 'primeng/toggleswitch';
 import { ConfirmDialogModule } from 'primeng/confirmdialog';
 import { ToastModule } from 'primeng/toast';
 import { InputNumberModule } from 'primeng/inputnumber';
-import { Tooltip } from 'primeng/tooltip';
 import { Router } from '@angular/router';
 import { MessageService, ConfirmationService } from 'primeng/api';
 import { SupabaseService, AdminStats } from '../../../../core/services/supabase-service';
@@ -26,7 +25,6 @@ import { AvailabilityConfigDialog } from '../../components/availability-config-d
     ConfirmDialogModule,
     ToastModule,
     InputNumberModule,
-    Tooltip,
     FormsModule,
     AvailabilityConfigDialog
   ],
