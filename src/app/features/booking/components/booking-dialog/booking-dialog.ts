@@ -98,32 +98,6 @@ export class BookingDialog {
     return this.verifiedBookingsEnabled();
   }
 
-  // 📅 GETTERS para información de programación
-  get bookingsScheduleMode() {
-    return this.appSettingsService.bookingsScheduleMode();
-  }
-
-  get bookingsOpenDate() {
-    return this.appSettingsService.bookingsOpenDate();
-  }
-
-  /**
-   * 🕒 Formatear fecha/hora de reapertura para mostrar al usuario
-   */
-  formatReopenDate(date: Date | null): string {
-    if (!date) return '';
-
-    return date.toLocaleString('es-MX', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true
-    });
-  }
-
   /**
    * 🔍 Verificar estado de reservas al abrir el diálogo
    * Hace consulta fresca a BD para asegurar estado actualizado
