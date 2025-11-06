@@ -1,5 +1,6 @@
 import { Component, model, signal, inject, effect } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { DatePipe } from '@angular/common';
 import { DialogModule } from 'primeng/dialog';
 import { RadioButtonModule } from 'primeng/radiobutton';
 import { DatePickerModule } from 'primeng/datepicker';
@@ -13,6 +14,7 @@ import { formatDateToLocalYYYYMMDD, parseLocalDate } from '../../../../core/func
   selector: 'app-availability-config-dialog',
   imports: [
     FormsModule,
+    DatePipe,
     DialogModule,
     RadioButtonModule,
     DatePickerModule,
