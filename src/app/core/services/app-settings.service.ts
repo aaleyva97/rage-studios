@@ -18,6 +18,9 @@ export class AppSettingsService {
   // 🔄 SIGNALS para configuraciones críticas
   private _bookingsEnabled = signal(true); // Valor por defecto: habilitado
   private _cancellationHoursBefore = signal(6); // Valor por defecto: 6 horas
+  private _bookingAvailabilityMode = signal<'available_now' | 'date_range'>('available_now'); // Modo de disponibilidad
+  private _bookingDateRangeStart = signal<string | null>(null); // Fecha inicio del rango
+  private _bookingDateRangeEnd = signal<string | null>(null); // Fecha fin del rango
   private _isLoading = signal(false);
   private _lastUpdated = signal<Date | null>(null);
 
@@ -38,6 +41,18 @@ export class AppSettingsService {
 
   get cancellationHoursBefore() {
     return this._cancellationHoursBefore.asReadonly();
+  }
+
+  get bookingAvailabilityMode() {
+    return this._bookingAvailabilityMode.asReadonly();
+  }
+
+  get bookingDateRangeStart() {
+    return this._bookingDateRangeStart.asReadonly();
+  }
+
+  get bookingDateRangeEnd() {
+    return this._bookingDateRangeEnd.asReadonly();
   }
 
   get isLoading() {
@@ -66,6 +81,21 @@ export class AppSettingsService {
         if (!isNaN(hours) && hours >= 0) {
           this._cancellationHoursBefore.set(hours);
         }
+      }
+
+      const availabilityMode = await this.getSetting('booking_availability_mode');
+      if (availabilityMode === 'available_now' || availabilityMode === 'date_range') {
+        this._bookingAvailabilityMode.set(availabilityMode);
+      }
+
+      const dateRangeStart = await this.getSetting('booking_date_range_start');
+      if (dateRangeStart !== null) {
+        this._bookingDateRangeStart.set(dateRangeStart);
+      }
+
+      const dateRangeEnd = await this.getSetting('booking_date_range_end');
+      if (dateRangeEnd !== null) {
+        this._bookingDateRangeEnd.set(dateRangeEnd);
       }
 
       this._lastUpdated.set(new Date());
@@ -179,7 +209,13 @@ export class AppSettingsService {
   async refreshCriticalSettings(): Promise<void> {
     try {
       // Limpiar cache de configuraciones críticas
-      this.clearCache(['bookings_enabled', 'cancellation_hours_before']);
+      this.clearCache([
+        'bookings_enabled',
+        'cancellation_hours_before',
+        'booking_availability_mode',
+        'booking_date_range_start',
+        'booking_date_range_end'
+      ]);
 
       // Recargar desde BD
       await this.loadCriticalSettings();
@@ -280,6 +316,97 @@ export class AppSettingsService {
     }
 
     return result;
+  }
+
+  /**
+   * 📅 Actualizar configuración de disponibilidad de fechas para reservas
+   */
+  async updateBookingAvailability(
+    mode: 'available_now' | 'date_range',
+    startDate: string | null = null,
+    endDate: string | null = null
+  ): Promise<{ success: boolean; error?: string }> {
+    // Validaciones
+    if (mode === 'date_range') {
+      if (!startDate || !endDate) {
+        return {
+          success: false,
+          error: 'En modo "Dentro de un intervalo de fechas" debes proporcionar ambas fechas'
+        };
+      }
+
+      // Validar que la fecha de fin sea posterior a la de inicio
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+
+      if (end <= start) {
+        return {
+          success: false,
+          error: 'La fecha de fin debe ser posterior a la fecha de inicio'
+        };
+      }
+    }
+
+    console.log(`📅 Actualizando configuración de disponibilidad a modo: ${mode}...`);
+
+    try {
+      this._isLoading.set(true);
+
+      // Actualizar el modo
+      const modeResult = await this.updateSetting(
+        'booking_availability_mode',
+        mode,
+        `Modo de disponibilidad de reservas configurado como ${mode === 'available_now' ? 'disponible ahora' : 'rango de fechas'}`
+      );
+
+      if (!modeResult.success) {
+        return modeResult;
+      }
+
+      // Actualizar fechas
+      if (mode === 'date_range' && startDate && endDate) {
+        const startResult = await this.updateSetting(
+          'booking_date_range_start',
+          startDate,
+          `Fecha de inicio del rango de disponibilidad: ${startDate}`
+        );
+
+        if (!startResult.success) {
+          return startResult;
+        }
+
+        const endResult = await this.updateSetting(
+          'booking_date_range_end',
+          endDate,
+          `Fecha de fin del rango de disponibilidad: ${endDate}`
+        );
+
+        if (!endResult.success) {
+          return endResult;
+        }
+      } else {
+        // Si es modo "available_now", limpiar las fechas
+        await this.updateSetting(
+          'booking_date_range_start',
+          '',
+          'Rango de fechas no aplica en modo disponible ahora'
+        );
+        await this.updateSetting(
+          'booking_date_range_end',
+          '',
+          'Rango de fechas no aplica en modo disponible ahora'
+        );
+      }
+
+      console.log('✅ Configuración de disponibilidad actualizada exitosamente');
+      return { success: true };
+
+    } catch (error: any) {
+      console.error('❌ Error actualizando configuración de disponibilidad:', error);
+      return { success: false, error: error.message };
+    } finally {
+      this._isLoading.set(false);
+    }
   }
 
   /**

@@ -1,4 +1,4 @@
-import { Component, signal, inject } from '@angular/core';
+import { Component, signal, inject, viewChild } from '@angular/core';
 import { CardModule } from 'primeng/card';
 import { ButtonModule } from 'primeng/button';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
@@ -7,12 +7,12 @@ import { ToggleSwitchModule } from 'primeng/toggleswitch';
 import { ConfirmDialogModule } from 'primeng/confirmdialog';
 import { ToastModule } from 'primeng/toast';
 import { InputNumberModule } from 'primeng/inputnumber';
-import { Tooltip } from 'primeng/tooltip';
 import { Router } from '@angular/router';
 import { MessageService, ConfirmationService } from 'primeng/api';
 import { SupabaseService, AdminStats } from '../../../../core/services/supabase-service';
 import { AppSettingsService } from '../../../../core/services/app-settings.service';
 import { FormsModule } from '@angular/forms';
+import { AvailabilityConfigDialog } from '../../components/availability-config-dialog/availability-config-dialog';
 
 @Component({
   selector: 'app-admin-dashboard',
@@ -25,8 +25,8 @@ import { FormsModule } from '@angular/forms';
     ConfirmDialogModule,
     ToastModule,
     InputNumberModule,
-    Tooltip,
-    FormsModule
+    FormsModule,
+    AvailabilityConfigDialog
   ],
   providers: [MessageService, ConfirmationService],
   templateUrl: './admin-dashboard.html',
@@ -38,7 +38,10 @@ export class AdminDashboard {
   private appSettingsService = inject(AppSettingsService);
   private messageService = inject(MessageService);
   private confirmationService = inject(ConfirmationService);
-  
+
+  // ViewChild para el dialog de configuración de disponibilidad
+  availabilityDialog = viewChild<AvailabilityConfigDialog>('availabilityDialog');
+
   currentUser = signal<any>(null);
   adminStats = signal<AdminStats>({
     totalReservas: 0,
@@ -46,7 +49,7 @@ export class AdminDashboard {
     usuariosActivos: 0,
     creditosTotales: 0
   });
-  
+
   loading = signal(true);
   error = signal<string | null>(null);
 
@@ -89,6 +92,18 @@ export class AdminDashboard {
 
   get cancellationHoursBefore() {
     return this.appSettingsService.cancellationHoursBefore();
+  }
+
+  get bookingAvailabilityMode() {
+    return this.appSettingsService.bookingAvailabilityMode();
+  }
+
+  get bookingDateRangeStart() {
+    return this.appSettingsService.bookingDateRangeStart();
+  }
+
+  get bookingDateRangeEnd() {
+    return this.appSettingsService.bookingDateRangeEnd();
   }
 
   get settingsLoading() {
@@ -218,5 +233,38 @@ export class AdminDashboard {
       // Restaurar valor anterior
       this.tempCancellationHours.set(this.cancellationHoursBefore);
     }
+  }
+
+  /**
+   * 📅 Abrir dialog de configuración de disponibilidad
+   */
+  openAvailabilityDialog() {
+    const dialog = this.availabilityDialog();
+    if (dialog) {
+      dialog.visible.set(true);
+    }
+  }
+
+  /**
+   * 📅 Obtener descripción del modo de disponibilidad actual
+   */
+  getAvailabilityModeDescription(): string {
+    const mode = this.bookingAvailabilityMode;
+
+    if (mode === 'available_now') {
+      return 'Disponible desde hoy sin límite';
+    } else if (mode === 'date_range') {
+      const start = this.bookingDateRangeStart;
+      const end = this.bookingDateRangeEnd;
+
+      if (start && end) {
+        const startDate = new Date(start);
+        const endDate = new Date(end);
+        return `${startDate.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' })} - ${endDate.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' })}`;
+      }
+      return 'Rango no configurado';
+    }
+
+    return 'No configurado';
   }
 }
