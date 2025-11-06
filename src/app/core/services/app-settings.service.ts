@@ -144,11 +144,13 @@ export class AppSettingsService {
 
   /**
    * ✏️ Actualizar una configuración (solo para administradores)
+   * @param skipRefresh Si es true, no refresca automáticamente (útil para updates por lotes)
    */
   async updateSetting(
     key: string,
     value: string,
-    description: string
+    description: string,
+    skipRefresh: boolean = false
   ): Promise<{ success: boolean; error?: string }> {
     try {
       this._isLoading.set(true);
@@ -187,10 +189,14 @@ export class AppSettingsService {
         throw result.error;
       }
 
-      // 🔄 Actualizar cache y signals
+      // 🔄 Actualizar cache
       this.setCachedValue(key, value);
-      await this.refreshCriticalSettings();
-      this._lastUpdated.set(new Date());
+
+      // Solo refrescar si no se solicita skip
+      if (!skipRefresh) {
+        await this.refreshCriticalSettings();
+        this._lastUpdated.set(new Date());
+      }
 
       console.log(`✅ Configuración '${key}' actualizada exitosamente`);
       return { success: true };
@@ -320,6 +326,7 @@ export class AppSettingsService {
 
   /**
    * 📅 Actualizar configuración de disponibilidad de fechas para reservas
+   * 🚀 OPTIMIZADO: Actualiza todas las configuraciones y refresca solo UNA VEZ al final
    */
   async updateBookingAvailability(
     mode: 'available_now' | 'date_range',
@@ -352,23 +359,28 @@ export class AppSettingsService {
     try {
       this._isLoading.set(true);
 
-      // Actualizar el modo
+      // 🚀 OPTIMIZACIÓN: Actualizar todas las configuraciones con skipRefresh=true
+      // para evitar múltiples refrescos, y refrescar solo UNA VEZ al final
+
+      // 1. Actualizar el modo (sin refrescar)
       const modeResult = await this.updateSetting(
         'booking_availability_mode',
         mode,
-        `Modo de disponibilidad de reservas configurado como ${mode === 'available_now' ? 'disponible ahora' : 'rango de fechas'}`
+        `Modo de disponibilidad de reservas configurado como ${mode === 'available_now' ? 'disponible ahora' : 'rango de fechas'}`,
+        true // skipRefresh
       );
 
       if (!modeResult.success) {
         return modeResult;
       }
 
-      // Actualizar fechas
+      // 2. Actualizar fechas (sin refrescar)
       if (mode === 'date_range' && startDate && endDate) {
         const startResult = await this.updateSetting(
           'booking_date_range_start',
           startDate,
-          `Fecha de inicio del rango de disponibilidad: ${startDate}`
+          `Fecha de inicio del rango de disponibilidad: ${startDate}`,
+          true // skipRefresh
         );
 
         if (!startResult.success) {
@@ -378,25 +390,32 @@ export class AppSettingsService {
         const endResult = await this.updateSetting(
           'booking_date_range_end',
           endDate,
-          `Fecha de fin del rango de disponibilidad: ${endDate}`
+          `Fecha de fin del rango de disponibilidad: ${endDate}`,
+          true // skipRefresh
         );
 
         if (!endResult.success) {
           return endResult;
         }
       } else {
-        // Si es modo "available_now", limpiar las fechas
+        // Si es modo "available_now", limpiar las fechas (sin refrescar)
         await this.updateSetting(
           'booking_date_range_start',
           '',
-          'Rango de fechas no aplica en modo disponible ahora'
+          'Rango de fechas no aplica en modo disponible ahora',
+          true // skipRefresh
         );
         await this.updateSetting(
           'booking_date_range_end',
           '',
-          'Rango de fechas no aplica en modo disponible ahora'
+          'Rango de fechas no aplica en modo disponible ahora',
+          true // skipRefresh
         );
       }
+
+      // 🚀 SOLO UN REFRESCO AL FINAL, después de todas las actualizaciones
+      await this.refreshCriticalSettings();
+      this._lastUpdated.set(new Date());
 
       console.log('✅ Configuración de disponibilidad actualizada exitosamente');
       return { success: true };
