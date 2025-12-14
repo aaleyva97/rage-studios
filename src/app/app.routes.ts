@@ -74,6 +74,10 @@ export const routes: Routes = [
         loadComponent: () => import('./features/admin/pages/admin-coaches/admin-coaches').then(m => m.AdminCoaches)
       },
       {
+        path: 'slides',
+        loadComponent: () => import('./features/admin/pages/admin-slides/admin-slides').then(m => m.AdminSlides)
+      },
+      {
         path: 'sessions',
         loadComponent: () => import('./features/admin/pages/admin-sessions/admin-sessions').then(m => m.AdminSessions)
       },

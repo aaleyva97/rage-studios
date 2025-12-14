@@ -1,0 +1,310 @@
+<p-toast />
+<p-confirm-dialog />
+
+<div class="admin-slides-container">
+  <div class="header-section mb-6">
+    <div class="flex justify-between items-center mb-4">
+      <h2 class="text-2xl font-bold">Gestión de Slides</h2>
+      <p-button
+        label="Crear Slide"
+        icon="pi pi-plus"
+        (onClick)="openCreateDialog()"
+        class="p-button-primary">
+      </p-button>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      <p-card class="summary-card">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm font-medium text-gray-600">Total Slides</p>
+            <p class="text-xl font-bold text-blue-600">{{ slides().length }}</p>
+          </div>
+          <i class="pi pi-images text-blue-500 text-2xl"></i>
+        </div>
+      </p-card>
+
+      <p-card class="summary-card">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm font-medium text-gray-600">Activos</p>
+            <p class="text-xl font-bold text-green-600">{{ getActiveSlidesCount() }}</p>
+          </div>
+          <i class="pi pi-check-circle text-green-500 text-2xl"></i>
+        </div>
+      </p-card>
+
+      <p-card class="summary-card">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm font-medium text-gray-600">Inactivos</p>
+            <p class="text-xl font-bold text-red-600">{{ getInactiveSlidesCount() }}</p>
+          </div>
+          <i class="pi pi-times-circle text-red-500 text-2xl"></i>
+        </div>
+      </p-card>
+    </div>
+  </div>
+
+  @if (!isLoading() && slides().length === 0) {
+    <div class="text-center py-12">
+      <i class="pi pi-images text-5xl text-gray-300 mb-4"></i>
+      <p class="text-gray-500 text-lg">No hay slides registrados</p>
+      <p-button
+        label="Crear primer slide"
+        icon="pi pi-plus"
+        (onClick)="openCreateDialog()"
+        class="mt-4">
+      </p-button>
+    </div>
+  } @else {
+
+    <!-- Mobile Card Layout -->
+    <div class="block md:hidden">
+      @if (isLoading()) {
+        @for (item of skeletonData; track $index) {
+          <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4">
+            <div class="flex items-start gap-4 mb-3">
+              <p-skeleton width="5rem" height="3rem" styleClass="rounded" />
+              <div class="flex-1">
+                <p-skeleton width="70%" height="1.25rem" class="mb-2" />
+                <p-skeleton width="40%" height="1rem" />
+              </div>
+              <p-skeleton width="3rem" height="1.5rem" styleClass="rounded" />
+            </div>
+            <div class="flex justify-between items-center">
+              <p-skeleton width="30%" height="1rem" />
+              <div class="flex gap-2">
+                <p-skeleton width="2.5rem" height="2.5rem" styleClass="rounded-full" />
+                <p-skeleton width="2.5rem" height="2.5rem" styleClass="rounded-full" />
+              </div>
+            </div>
+          </div>
+        }
+      } @else {
+        @for (slide of paginatedSlides; track slide.id) {
+          <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4 hover:shadow-md transition-shadow">
+            <!-- Header: Imagen y datos básicos -->
+            <div class="flex items-start gap-4 mb-3">
+              <img
+                [src]="slide.image_url"
+                [alt]="'Slide ' + slide.order_index"
+                class="w-20 h-12 rounded object-cover"
+                onerror="this.src='/assets/images/default-slide.png'">
+              <div class="flex-1">
+                <h3 class="text-lg font-semibold text-gray-900">Slide {{ slide.order_index }}</h3>
+                <p class="text-sm text-gray-600">Orden: {{ slide.order_index }}</p>
+              </div>
+              <p-tag
+                [value]="slide.is_active ? 'Activo' : 'Inactivo'"
+                [severity]="slide.is_active ? 'success' : 'danger'"
+                [rounded]="true">
+              </p-tag>
+            </div>
+
+            <!-- Actions Footer -->
+            <div class="flex justify-between items-center border-t border-gray-100 pt-3">
+              <span class="text-xs text-gray-400">ID: {{ slide.id.substring(0, 8) }}</span>
+              <div class="flex gap-3">
+                <p-button
+                  icon="pi pi-pencil"
+                  severity="info"
+                  [text]="true"
+                  [rounded]="true"
+                  size="small"
+                  (onClick)="openEditDialog(slide)">
+                </p-button>
+                <p-button
+                  icon="pi pi-trash"
+                  severity="danger"
+                  [text]="true"
+                  [rounded]="true"
+                  size="small"
+                  (onClick)="confirmDeleteSlide(slide)">
+                </p-button>
+              </div>
+            </div>
+          </div>
+        }
+      }
+
+      <!-- Mobile Pagination -->
+      @if (!isLoading() && slides().length > 10) {
+        <div class="mt-6">
+          <p-paginator
+            [rows]="mobileRowsPerPage()"
+            [totalRecords]="slides().length"
+            [rowsPerPageOptions]="[10, 20, 30]"
+            [showCurrentPageReport]="true"
+            currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} slides"
+            (onPageChange)="onMobilePageChange($event)">
+          </p-paginator>
+        </div>
+      }
+    </div>
+
+    <!-- Desktop Table Layout -->
+    <div class="hidden md:block">
+      <p-table
+        [value]="isLoading() ? skeletonData : slides()"
+        [rows]="15"
+        [paginator]="true"
+        [tableStyle]="{ 'min-width': '50rem' }"
+        [rowHover]="true"
+        dataKey="id"
+        currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} slides"
+        [showCurrentPageReport]="true"
+        [rowsPerPageOptions]="[15, 25, 50]"
+        class="p-datatable-gridlines">
+
+        <ng-template pTemplate="header">
+          <tr>
+            <th>Imagen</th>
+            <th>Orden</th>
+            <th>Estado</th>
+            <th class="text-center">Acciones</th>
+          </tr>
+        </ng-template>
+
+        <ng-template pTemplate="body" let-slide>
+          @if (isLoading()) {
+            <tr>
+              <td><p-skeleton width="5rem" height="3rem" styleClass="rounded" /></td>
+              <td><p-skeleton width="30%" /></td>
+              <td><p-skeleton width="50%" /></td>
+              <td class="text-center">
+                <div class="flex gap-2 justify-center">
+                  <p-skeleton width="2.5rem" height="2.5rem" styleClass="rounded-full" />
+                  <p-skeleton width="2.5rem" height="2.5rem" styleClass="rounded-full" />
+                </div>
+              </td>
+            </tr>
+          } @else {
+            <tr>
+              <td>
+                <img
+                  [src]="slide.image_url"
+                  [alt]="'Slide ' + slide.order_index"
+                  class="w-20 h-12 rounded object-cover"
+                  onerror="this.src='/assets/images/default-slide.png'">
+              </td>
+              <td>
+                <div class="font-medium text-gray-900">{{ slide.order_index }}</div>
+                <div class="text-xs text-gray-500">ID: {{ slide.id.substring(0, 8) }}</div>
+              </td>
+              <td>
+                <p-tag
+                  [value]="slide.is_active ? 'Activo' : 'Inactivo'"
+                  [severity]="slide.is_active ? 'success' : 'danger'"
+                  [rounded]="true">
+                </p-tag>
+              </td>
+              <td class="text-center">
+                <div class="flex gap-3 justify-center">
+                  <p-button
+                    icon="pi pi-pencil"
+                    severity="info"
+                    [text]="true"
+                    [rounded]="true"
+                    size="small"
+                    (onClick)="openEditDialog(slide)">
+                  </p-button>
+                  <p-button
+                    icon="pi pi-trash"
+                    severity="danger"
+                    [text]="true"
+                    [rounded]="true"
+                    size="small"
+                    (onClick)="confirmDeleteSlide(slide)">
+                  </p-button>
+                </div>
+              </td>
+            </tr>
+          }
+        </ng-template>
+      </p-table>
+    </div>
+  }
+</div>
+
+<!-- Create/Edit Dialog -->
+<p-dialog
+  [header]="isEditing() ? 'Editar Slide' : 'Crear Slide'"
+  [(visible)]="displayDialog"
+  [modal]="true"
+  [style]="{ width: '50vw' }"
+  [breakpoints]="{ '960px': '75vw', '641px': '90vw' }"
+  [draggable]="false"
+  [resizable]="false">
+
+  <div class="grid grid-cols-1 gap-4">
+    <!-- Image Upload -->
+    <div class="field">
+      <label class="font-medium text-gray-700 mb-2 block">Imagen *</label>
+      @if (imagePreview()) {
+        <div class="mb-3">
+          <img
+            [src]="imagePreview()"
+            alt="Preview"
+            class="w-full h-48 rounded object-cover mx-auto border-2 border-gray-200">
+        </div>
+      }
+      <p-fileUpload
+        mode="basic"
+        chooseLabel="Seleccionar imagen"
+        accept="image/*"
+        [maxFileSize]="5000000"
+        (onSelect)="onFileSelect($event); onFieldTouch('image')"
+        [auto]="false"
+        class="w-full"
+        [class.p-invalid]="isFieldInvalid('image')">
+      </p-fileUpload>
+      @if (isFieldInvalid('image')) {
+        <small class="text-red-600 block mt-1">{{ formErrors().image }}</small>
+      }
+      <small class="text-gray-500 block mt-1">Formatos: JPG, PNG. Máximo 5MB. Resolución recomendada: 1920x1080px</small>
+    </div>
+
+    <!-- Order Index -->
+    <div class="field">
+      <label class="font-medium text-gray-700 mb-2 block">Orden</label>
+      <p-inputNumber
+        [(ngModel)]="slideForm().order_index"
+        [min]="1"
+        [max]="100"
+        placeholder="Orden de aparición"
+        class="w-full">
+      </p-inputNumber>
+      <small class="text-gray-500">Determina el orden en que aparece el slide en el carrusel</small>
+    </div>
+
+    <!-- Active Status -->
+    <div class="field">
+      <div class="flex items-center">
+        <p-checkbox
+          [(ngModel)]="slideForm().is_active"
+          binary="true"
+          inputId="is_active">
+        </p-checkbox>
+        <label for="is_active" class="ml-2 font-medium text-gray-700">Slide activo</label>
+      </div>
+      <small class="text-gray-500">Los slides inactivos no se muestran en el carrusel</small>
+    </div>
+  </div>
+
+  <ng-template pTemplate="footer">
+    <div class="flex gap-2 justify-end">
+      <p-button
+        label="Cancelar"
+        severity="secondary"
+        (onClick)="displayDialog.set(false)">
+      </p-button>
+      <p-button
+        [label]="isEditing() ? 'Actualizar' : 'Crear'"
+        [loading]="isUploading()"
+        (onClick)="saveSlide()">
+      </p-button>
+    </div>
+  </ng-template>
+</p-dialog>

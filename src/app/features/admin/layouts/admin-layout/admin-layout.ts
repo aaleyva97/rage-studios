@@ -57,6 +57,11 @@ export class AdminLayout {
       routerLink: '/admin/coaches',
     },
     {
+      label: 'Slides',
+      icon: 'pi pi-images',
+      routerLink: '/admin/slides',
+    },
+    {
       label: 'Horarios',
       icon: 'pi pi-calendar-clock',
       routerLink: '/admin/horarios',
