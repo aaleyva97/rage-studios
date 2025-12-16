@@ -99,6 +99,23 @@ export const routes: Routes = [
         ]
       },
       {
+        path: 'giftcards',
+        children: [
+          {
+            path: '',
+            loadComponent: () => import('./features/admin/pages/admin-giftcards-navigation/admin-giftcards-navigation').then(m => m.AdminGiftcardsNavigation)
+          },
+          {
+            path: 'manage',
+            loadComponent: () => import('./features/admin/pages/admin-giftcards-manage/admin-giftcards-manage').then(m => m.AdminGiftcardsManage)
+          },
+          {
+            path: 'assign',
+            loadComponent: () => import('./features/admin/pages/admin-giftcards-assign/admin-giftcards-assign').then(m => m.AdminGiftcardsAssign)
+          }
+        ]
+      },
+      {
         path: 'horarios',
         loadComponent: () => import('./features/admin/pages/admin-schedule/admin-schedule').then(m => m.AdminSchedule)
       }

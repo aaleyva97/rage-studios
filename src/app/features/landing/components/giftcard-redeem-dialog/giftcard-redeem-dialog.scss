@@ -1,0 +1,20 @@
+// Custom styles for gift card redeem dialog
+::ng-deep .p-dialog {
+  .p-dialog-header {
+    padding: 1.5rem;
+  }
+
+  .p-dialog-content {
+    padding: 1.5rem;
+  }
+
+  .p-dialog-footer {
+    padding: 1.5rem;
+    padding-top: 1rem;
+  }
+}
+
+// Uppercase input styling
+input.uppercase {
+  letter-spacing: 0.05em;
+}
