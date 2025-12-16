@@ -1,0 +1,18 @@
+.admin-giftcards-assign {
+  max-width: 1000px;
+  margin: 0 auto;
+
+  .assignment-card {
+    box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+  }
+
+  input.uppercase {
+    text-transform: uppercase;
+  }
+
+  ::ng-deep .user-autocomplete {
+    .p-autocomplete-input {
+      width: 100%;
+    }
+  }
+}

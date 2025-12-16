@@ -1,0 +1,13 @@
+.admin-giftcards-manage {
+  max-width: 1400px;
+  margin: 0 auto;
+
+  // Override PrimeNG table styles
+  ::ng-deep .p-datatable {
+    .p-datatable-thead > tr > th {
+      background-color: #f9fafb;
+      color: #374151;
+      font-weight: 600;
+    }
+  }
+}

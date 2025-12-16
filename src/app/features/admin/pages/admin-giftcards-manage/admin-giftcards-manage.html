@@ -1,0 +1,368 @@
+<p-toast />
+
+<div class="admin-giftcards-manage p-6">
+  <!-- Header -->
+  <div class="header-section mb-6">
+    <h2 class="text-2xl font-bold text-gray-900 mb-2">Administrar Gift Cards</h2>
+    <p class="text-gray-600">Crea nuevas gift cards y administra las existentes</p>
+  </div>
+
+  <!-- Creation Form Card -->
+  <p-card class="mb-6">
+    <ng-template pTemplate="header">
+      <div class="flex items-center gap-2 p-4 pb-0">
+        <i class="pi pi-plus-circle text-purple-500 text-xl"></i>
+        <h3 class="text-lg font-semibold">Crear Gift Cards</h3>
+      </div>
+    </ng-template>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <!-- Package Select -->
+      <div class="field">
+        <label for="package" class="block text-sm font-medium text-gray-700 mb-2">
+          Paquete
+        </label>
+        <p-select
+          id="package"
+          [ngModel]="createForm().selectedPackage"
+          [options]="availablePackages()"
+          (onSelectionChange)="onPackageSelect($event)"
+          optionLabel="title"
+          placeholder="Selecciona un paquete"
+          class="w-full"
+          [loading]="isLoadingPackages()"
+          [disabled]="isLoadingPackages() || isCreating()">
+
+          <ng-template let-pkg pTemplate="item">
+            <div class="flex justify-between p-2 w-full">
+              <div class="flex-1">
+                <div class="font-medium text-gray-900">{{ pkg.title }}</div>
+                <div class="text-sm text-gray-600">
+                  @if (pkg.is_unlimited) {
+                    <span class="text-purple-600 font-medium">ILIMITADO</span>
+                    <span class="mx-1">•</span>
+                    <span>{{ pkg.validity_days }} días</span>
+                  } @else {
+                    <span>{{ pkg.credits_count }} créditos</span>
+                    <span class="mx-1">•</span>
+                    <span>{{ pkg.validity_days }} días</span>
+                  }
+                </div>
+              </div>
+              <div class="text-right">
+                <div class="font-bold text-green-600">${{ pkg.price }}</div>
+              </div>
+            </div>
+          </ng-template>
+        </p-select>
+        <small class="text-gray-500 block mt-1">
+          El paquete que otorgará la gift card
+        </small>
+      </div>
+
+      <!-- Quantity Input -->
+      <div class="field">
+        <label for="quantity" class="block text-sm font-medium text-gray-700 mb-2">
+          Cantidad
+        </label>
+        <p-inputNumber
+          id="quantity"
+          [ngModel]="createForm().quantity"
+          (ngModelChange)="onQuantityChange($event)"
+          [min]="1"
+          [max]="100"
+          [showButtons]="true"
+          [step]="1"
+          buttonLayout="horizontal"
+          incrementButtonIcon="pi pi-plus"
+          decrementButtonIcon="pi pi-minus"
+          placeholder="Cantidad"
+          [disabled]="isCreating()"
+          styleClass="w-full"
+          inputStyleClass="w-full">
+        </p-inputNumber>
+        <small class="text-gray-500 block mt-1">
+          Número de gift cards a generar (máx. 100)
+        </small>
+      </div>
+
+      <!-- Create Button -->
+      <div class="field flex items-end">
+        <p-button
+          label="Generar Gift Cards"
+          icon="pi pi-gift"
+          [loading]="isCreating()"
+          [disabled]="!createForm().selectedPackage || isCreating()"
+          (onClick)="createGiftCards()"
+          styleClass="w-full">
+        </p-button>
+      </div>
+    </div>
+  </p-card>
+
+  <!-- Filters Card -->
+  <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200 mb-6">
+    <h3 class="text-lg font-semibold mb-4">Filtros</h3>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <!-- Status Filter -->
+      <div class="field">
+        <label for="status" class="block text-sm font-medium text-gray-700 mb-2">
+          Estado
+        </label>
+        <p-select
+          id="status"
+          [(ngModel)]="selectedStatus"
+          [options]="statusOptions"
+          (ngModelChange)="onStatusFilterChange()"
+          placeholder="Selecciona estado"
+          styleClass="w-full">
+        </p-select>
+      </div>
+
+      <!-- Package Filter -->
+      <div class="field">
+        <label for="packageFilter" class="block text-sm font-medium text-gray-700 mb-2">
+          Paquete
+        </label>
+        <p-select
+          id="packageFilter"
+          [(ngModel)]="selectedPackageFilter"
+          [options]="packageFilterOptions"
+          (ngModelChange)="onPackageFilterChange()"
+          placeholder="Selecciona paquete"
+          styleClass="w-full">
+        </p-select>
+      </div>
+
+      <!-- Code Search -->
+      <div class="field">
+        <label for="searchCode" class="block text-sm font-medium text-gray-700 mb-2">
+          Buscar por código
+        </label>
+        <p-iconfield>
+          <p-inputIcon class="pi pi-search" />
+          <input
+            id="searchCode"
+            type="text"
+            pInputText
+            [(ngModel)]="searchCode"
+            (ngModelChange)="onSearchChange()"
+            placeholder="Buscar código..."
+            class="w-full" />
+        </p-iconfield>
+      </div>
+    </div>
+
+    <!-- Clear Filters Button -->
+    <div class="flex justify-end mt-4">
+      <p-button
+        label="Limpiar filtros"
+        icon="pi pi-filter-slash"
+        severity="secondary"
+        [outlined]="true"
+        size="small"
+        (onClick)="clearFilters()">
+      </p-button>
+    </div>
+  </div>
+
+  <!-- Bulk Actions (Desktop Only) -->
+  @if (selectedGiftCards().length > 0) {
+    <div class="hidden md:flex items-center justify-between bg-purple-50 border border-purple-200 rounded-lg p-4 mb-4">
+      <div class="flex items-center gap-2">
+        <i class="pi pi-check-circle text-purple-600 text-xl"></i>
+        <span class="font-medium text-purple-900">
+          {{ selectedGiftCards().length }} gift card{{ selectedGiftCards().length > 1 ? 's' : '' }} seleccionada{{ selectedGiftCards().length > 1 ? 's' : '' }}
+        </span>
+      </div>
+      <p-button
+        label="Marcar como Impresas"
+        icon="pi pi-check"
+        severity="success"
+        [loading]="isUpdatingStatus()"
+        (onClick)="markAsPrinted()">
+      </p-button>
+    </div>
+  }
+
+  <!-- Empty State -->
+  @if (!isLoadingGiftCards() && filteredGiftCards.length === 0) {
+    <div class="text-center py-12">
+      <i class="pi pi-gift text-5xl text-gray-300 mb-4"></i>
+      <p class="text-gray-500 text-lg">No hay gift cards para mostrar</p>
+      <p class="text-gray-400 text-sm mt-2">Crea tu primera gift card usando el formulario de arriba</p>
+    </div>
+  } @else {
+    <!-- MOBILE: Card Layout -->
+    <div class="block md:hidden">
+      @if (isLoadingGiftCards()) {
+        @for (item of skeletonData; track $index) {
+          <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4">
+            <p-skeleton width="60%" height="1.25rem" class="mb-2" />
+            <p-skeleton width="40%" height="1rem" class="mb-3" />
+            <div class="grid grid-cols-2 gap-3">
+              <p-skeleton width="100%" height="1rem" />
+              <p-skeleton width="100%" height="1rem" />
+            </div>
+          </div>
+        }
+      } @else {
+        @for (giftCard of paginatedGiftCards; track giftCard.id) {
+          <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4 hover:shadow-md transition-shadow">
+            <!-- Header: Code and Status -->
+            <div class="flex justify-between items-start mb-3">
+              <div class="flex-1">
+                <div class="flex items-center gap-2">
+                  <h3 class="text-lg font-bold text-gray-900 font-mono">{{ giftCard.code }}</h3>
+                  <button
+                    type="button"
+                    class="text-blue-600 hover:text-blue-700"
+                    (click)="copyToClipboard(giftCard.code)">
+                    <i class="pi pi-copy text-sm"></i>
+                  </button>
+                </div>
+                <p class="text-sm text-gray-600">{{ giftCard.package?.title }}</p>
+              </div>
+              <p-tag
+                [value]="getStatusLabel(giftCard.status)"
+                [severity]="getStatusSeverity(giftCard.status)"
+                [rounded]="true" />
+            </div>
+
+            <!-- Details Grid -->
+            <div class="grid grid-cols-2 gap-3 mb-3">
+              @if (giftCard.assigned_user) {
+                <div>
+                  <span class="text-xs text-gray-500 uppercase tracking-wider">Asignado a</span>
+                  <p class="text-sm font-medium text-gray-900">{{ giftCard.assigned_user.full_name }}</p>
+                </div>
+              }
+              <div>
+                <span class="text-xs text-gray-500 uppercase tracking-wider">Fecha creación</span>
+                <p class="text-sm font-medium text-gray-900">{{ giftCard.created_at | date: 'short' }}</p>
+              </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="border-t border-gray-100 pt-3">
+              <span class="text-xs text-gray-400">ID: {{ giftCard.id.substring(0, 8) }}...</span>
+            </div>
+          </div>
+        }
+      }
+
+      <!-- Mobile Pagination -->
+      @if (!isLoadingGiftCards() && filteredGiftCards.length > 10) {
+        <div class="mt-6">
+          <p-paginator
+            [rows]="mobileRowsPerPage()"
+            [totalRecords]="filteredGiftCards.length"
+            [rowsPerPageOptions]="[10, 20, 30]"
+            [showCurrentPageReport]="true"
+            currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords}"
+            (onPageChange)="onMobilePageChange($event)">
+          </p-paginator>
+        </div>
+      }
+    </div>
+
+    <!-- DESKTOP: Table Layout -->
+    <div class="hidden md:block">
+      <p-table
+        [value]="isLoadingGiftCards() ? skeletonData : filteredGiftCards"
+        [(selection)]="selectedGiftCards"
+        [rows]="15"
+        [paginator]="true"
+        [tableStyle]="{ 'min-width': '60rem' }"
+        [rowHover]="true"
+        dataKey="id"
+        currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords}"
+        [showCurrentPageReport]="true"
+        [rowsPerPageOptions]="[15, 25, 50]"
+        class="p-datatable-gridlines">
+
+        <ng-template pTemplate="header">
+          <tr>
+            <th style="width: 3rem">
+              <p-tableHeaderCheckbox />
+            </th>
+            <th pSortableColumn="code">
+              Código
+              <p-sortIcon field="code" />
+            </th>
+            <th pSortableColumn="package.title">
+              Paquete
+              <p-sortIcon field="package.title" />
+            </th>
+            <th pSortableColumn="status">
+              Estado
+              <p-sortIcon field="status" />
+            </th>
+            <th>Asignado a</th>
+            <th pSortableColumn="created_at">
+              Fecha Creación
+              <p-sortIcon field="created_at" />
+            </th>
+            <th>Acciones</th>
+          </tr>
+        </ng-template>
+
+        <ng-template pTemplate="body" let-giftCard>
+          @if (isLoadingGiftCards()) {
+            <tr>
+              <td><p-skeleton /></td>
+              <td><p-skeleton width="80%" /></td>
+              <td><p-skeleton width="60%" /></td>
+              <td><p-skeleton width="70%" /></td>
+              <td><p-skeleton width="70%" /></td>
+              <td><p-skeleton width="60%" /></td>
+              <td><p-skeleton width="50%" /></td>
+            </tr>
+          } @else {
+            <tr>
+              <td>
+                <p-tableCheckbox [value]="giftCard" />
+              </td>
+              <td>
+                <div class="flex items-center gap-2">
+                  <span class="font-mono font-semibold">{{ giftCard.code }}</span>
+                  <button
+                    type="button"
+                    class="text-blue-600 hover:text-blue-700"
+                    (click)="copyToClipboard(giftCard.code)"
+                    pTooltip="Copiar código"
+                    tooltipPosition="top">
+                    <i class="pi pi-copy text-sm"></i>
+                  </button>
+                </div>
+              </td>
+              <td>{{ giftCard.package?.title }}</td>
+              <td>
+                <p-tag
+                  [value]="getStatusLabel(giftCard.status)"
+                  [severity]="getStatusSeverity(giftCard.status)"
+                  [rounded]="true" />
+              </td>
+              <td>
+                @if (giftCard.assigned_user) {
+                  <div>
+                    <div class="font-medium">{{ giftCard.assigned_user.full_name }}</div>
+                    @if (giftCard.assigned_user.phone) {
+                      <div class="text-sm text-gray-500">{{ giftCard.assigned_user.phone }}</div>
+                    }
+                  </div>
+                } @else {
+                  <span class="text-gray-400">-</span>
+                }
+              </td>
+              <td>{{ giftCard.created_at | date: 'short' }}</td>
+              <td>
+                <span class="text-xs text-gray-500">{{ giftCard.id.substring(0, 8) }}...</span>
+              </td>
+            </tr>
+          }
+        </ng-template>
+      </p-table>
+    </div>
+  }
+</div>

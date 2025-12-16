@@ -1,0 +1,17 @@
+.admin-giftcards-navigation {
+  max-width: 1200px;
+  margin: 0 auto;
+
+  .navigation-card {
+    transition: all 0.3s ease;
+
+    &:hover {
+      transform: translateY(-4px);
+    }
+  }
+
+  code {
+    font-family: 'Courier New', monospace;
+    font-size: 0.9em;
+  }
+}
