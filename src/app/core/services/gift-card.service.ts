@@ -70,13 +70,14 @@ export class GiftCardService {
    * Verify code uniqueness in database
    */
   private async isCodeUnique(code: string): Promise<boolean> {
-    const { data, error } = await this.supabaseService.client
+    const { data } = await this.supabaseService.client
       .from('gift_cards')
       .select('id')
       .eq('code', code)
-      .single();
+      .maybeSingle();
 
-    return error?.code === 'PGRST116'; // Not found = unique
+    // If no data found, code is unique
+    return !data;
   }
 
   /**

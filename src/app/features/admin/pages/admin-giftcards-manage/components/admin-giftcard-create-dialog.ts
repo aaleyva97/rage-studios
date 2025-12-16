@@ -54,6 +54,7 @@ interface CreateForm {
             Paquete <span class="text-red-500">*</span>
           </label>
           <p-select
+            appendTo="body"
             id="package"
             [ngModel]="createForm().selectedPackage"
             (ngModelChange)="onPackageChange($event)"
