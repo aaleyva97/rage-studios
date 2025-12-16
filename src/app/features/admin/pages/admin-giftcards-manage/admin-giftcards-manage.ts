@@ -4,7 +4,6 @@ import { DatePipe } from '@angular/common';
 import { CardModule } from 'primeng/card';
 import { ButtonModule } from 'primeng/button';
 import { SelectModule } from 'primeng/select';
-import { InputNumberModule } from 'primeng/inputnumber';
 import { TableModule } from 'primeng/table';
 import { TagModule } from 'primeng/tag';
 import { ToastModule } from 'primeng/toast';
@@ -16,11 +15,7 @@ import { InputTextModule } from 'primeng/inputtext';
 import { MessageService } from 'primeng/api';
 import { GiftCardService, GiftCard } from '../../../../core/services/gift-card.service';
 import { PackagesService, Package } from '../../../landing/services/packages.service';
-
-interface CreateForm {
-  selectedPackage: Package | null;
-  quantity: number;
-}
+import { AdminGiftcardCreateDialog } from './components/admin-giftcard-create-dialog';
 
 @Component({
   selector: 'app-admin-giftcards-manage',
@@ -30,7 +25,6 @@ interface CreateForm {
     CardModule,
     ButtonModule,
     SelectModule,
-    InputNumberModule,
     TableModule,
     TagModule,
     ToastModule,
@@ -38,7 +32,8 @@ interface CreateForm {
     PaginatorModule,
     IconFieldModule,
     InputIconModule,
-    InputTextModule
+    InputTextModule,
+    AdminGiftcardCreateDialog
   ],
   providers: [MessageService],
   templateUrl: './admin-giftcards-manage.html',
@@ -49,11 +44,8 @@ export class AdminGiftcardsManage implements OnInit {
   private packagesService = inject(PackagesService);
   private messageService = inject(MessageService);
 
-  // Create form
-  createForm = signal<CreateForm>({
-    selectedPackage: null,
-    quantity: 1
-  });
+  // Dialog visibility
+  showCreateDialog = signal(false);
 
   // Data
   giftCards = signal<GiftCard[]>([]);
@@ -68,7 +60,6 @@ export class AdminGiftcardsManage implements OnInit {
   // Loading states
   isLoadingPackages = signal(false);
   isLoadingGiftCards = signal(true);
-  isCreating = signal(false);
   isUpdatingStatus = signal(false);
 
   // Skeleton data
@@ -92,23 +83,6 @@ export class AdminGiftcardsManage implements OnInit {
       this.loadPackages(),
       this.loadGiftCards()
     ]);
-  }
-
-  async loadPackages() {
-    this.isLoadingPackages.set(true);
-    try {
-      const packages = await this.packagesService.getActivePackages();
-      this.availablePackages.set(packages);
-    } catch (error) {
-      console.error('Error loading packages:', error);
-      this.messageService.add({
-        severity: 'error',
-        summary: 'Error',
-        detail: 'Error al cargar los paquetes'
-      });
-    } finally {
-      this.isLoadingPackages.set(false);
-    }
   }
 
   async loadGiftCards() {
@@ -137,63 +111,13 @@ export class AdminGiftcardsManage implements OnInit {
     }
   }
 
-  async createGiftCards() {
-    const form = this.createForm();
+  openCreateDialog() {
+    this.showCreateDialog.set(true);
+  }
 
-    if (!form.selectedPackage) {
-      this.messageService.add({
-        severity: 'warn',
-        summary: 'Atención',
-        detail: 'Selecciona un paquete'
-      });
-      return;
-    }
-
-    if (form.quantity < 1 || form.quantity > 100) {
-      this.messageService.add({
-        severity: 'warn',
-        summary: 'Atención',
-        detail: 'La cantidad debe estar entre 1 y 100'
-      });
-      return;
-    }
-
-    this.isCreating.set(true);
-
-    try {
-      const result = await this.giftCardService.createGiftCards({
-        packageId: form.selectedPackage.id,
-        quantity: form.quantity
-      });
-
-      if (result.success) {
-        this.messageService.add({
-          severity: 'success',
-          summary: 'Éxito',
-          detail: `${form.quantity} gift card${form.quantity > 1 ? 's' : ''} creada${form.quantity > 1 ? 's' : ''} correctamente`
-        });
-
-        // Reset form
-        this.createForm.set({
-          selectedPackage: null,
-          quantity: 1
-        });
-
-        // Reload gift cards
-        await this.loadGiftCards();
-      } else {
-        throw new Error(result.error || 'Error al crear gift cards');
-      }
-    } catch (error: any) {
-      console.error('Error creating gift cards:', error);
-      this.messageService.add({
-        severity: 'error',
-        summary: 'Error',
-        detail: error.message || 'Error al crear gift cards'
-      });
-    } finally {
-      this.isCreating.set(false);
-    }
+  onCreateSuccess() {
+    // Reload gift cards when dialog succeeds
+    this.loadGiftCards();
   }
 
   async markAsPrinted() {
@@ -283,13 +207,6 @@ export class AdminGiftcardsManage implements OnInit {
     return labelMap[status] || status;
   }
 
-  getPackageDisplayText(pkg: Package): string {
-    if (pkg.is_unlimited) {
-      return `${pkg.title} - ILIMITADO (${pkg.validity_days} días) - $${pkg.price}`;
-    }
-    return `${pkg.title} - ${pkg.credits_count} créditos (${pkg.validity_days} días) - $${pkg.price}`;
-  }
-
   copyToClipboard(code: string) {
     navigator.clipboard.writeText(code).then(() => {
       this.messageService.add({
@@ -298,31 +215,6 @@ export class AdminGiftcardsManage implements OnInit {
         detail: 'Código copiado al portapapeles',
         life: 2000
       });
-    });
-  }
-
-  get packageFilterOptions() {
-    const packages = this.availablePackages().map(pkg => ({
-      label: pkg.title,
-      value: pkg.id
-    }));
-    return [{ label: 'Todos', value: 'all' }, ...packages];
-  }
-
-  onPackageSelect(event: any) {
-    const selectedPackage = event.value as Package;
-    const form = this.createForm();
-    this.createForm.set({
-      ...form,
-      selectedPackage
-    });
-  }
-
-  onQuantityChange(value: number) {
-    const form = this.createForm();
-    this.createForm.set({
-      ...form,
-      quantity: value
     });
   }
 
@@ -337,5 +229,30 @@ export class AdminGiftcardsManage implements OnInit {
   onSearchChange() {
     // Debounce opcional, por ahora búsqueda directa
     this.loadGiftCards();
+  }
+
+  async loadPackages() {
+    this.isLoadingPackages.set(true);
+    try {
+      const packages = await this.packagesService.getActivePackages();
+      this.availablePackages.set(packages);
+    } catch (error) {
+      console.error('Error loading packages:', error);
+      this.messageService.add({
+        severity: 'error',
+        summary: 'Error',
+        detail: 'Error al cargar los paquetes'
+      });
+    } finally {
+      this.isLoadingPackages.set(false);
+    }
+  }
+
+  get packageFilterOptions() {
+    const packages = this.availablePackages().map(pkg => ({
+      label: pkg.title,
+      value: pkg.id
+    }));
+    return [{ label: 'Todos', value: 'all' }, ...packages];
   }
 }

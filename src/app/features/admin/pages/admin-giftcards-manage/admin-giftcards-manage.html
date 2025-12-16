@@ -1,104 +1,19 @@
 <p-toast />
 
 <div class="admin-giftcards-manage p-6">
-  <!-- Header -->
-  <div class="header-section mb-6">
-    <h2 class="text-2xl font-bold text-gray-900 mb-2">Administrar Gift Cards</h2>
-    <p class="text-gray-600">Crea nuevas gift cards y administra las existentes</p>
-  </div>
-
-  <!-- Creation Form Card -->
-  <p-card class="mb-6">
-    <ng-template pTemplate="header">
-      <div class="flex items-center gap-2 p-4 pb-0">
-        <i class="pi pi-plus-circle text-purple-500 text-xl"></i>
-        <h3 class="text-lg font-semibold">Crear Gift Cards</h3>
-      </div>
-    </ng-template>
-
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-      <!-- Package Select -->
-      <div class="field">
-        <label for="package" class="block text-sm font-medium text-gray-700 mb-2">
-          Paquete
-        </label>
-        <p-select
-          id="package"
-          [ngModel]="createForm().selectedPackage"
-          [options]="availablePackages()"
-          (onSelectionChange)="onPackageSelect($event)"
-          optionLabel="title"
-          placeholder="Selecciona un paquete"
-          class="w-full"
-          [loading]="isLoadingPackages()"
-          [disabled]="isLoadingPackages() || isCreating()">
-
-          <ng-template let-pkg pTemplate="item">
-            <div class="flex justify-between p-2 w-full">
-              <div class="flex-1">
-                <div class="font-medium text-gray-900">{{ pkg.title }}</div>
-                <div class="text-sm text-gray-600">
-                  @if (pkg.is_unlimited) {
-                    <span class="text-purple-600 font-medium">ILIMITADO</span>
-                    <span class="mx-1">•</span>
-                    <span>{{ pkg.validity_days }} días</span>
-                  } @else {
-                    <span>{{ pkg.credits_count }} créditos</span>
-                    <span class="mx-1">•</span>
-                    <span>{{ pkg.validity_days }} días</span>
-                  }
-                </div>
-              </div>
-              <div class="text-right">
-                <div class="font-bold text-green-600">${{ pkg.price }}</div>
-              </div>
-            </div>
-          </ng-template>
-        </p-select>
-        <small class="text-gray-500 block mt-1">
-          El paquete que otorgará la gift card
-        </small>
-      </div>
-
-      <!-- Quantity Input -->
-      <div class="field">
-        <label for="quantity" class="block text-sm font-medium text-gray-700 mb-2">
-          Cantidad
-        </label>
-        <p-inputNumber
-          id="quantity"
-          [ngModel]="createForm().quantity"
-          (ngModelChange)="onQuantityChange($event)"
-          [min]="1"
-          [max]="100"
-          [showButtons]="true"
-          [step]="1"
-          buttonLayout="horizontal"
-          incrementButtonIcon="pi pi-plus"
-          decrementButtonIcon="pi pi-minus"
-          placeholder="Cantidad"
-          [disabled]="isCreating()"
-          styleClass="w-full"
-          inputStyleClass="w-full">
-        </p-inputNumber>
-        <small class="text-gray-500 block mt-1">
-          Número de gift cards a generar (máx. 100)
-        </small>
-      </div>
-
-      <!-- Create Button -->
-      <div class="field flex items-end">
-        <p-button
-          label="Generar Gift Cards"
-          icon="pi pi-gift"
-          [loading]="isCreating()"
-          [disabled]="!createForm().selectedPackage || isCreating()"
-          (onClick)="createGiftCards()"
-          styleClass="w-full">
-        </p-button>
-      </div>
+  <!-- Header with Create Button -->
+  <div class="header-section mb-6 flex items-center justify-between">
+    <div>
+      <h2 class="text-2xl font-bold text-gray-900 mb-2">Administrar Gift Cards</h2>
+      <p class="text-gray-600">Crea nuevas gift cards y administra las existentes</p>
     </div>
-  </p-card>
+    <p-button
+      label="Crear Gift Cards"
+      icon="pi pi-plus"
+      (onClick)="openCreateDialog()"
+      size="large">
+    </p-button>
+  </div>
 
   <!-- Filters Card -->
   <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200 mb-6">
@@ -366,3 +281,9 @@
     </div>
   }
 </div>
+
+<!-- Create Dialog -->
+<app-admin-giftcard-create-dialog
+  [(visible)]="showCreateDialog"
+  (success)="onCreateSuccess()" />
+
