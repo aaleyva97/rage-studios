@@ -1,4 +1,4 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit, signal } from '@angular/core';
 import { Meta, Title } from '@angular/platform-browser';
 import { HeroSlider } from '../../components/hero-slider/hero-slider';
 import { SessionsGrid } from '../../components/sessions-grid/sessions-grid';
@@ -8,7 +8,10 @@ import { BrandBanner } from '../../components/brand-banner/brand-banner';
 import { SecondaryNav } from '../../components/secondary-nav/secondary-nav';
 import { Footer } from '../../../../shared/components/footer/footer';
 import { BookingDialog } from '../../../booking/components/booking-dialog/booking-dialog';
+import { GiftcardRedeemDialog } from '../../components/giftcard-redeem-dialog/giftcard-redeem-dialog';
 import { BookingUiService } from '../../../../core/services/booking-ui.service';
+import { SupabaseService } from '../../../../core/services/supabase-service';
+import { ButtonModule } from 'primeng/button';
 
 @Component({
   selector: 'app-landing',
@@ -22,19 +25,31 @@ import { BookingUiService } from '../../../../core/services/booking-ui.service';
     SecondaryNav,
     Footer,
     BookingDialog,
+    GiftcardRedeemDialog,
+    ButtonModule
   ],
   templateUrl: './landing.html',
   styleUrl: './landing.scss',
 })
 export class Landing implements OnInit {
   private bookingUiService = inject(BookingUiService);
+  private supabaseService = inject(SupabaseService);
   private title = inject(Title);
   private meta = inject(Meta);
-  
+
   showBookingDialog = this.bookingUiService.showBookingDialog;
+  showGiftCardDialog = signal(false);
 
   ngOnInit(): void {
     this.setupSeoAndOpenGraph();
+  }
+
+  isLoggedIn(): boolean {
+    return this.supabaseService.isLoggedIn();
+  }
+
+  openGiftCardDialog(): void {
+    this.showGiftCardDialog.set(true);
   }
 
   private setupSeoAndOpenGraph(): void {

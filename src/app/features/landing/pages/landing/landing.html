@@ -2,6 +2,20 @@
 <section id="packages">
   <app-packages-carousel />
 </section>
+
+<!-- Gift Card Button -->
+@if (isLoggedIn()) {
+  <div class="py-8 bg-white text-center">
+    <p-button
+      label="¿Tienes una Gift Card?"
+      icon="pi pi-gift"
+      severity="secondary"
+      [outlined]="true"
+      size="large"
+      (onClick)="openGiftCardDialog()" />
+  </div>
+}
+
 <section id="sessions">
   <app-sessions-grid />
 </section>
@@ -13,3 +27,4 @@
 <app-footer/>
 
 <app-booking-dialog [(visible)]="showBookingDialog" />
+<app-giftcard-redeem-dialog [(visible)]="showGiftCardDialog" />
