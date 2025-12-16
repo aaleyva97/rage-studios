@@ -1,0 +1,87 @@
+<p-toast />
+
+<p-dialog
+  [(visible)]="visible"
+  [modal]="true"
+  [draggable]="false"
+  [resizable]="false"
+  [closable]="true"
+  [closeOnEscape]="!isLoading()"
+  styleClass="w-full max-w-md mx-4">
+
+  <ng-template pTemplate="header">
+    <div class="flex items-center gap-3">
+      <i class="pi pi-gift text-purple-500 text-2xl"></i>
+      <div>
+        <h2 class="text-xl font-bold text-gray-900">Canjear Gift Card</h2>
+        <p class="text-sm text-gray-600">Ingresa tu código para obtener tus créditos</p>
+      </div>
+    </div>
+  </ng-template>
+
+  <form [formGroup]="giftCardForm" (ngSubmit)="onRedeem()" class="space-y-6">
+    <!-- Gift Card Code Input -->
+    <div class="field">
+      <label for="giftCardCode" class="block text-sm font-medium text-gray-700 mb-2">
+        Código de Gift Card
+      </label>
+
+      <input
+        id="giftCardCode"
+        type="text"
+        pInputText
+        formControlName="code"
+        (input)="onCodeInput($event)"
+        placeholder="Ejemplo: 4CLASES-X5F6G8"
+        class="w-full uppercase font-mono text-lg"
+        [disabled]="isLoading()"
+        maxlength="50"
+        autocomplete="off" />
+
+      @if (giftCardForm.get('code')?.invalid && giftCardForm.get('code')?.touched) {
+        <small class="text-red-500 block mt-2">
+          @if (giftCardForm.get('code')?.errors?.['required']) {
+            El código es requerido
+          } @else if (giftCardForm.get('code')?.errors?.['minlength']) {
+            El código debe tener al menos 8 caracteres
+          }
+        </small>
+      }
+    </div>
+
+    <!-- Info Card -->
+    <div class="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+      <div class="flex items-start gap-3">
+        <i class="pi pi-info-circle text-blue-600 text-lg mt-0.5"></i>
+        <div class="text-sm text-blue-900 space-y-1">
+          <p class="font-semibold">¿Cómo funciona?</p>
+          <ul class="list-disc list-inside space-y-1 text-blue-800">
+            <li>Ingresa el código que recibiste en tu gift card</li>
+            <li>Los créditos se agregarán inmediatamente a tu cuenta</li>
+            <li>Podrás usarlos para reservar tus clases</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </form>
+
+  <ng-template pTemplate="footer">
+    <div class="flex gap-3 justify-end">
+      <p-button
+        label="Cancelar"
+        severity="secondary"
+        [outlined]="true"
+        (onClick)="onCancel()"
+        [disabled]="isLoading()">
+      </p-button>
+
+      <p-button
+        label="Canjear"
+        icon="pi pi-check"
+        [loading]="isLoading()"
+        [disabled]="giftCardForm.invalid"
+        (onClick)="onRedeem()">
+      </p-button>
+    </div>
+  </ng-template>
+</p-dialog>

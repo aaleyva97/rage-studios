@@ -47,6 +47,11 @@ export class AdminLayout {
       routerLink: '/admin/credits',
     },
     {
+      label: 'Gift Cards',
+      icon: 'pi pi-gift',
+      routerLink: '/admin/giftcards'
+    },
+    {
       label: 'Sesiones',
       icon: 'pi pi-clock',
       routerLink: '/admin/sessions',

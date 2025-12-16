@@ -148,7 +148,8 @@ export class PaymentService {
   }
 
   // Asignar créditos al usuario
-  private async assignCreditsToUser(
+  // Método público para permitir que GiftCardService lo use
+  async assignCreditsToUser(
     purchaseId: string,
     packageData: Package,
     userId: string

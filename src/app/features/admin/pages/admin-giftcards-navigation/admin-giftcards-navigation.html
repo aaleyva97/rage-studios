@@ -1,0 +1,81 @@
+<div class="admin-giftcards-navigation p-6">
+  <!-- Header Section -->
+  <div class="header-section mb-6">
+    <h2 class="text-2xl font-bold text-gray-900 mb-2">Gestión de Gift Cards</h2>
+    <p class="text-gray-600">Selecciona una opción para administrar gift cards o asignarlas a usuarios</p>
+  </div>
+
+  <!-- Navigation Cards Grid -->
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <!-- Card: Administrar Gift Cards -->
+    <p-card class="navigation-card cursor-pointer hover:shadow-lg transition-shadow"
+            (click)="navigateTo('/admin/giftcards/manage')">
+      <div class="text-center p-6">
+        <!-- Icon -->
+        <div class="w-20 h-20 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
+          <i class="pi pi-gift text-purple-600 text-4xl"></i>
+        </div>
+
+        <h3 class="text-xl font-bold text-gray-900 mb-3">Administrar Gift Cards</h3>
+        <p class="text-gray-600 mb-4">
+          Crea nuevas gift cards, visualiza el estado de las existentes y administra su ciclo de vida
+        </p>
+
+        <!-- Call to action -->
+        <div class="flex items-center justify-center gap-2 text-sm text-purple-600 font-medium">
+          <span>Ir a administración</span>
+          <i class="pi pi-arrow-right"></i>
+        </div>
+      </div>
+    </p-card>
+
+    <!-- Card: Asignar Gift Card -->
+    <p-card class="navigation-card cursor-pointer hover:shadow-lg transition-shadow"
+            (click)="navigateTo('/admin/giftcards/assign')">
+      <div class="text-center p-6">
+        <!-- Icon -->
+        <div class="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+          <i class="pi pi-user-plus text-blue-600 text-4xl"></i>
+        </div>
+
+        <h3 class="text-xl font-bold text-gray-900 mb-3">Asignar Gift Card</h3>
+        <p class="text-gray-600 mb-4">
+          Asigna una gift card específica a un usuario mediante su código único
+        </p>
+
+        <!-- Call to action -->
+        <div class="flex items-center justify-center gap-2 text-sm text-blue-600 font-medium">
+          <span>Ir a asignación</span>
+          <i class="pi pi-arrow-right"></i>
+        </div>
+      </div>
+    </p-card>
+  </div>
+
+  <!-- Info Section -->
+  <div class="mt-8">
+    <p-card>
+      <ng-template pTemplate="header">
+        <div class="flex items-center gap-2 p-4 pb-0">
+          <i class="pi pi-info-circle text-blue-500 text-xl"></i>
+          <h3 class="text-lg font-semibold">Información sobre Gift Cards</h3>
+        </div>
+      </ng-template>
+
+      <div class="text-gray-700 space-y-3">
+        <p>
+          <strong>Ciclo de vida:</strong> Las gift cards pasan por los siguientes estados:
+        </p>
+        <ul class="list-disc list-inside ml-4 space-y-2">
+          <li><strong>Creada:</strong> Gift card generada digitalmente</li>
+          <li><strong>Impresa:</strong> Código escrito en tarjeta física</li>
+          <li><strong>Asignada:</strong> Asignada a un usuario específico</li>
+          <li><strong>Usada:</strong> Canjeada y convertida en créditos</li>
+        </ul>
+        <p class="mt-4">
+          <strong>Formato del código:</strong> Las gift cards tienen códigos únicos en formato <code class="bg-gray-100 px-2 py-1 rounded">NOMBREPACK AGE-XXXXXX</code>
+        </p>
+      </div>
+    </p-card>
+  </div>
+</div>

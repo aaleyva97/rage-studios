@@ -1,0 +1,201 @@
+<p-toast />
+
+<div class="admin-giftcards-assign p-6">
+  <div class="header-section mb-6">
+    <h2 class="text-2xl font-bold text-gray-900 mb-2">Asignar Gift Card</h2>
+    <p class="text-gray-600">Asigna una gift card específica a un usuario</p>
+  </div>
+
+  <!-- Form Card -->
+  <p-card class="assignment-card">
+    <ng-template pTemplate="header">
+      <div class="flex items-center gap-2 p-4 pb-0">
+        <i class="pi pi-user-plus text-blue-500 text-xl"></i>
+        <h3 class="text-lg font-semibold">Formulario de Asignación</h3>
+      </div>
+    </ng-template>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <!-- User AutoComplete -->
+      <div class="field">
+        <label for="user" class="block text-sm font-medium text-gray-700 mb-2">
+          Usuario
+        </label>
+        <p-autoComplete
+          id="user"
+          [ngModel]="assignmentForm().selectedUser"
+          [suggestions]="filteredUsers()"
+          (completeMethod)="searchUsers($event)"
+          (onSelect)="onUserSelect($event)"
+          optionLabel="full_name"
+          placeholder="Buscar usuario por nombre o teléfono"
+          [minLength]="2"
+          [dropdown]="false"
+          [forceSelection]="true"
+          class="w-full"
+          styleClass="w-full user-autocomplete"
+          [inputStyleClass]="'w-full'">
+
+          <!-- Custom template para dropdown -->
+          <ng-template let-user pTemplate="item">
+            <div class="flex items-center gap-3 p-2">
+              <div class="flex-1">
+                <div class="font-medium text-gray-900">{{ user.full_name }}</div>
+                @if (user.phone) {
+                  <div class="text-sm text-gray-600">{{ user.phone }}</div>
+                }
+                <div class="text-xs text-blue-600">{{ user.role }}</div>
+              </div>
+            </div>
+          </ng-template>
+
+          <!-- Template para item seleccionado -->
+          <ng-template let-user pTemplate="selectedItem">
+            <div class="flex items-center gap-2">
+              <i class="pi pi-user text-blue-500"></i>
+              <span>{{ user.full_name }}</span>
+              @if (user.phone) {
+                <span class="text-gray-500">({{ user.phone }})</span>
+              }
+            </div>
+          </ng-template>
+        </p-autoComplete>
+
+        <small class="text-gray-500 block mt-1 pt-1">
+          Escribe al menos 2 caracteres para buscar
+        </small>
+      </div>
+
+      <!-- Gift Card Code Input -->
+      <div class="field">
+        <label for="giftCardCode" class="block text-sm font-medium text-gray-700 mb-2">
+          Código de Gift Card
+        </label>
+        <input
+          id="giftCardCode"
+          type="text"
+          pInputText
+          [ngModel]="assignmentForm().giftCardCode"
+          (ngModelChange)="onCodeChange($event)"
+          placeholder="Ejemplo: 4CLASES-X5F6G8"
+          class="w-full uppercase"
+          [disabled]="isAssigning()"
+          maxlength="50" />
+
+        <small class="text-gray-500 block mt-1 pt-1">
+          Ingresa el código exacto de la gift card
+        </small>
+      </div>
+    </div>
+
+    <!-- Resumen -->
+    @if (assignmentForm().selectedUser || assignmentForm().giftCardCode) {
+      <div class="mt-6 p-4 bg-gray-50 rounded-lg">
+        <h4 class="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+          <i class="pi pi-info-circle text-blue-500"></i>
+          Resumen de Asignación
+        </h4>
+
+        <div class="space-y-2">
+          @if (assignmentForm().selectedUser) {
+            <div class="flex items-start gap-2">
+              <i class="pi pi-user text-gray-400 text-sm mt-0.5"></i>
+              <div>
+                <span class="text-sm text-gray-600">Usuario:</span>
+                <span class="text-sm font-medium text-gray-900 ml-2">
+                  {{ assignmentForm().selectedUser!.full_name }}
+                </span>
+                @if (assignmentForm().selectedUser!.phone) {
+                  <span class="text-sm text-gray-500 ml-1">
+                    ({{ assignmentForm().selectedUser!.phone }})
+                  </span>
+                }
+              </div>
+            </div>
+          }
+
+          @if (assignmentForm().giftCardCode) {
+            <div class="flex items-start gap-2">
+              <i class="pi pi-gift text-gray-400 text-sm mt-0.5"></i>
+              <div>
+                <span class="text-sm text-gray-600">Código:</span>
+                <span class="text-sm font-mono font-bold text-purple-600 ml-2">
+                  {{ assignmentForm().giftCardCode }}
+                </span>
+              </div>
+            </div>
+          }
+        </div>
+      </div>
+    }
+
+    <ng-template pTemplate="footer">
+      <div class="flex gap-3 justify-end">
+        <p-button
+          label="Limpiar"
+          severity="secondary"
+          (onClick)="resetForm()"
+          [disabled]="isAssigning()">
+        </p-button>
+
+        <p-button
+          label="Asignar Gift Card"
+          icon="pi pi-check"
+          [loading]="isAssigning()"
+          [disabled]="!isFormValid()"
+          (onClick)="assignGiftCard()">
+        </p-button>
+      </div>
+    </ng-template>
+  </p-card>
+
+  <!-- Instructions Card -->
+  <div class="mt-6">
+    <p-card>
+      <ng-template pTemplate="header">
+        <div class="flex items-center gap-2 p-4 pb-0">
+          <i class="pi pi-info-circle text-blue-500 text-xl"></i>
+          <h3 class="text-lg font-semibold">Instrucciones</h3>
+        </div>
+      </ng-template>
+
+      <div class="space-y-3 text-gray-700">
+        <div class="flex items-start gap-3">
+          <div class="flex-shrink-0 w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-semibold text-sm">
+            1
+          </div>
+          <div>
+            <strong>Buscar usuario:</strong> Escribe el nombre o teléfono del usuario al que deseas asignar la gift card.
+          </div>
+        </div>
+
+        <div class="flex items-start gap-3">
+          <div class="flex-shrink-0 w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-semibold text-sm">
+            2
+          </div>
+          <div>
+            <strong>Ingresar código:</strong> Escribe el código completo de la gift card (ej: 4CLASES-X5F6G8).
+          </div>
+        </div>
+
+        <div class="flex items-start gap-3">
+          <div class="flex-shrink-0 w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-semibold text-sm">
+            3
+          </div>
+          <div>
+            <strong>Confirmar asignación:</strong> Verifica los datos en el resumen y presiona "Asignar Gift Card".
+          </div>
+        </div>
+
+        <div class="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+          <div class="flex items-start gap-2">
+            <i class="pi pi-exclamation-triangle text-yellow-600 text-sm mt-0.5"></i>
+            <p class="text-sm text-yellow-800">
+              <strong>Nota:</strong> La gift card debe estar en estado "Creada" o "Impresa" para poder ser asignada. Si ya está asignada o usada, no podrá ser reasignada.
+            </p>
+          </div>
+        </div>
+      </div>
+    </p-card>
+  </div>
+</div>
