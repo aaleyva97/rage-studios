@@ -218,7 +218,6 @@
               Fecha Creación
               <p-sortIcon field="created_at" />
             </th>
-            <th>Acciones</th>
           </tr>
         </ng-template>
 
@@ -231,7 +230,6 @@
               <td><p-skeleton width="70%" /></td>
               <td><p-skeleton width="70%" /></td>
               <td><p-skeleton width="60%" /></td>
-              <td><p-skeleton width="50%" /></td>
             </tr>
           } @else {
             <tr>
@@ -271,9 +269,6 @@
                 }
               </td>
               <td>{{ giftCard.created_at | date: 'short' }}</td>
-              <td>
-                <span class="text-xs text-gray-500">{{ giftCard.id.substring(0, 8) }}...</span>
-              </td>
             </tr>
           }
         </ng-template>
