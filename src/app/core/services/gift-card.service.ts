@@ -152,8 +152,7 @@ export class GiftCardService {
         .insert(giftCardsToCreate)
         .select(`
           *,
-          package:packages(*),
-          created_by_user:profiles!created_by(full_name)
+          package:packages(*)
         `);
 
       if (insertError) {
@@ -182,9 +181,7 @@ export class GiftCardService {
         .from('gift_cards')
         .select(`
           *,
-          package:packages(*),
-          assigned_user:profiles!assigned_user_id(full_name, phone),
-          created_by_user:profiles!created_by(full_name)
+          package:packages(*)
         `, { count: 'exact' });
 
       // Apply filters
