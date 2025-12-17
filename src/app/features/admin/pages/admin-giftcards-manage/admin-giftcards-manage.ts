@@ -12,7 +12,8 @@ import { PaginatorModule } from 'primeng/paginator';
 import { IconFieldModule } from 'primeng/iconfield';
 import { InputIconModule } from 'primeng/inputicon';
 import { InputTextModule } from 'primeng/inputtext';
-import { MessageService } from 'primeng/api';
+import { ConfirmDialogModule } from 'primeng/confirmdialog';
+import { MessageService, ConfirmationService } from 'primeng/api';
 import { GiftCardService, GiftCard } from '../../../../core/services/gift-card.service';
 import { PackagesService, Package } from '../../../landing/services/packages.service';
 import { AdminGiftcardCreateDialog } from './components/admin-giftcard-create-dialog';
@@ -33,9 +34,10 @@ import { AdminGiftcardCreateDialog } from './components/admin-giftcard-create-di
     IconFieldModule,
     InputIconModule,
     InputTextModule,
+    ConfirmDialogModule,
     AdminGiftcardCreateDialog
   ],
-  providers: [MessageService],
+  providers: [MessageService, ConfirmationService],
   templateUrl: './admin-giftcards-manage.html',
   styleUrl: './admin-giftcards-manage.scss'
 })
@@ -43,6 +45,7 @@ export class AdminGiftcardsManage implements OnInit {
   private giftCardService = inject(GiftCardService);
   private packagesService = inject(PackagesService);
   private messageService = inject(MessageService);
+  private confirmationService = inject(ConfirmationService);
 
   // Dialog visibility
   showCreateDialog = signal(false);
@@ -161,6 +164,44 @@ export class AdminGiftcardsManage implements OnInit {
     } finally {
       this.isUpdatingStatus.set(false);
     }
+  }
+
+  markSingleAsPrinted(giftCardId: string) {
+    this.confirmationService.confirm({
+      message: '¿Estás seguro de marcar esta gift card como impresa?',
+      header: 'Confirmar acción',
+      icon: 'pi pi-exclamation-triangle',
+      acceptLabel: 'Sí, marcar como impresa',
+      rejectLabel: 'Cancelar',
+      accept: async () => {
+        this.isUpdatingStatus.set(true);
+
+        try {
+          const result = await this.giftCardService.updateGiftCardStatus(giftCardId, 'printed');
+
+          if (result.success) {
+            this.messageService.add({
+              severity: 'success',
+              summary: 'Éxito',
+              detail: 'Gift card marcada como impresa'
+            });
+
+            await this.loadGiftCards();
+          } else {
+            throw new Error(result.error || 'Error al actualizar estado');
+          }
+        } catch (error: any) {
+          console.error('Error updating status:', error);
+          this.messageService.add({
+            severity: 'error',
+            summary: 'Error',
+            detail: error.message || 'Error al actualizar estado'
+          });
+        } finally {
+          this.isUpdatingStatus.set(false);
+        }
+      }
+    });
   }
 
   clearFilters() {

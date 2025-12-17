@@ -1,4 +1,5 @@
 <p-toast />
+<p-confirmDialog />
 
 <div class="admin-giftcards-manage p-6">
   <!-- Header with Create Button -->
@@ -158,9 +159,20 @@
               </div>
             </div>
 
-            <!-- Footer -->
-            <div class="border-t border-gray-100 pt-3">
+            <!-- Footer: Actions -->
+            <div class="border-t border-gray-100 pt-3 flex justify-between items-center">
               <span class="text-xs text-gray-400">ID: {{ giftCard.id.substring(0, 8) }}...</span>
+
+              @if (giftCard.status === 'created') {
+                <p-button
+                  label="Marcar como Impresa"
+                  icon="pi pi-check"
+                  severity="success"
+                  size="small"
+                  [outlined]="true"
+                  (onClick)="markSingleAsPrinted(giftCard.id)">
+                </p-button>
+              }
             </div>
           </div>
         }
