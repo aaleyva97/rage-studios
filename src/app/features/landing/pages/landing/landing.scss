@@ -3,3 +3,52 @@
   display: block;
   width: 100%;
 }
+
+/* Animated border button wrapper for Gift Card */
+.animated-border-button {
+  position: relative;
+  display: inline-block;
+  border-radius: 2rem;
+  padding: 2px;
+  background: linear-gradient(
+    90deg,
+    #3b82f6,
+    #8b5cf6,
+    #ec4899,
+    #f59e0b,
+    #10b981,
+    #3b82f6
+  );
+  background-size: 300% 100%;
+  animation: animatedBorder 6s linear infinite;
+}
+
+@keyframes animatedBorder {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 300% 50%;
+  }
+}
+
+/* Gift card button styling */
+:host ::ng-deep .giftcard-button {
+  background: white !important;
+  border: none !important;
+  position: relative;
+  z-index: 1;
+}
+
+:host ::ng-deep .giftcard-button:hover {
+  background: rgba(255, 255, 255, 0.95) !important;
+}
+
+:host ::ng-deep .giftcard-button .p-button-label {
+  color: #3b82f6 !important;
+  font-weight: 600;
+}
+
+:host ::ng-deep .giftcard-button .p-button-icon {
+  color: #3b82f6 !important;
+}
