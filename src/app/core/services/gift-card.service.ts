@@ -326,6 +326,7 @@ export class GiftCardService {
 
   /**
    * Assign gift card to user (admin)
+   * Creates purchase and assigns credits immediately
    */
   async assignGiftCardToUser(code: string, userId: string): Promise<{
     success: boolean;
@@ -337,7 +338,7 @@ export class GiftCardService {
         return { success: false, error: 'Usuario administrador no autenticado' };
       }
 
-      // Get gift card
+      // Get gift card with package info
       const codeResult = await this.getGiftCardByCode(code);
       if (!codeResult.success || !codeResult.giftCard) {
         return { success: false, error: codeResult.error || 'Gift card no encontrada' };
@@ -350,20 +351,59 @@ export class GiftCardService {
         return { success: false, error: 'Esta gift card ya fue asignada o usada' };
       }
 
-      // Update gift card
-      const { error } = await this.supabaseService.client
+      // Validate package is active
+      if (!giftCard.package || !giftCard.package.is_active) {
+        return { success: false, error: 'El paquete asociado no está disponible' };
+      }
+
+      // 1. Create purchase with transaction_type='giftcard'
+      const { data: purchase, error: purchaseError } = await this.supabaseService.client
+        .from('purchases')
+        .insert({
+          user_id: userId,
+          package_id: giftCard.package_id,
+          amount: giftCard.package.price,
+          status: 'completed',
+          transaction_type: 'giftcard',
+          gift_card_id: giftCard.id,
+          assigned_by: currentUser.id,
+          completed_at: new Date().toISOString()
+        })
+        .select()
+        .single();
+
+      if (purchaseError) {
+        console.error('Error creating purchase:', purchaseError);
+        return { success: false, error: 'Error al procesar la gift card' };
+      }
+
+      // 2. Assign credits using PaymentService
+      await this.paymentService.assignCreditsToUser(
+        purchase.id,
+        giftCard.package,
+        userId
+      );
+
+      // 3. Update gift card status to 'used'
+      const { error: updateError } = await this.supabaseService.client
         .from('gift_cards')
         .update({
-          status: 'assigned',
+          status: 'used',
+          used_at: new Date().toISOString(),
+          purchase_id: purchase.id,
           assigned_user_id: userId,
           assigned_at: new Date().toISOString(),
           assigned_by: currentUser.id
         })
         .eq('id', giftCard.id);
 
-      if (error) {
-        return { success: false, error: error.message };
+      if (updateError) {
+        console.error('Error updating gift card:', updateError);
+        // Don't fail - credits were assigned successfully
       }
+
+      // 4. Refresh user credits
+      await this.creditsService.forceRefreshCredits(userId);
 
       return { success: true };
     } catch (error: any) {
