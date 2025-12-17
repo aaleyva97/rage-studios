@@ -5,14 +5,16 @@
 
 <!-- Gift Card Button -->
 @if (isLoggedIn()) {
-  <div class="py-8 bg-white text-center">
-    <p-button
-      label="¿Tienes una Gift Card?"
-      icon="pi pi-gift"
-      severity="secondary"
-      [outlined]="true"
-      size="large"
-      (onClick)="openGiftCardDialog()" />
+  <div class="pb-8 bg-white text-center">
+    <div class="animated-border-button inline-block">
+      <p-button
+        label="¿Tienes una Gift Card?"
+        icon="pi pi-gift"
+        [rounded]="true"
+        size="large"
+        styleClass="giftcard-button"
+        (onClick)="openGiftCardDialog()" />
+    </div>
   </div>
 }
 
