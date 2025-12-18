@@ -402,8 +402,11 @@ export class GiftCardService {
         // Don't fail - credits were assigned successfully
       }
 
-      // 4. Refresh user credits
-      await this.creditsService.forceRefreshCredits(userId);
+      // 4. Refresh credits only if admin is assigning to themselves
+      // Otherwise, don't refresh to avoid showing receiver's credits in admin's topbar
+      if (userId === currentUser.id) {
+        await this.creditsService.forceRefreshCredits(userId);
+      }
 
       return { success: true };
     } catch (error: any) {
