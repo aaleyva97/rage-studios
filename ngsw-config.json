@@ -35,17 +35,5 @@
       }
     }
   ],
-  "dataGroups": [
-    {
-      "name": "supabase-api",
-      "urls": [
-        "https://*.supabase.co/**"
-      ],
-      "cacheConfig": {
-        "strategy": "freshness",
-        "maxAge": "1h",
-        "timeout": "10s"
-      }
-    }
-  ]
+  "dataGroups": []
 }
