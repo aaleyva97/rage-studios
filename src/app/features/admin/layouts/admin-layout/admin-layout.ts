@@ -70,6 +70,11 @@ export class AdminLayout {
       label: 'Horarios',
       icon: 'pi pi-calendar-clock',
       routerLink: '/admin/horarios',
+    },
+    {
+      label: 'Excepciones',
+      icon: 'pi pi-exclamation-circle',
+      routerLink: '/admin/excepciones',
     }
   ];
   

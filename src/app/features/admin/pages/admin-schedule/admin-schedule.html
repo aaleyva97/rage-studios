@@ -149,6 +149,15 @@
               <td class="text-center">
                 <div class="flex justify-center gap-1">
                   <p-button
+                    icon="pi pi-exclamation-circle"
+                    size="small"
+                    severity="info"
+                    [text]="true"
+                    pTooltip="Ver excepciones"
+                    (click)="viewExceptions(slot.id)">
+                  </p-button>
+
+                  <p-button
                     icon="pi pi-pencil"
                     size="small"
                     severity="secondary"
@@ -156,7 +165,7 @@
                     pTooltip="Editar"
                     (click)="openEditDialog(slot)">
                   </p-button>
-                  
+
                   <p-button
                     [icon]="slot.is_active ? 'pi pi-eye-slash' : 'pi pi-eye'"
                     size="small"
@@ -165,7 +174,7 @@
                     [pTooltip]="slot.is_active ? 'Desactivar' : 'Activar'"
                     (click)="toggleSlotStatus(slot)">
                   </p-button>
-                  
+
                   <p-button
                     icon="pi pi-trash"
                     size="small"
@@ -233,8 +242,17 @@
             
             <div class="flex justify-between items-center pt-3 border-t">
               <span class="text-sm text-gray-600">{{slot.max_capacity}} camas</span>
-              
+
               <div class="flex gap-1">
+                <p-button
+                  icon="pi pi-exclamation-circle"
+                  size="small"
+                  severity="info"
+                  [text]="true"
+                  pTooltip="Ver excepciones"
+                  (click)="viewExceptions(slot.id)">
+                </p-button>
+
                 <p-button
                   icon="pi pi-pencil"
                   size="small"
@@ -243,7 +261,7 @@
                   pTooltip="Editar"
                   (click)="openEditDialog(slot)">
                 </p-button>
-                
+
                 <p-button
                   [icon]="slot.is_active ? 'pi pi-eye-slash' : 'pi pi-eye'"
                   size="small"
@@ -252,7 +270,7 @@
                   [pTooltip]="slot.is_active ? 'Desactivar' : 'Activar'"
                   (click)="toggleSlotStatus(slot)">
                 </p-button>
-                
+
                 <p-button
                   icon="pi pi-trash"
                   size="small"

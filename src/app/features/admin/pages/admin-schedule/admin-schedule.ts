@@ -1,4 +1,5 @@
 import { Component, signal, inject, OnInit } from '@angular/core';
+import { Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { TableModule } from 'primeng/table';
 import { ButtonModule } from 'primeng/button';
@@ -63,6 +64,7 @@ export class AdminSchedule implements OnInit {
   private scheduleService = inject(ScheduleService);
   private messageService = inject(MessageService);
   private confirmationService = inject(ConfirmationService);
+  private router = inject(Router);
 
   // Estados del componente
   scheduleSlots = signal<ScheduleSlot[]>([]);
@@ -428,7 +430,7 @@ export class AdminSchedule implements OnInit {
   // Método para manejar selección de coaches
   onCoachesChange(selectedCoachIds: string[]) {
     this.selectedCoaches.set(selectedCoachIds);
-    
+
     const slot = this.selectedSlot();
     if (slot) {
       // Convertir IDs a objetos Coach con is_primary
@@ -441,11 +443,18 @@ export class AdminSchedule implements OnInit {
           is_primary: index === 0 // El primer coach seleccionado será primary
         };
       });
-      
+
       this.selectedSlot.set({
         ...slot,
         coaches: selectedCoachObjects
       });
     }
+  }
+
+  // Navegar a excepciones para este horario
+  viewExceptions(slotId: string) {
+    this.router.navigate(['/admin/excepciones'], {
+      queryParams: { slotId }
+    });
   }
 }
