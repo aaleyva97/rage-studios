@@ -38,12 +38,12 @@
     </p-card>
 
     <p-card class="text-center">
-      <div class="text-3xl font-bold text-green-600 mb-2">{{upcomingExceptions.length}}</div>
+      <div class="text-3xl font-bold text-green-600 mb-2">{{upcomingExceptions().length}}</div>
       <div class="text-sm text-gray-600">Próximas</div>
     </p-card>
 
     <p-card class="text-center">
-      <div class="text-3xl font-bold text-gray-600 mb-2">{{pastExceptions.length}}</div>
+      <div class="text-3xl font-bold text-gray-600 mb-2">{{pastExceptions().length}}</div>
       <div class="text-sm text-gray-600">Pasadas</div>
     </p-card>
   </div>
@@ -320,7 +320,7 @@
           id="overrideDate"
           [(ngModel)]="selectedException()!.override_date"
           name="overrideDate"
-          [minDate]="new Date()"
+          [minDate]="minDate"
           dateFormat="dd/mm/yy"
           placeholder="Selecciona una fecha"
           [style]="{'width': '100%'}"
