@@ -1,5 +1,4 @@
 import { Component, signal, inject, OnInit } from '@angular/core';
-import { Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { TableModule } from 'primeng/table';
 import { ButtonModule } from 'primeng/button';
@@ -8,7 +7,7 @@ import { DialogModule } from 'primeng/dialog';
 import { SelectModule } from 'primeng/select';
 import { InputTextModule } from 'primeng/inputtext';
 import { TextareaModule } from 'primeng/textarea';
-// DatePicker import removed as it's not used in this component
+import { DatePickerModule } from 'primeng/datepicker';
 import { CheckboxModule } from 'primeng/checkbox';
 import { MultiSelectModule } from 'primeng/multiselect';
 import { ConfirmDialogModule } from 'primeng/confirmdialog';
@@ -34,6 +33,14 @@ interface ScheduleSlotForm {
   coaches: Coach[];
 }
 
+interface ExceptionForm {
+  id?: string;
+  schedule_slot_id: string;
+  override_date: Date | null;
+  description: string;
+  coaches: Coach[];
+}
+
 @Component({
   selector: 'app-admin-schedule',
   standalone: true,
@@ -46,6 +53,7 @@ interface ScheduleSlotForm {
     SelectModule,
     InputTextModule,
     TextareaModule,
+    DatePickerModule,
     TooltipModule,
     CheckboxModule,
     MultiSelectModule,
@@ -64,18 +72,24 @@ export class AdminSchedule implements OnInit {
   private scheduleService = inject(ScheduleService);
   private messageService = inject(MessageService);
   private confirmationService = inject(ConfirmationService);
-  private router = inject(Router);
 
   // Estados del componente
   scheduleSlots = signal<ScheduleSlot[]>([]);
   availableCoaches = signal<Coach[]>([]);
   loading = signal(false);
   
-  // Dialog state
+  // Dialog state for schedule slots
   showDialog = signal(false);
   dialogMode = signal<'create' | 'edit'>('create');
   selectedSlot = signal<ScheduleSlotForm | null>(null);
   public selectedCoaches = signal<string[]>([]);
+
+  // Dialog state for exceptions
+  showExceptionDialog = signal(false);
+  exceptionDialogMode = signal<'create' | 'edit'>('create');
+  selectedException = signal<ExceptionForm | null>(null);
+  selectedExceptionCoaches = signal<string[]>([]);
+  minDate = new Date();
 
   // Opciones para dropdowns
   daysOfWeek = [
@@ -451,10 +465,111 @@ export class AdminSchedule implements OnInit {
     }
   }
 
-  // Navegar a excepciones para este horario
-  viewExceptions(slotId: string) {
-    this.router.navigate(['/admin/excepciones'], {
-      queryParams: { slotId }
+  // Abrir dialog de excepciones para este horario
+  viewExceptions(slot: ScheduleSlot) {
+    this.exceptionDialogMode.set('create');
+    this.selectedException.set({
+      schedule_slot_id: slot.id,
+      override_date: null,
+      description: '',
+      coaches: []
     });
+    this.selectedExceptionCoaches.set([]);
+    this.showExceptionDialog.set(true);
+  }
+
+  closeExceptionDialog() {
+    this.showExceptionDialog.set(false);
+    this.selectedException.set(null);
+    this.selectedExceptionCoaches.set([]);
+  }
+
+  onExceptionCoachesChange(selectedCoachIds: string[]) {
+    this.selectedExceptionCoaches.set(selectedCoachIds);
+
+    const exception = this.selectedException();
+    if (exception) {
+      const selectedCoachObjects = selectedCoachIds.map((id, index) => {
+        const coach = this.availableCoaches().find(c => c.id === id);
+        return {
+          id: coach?.id || id,
+          name: coach?.name || '',
+          image_url: coach?.image_url,
+          is_primary: index === 0
+        };
+      });
+
+      this.selectedException.set({
+        ...exception,
+        coaches: selectedCoachObjects
+      });
+    }
+  }
+
+  async saveException() {
+    const exception = this.selectedException();
+    if (!exception) return;
+
+    // Validaciones
+    if (!exception.schedule_slot_id || !exception.override_date) {
+      this.messageService.add({
+        severity: 'error',
+        summary: 'Error',
+        detail: 'Por favor complete todos los campos requeridos'
+      });
+      return;
+    }
+
+    // Convertir Date a string YYYY-MM-DD
+    const year = exception.override_date.getFullYear();
+    const month = String(exception.override_date.getMonth() + 1).padStart(2, '0');
+    const day = String(exception.override_date.getDate()).padStart(2, '0');
+    const dateStr = `${year}-${month}-${day}`;
+
+    this.loading.set(true);
+
+    try {
+      // Crear excepción
+      const result = await this.scheduleService.createScheduleOverride(
+        exception.schedule_slot_id,
+        dateStr,
+        exception.description
+      );
+
+      if (result.success && result.override_id) {
+        // Asignar coaches al override
+        const coachIds = this.selectedExceptionCoaches();
+        for (let i = 0; i < coachIds.length; i++) {
+          await this.scheduleService.assignCoachToOverride(
+            result.override_id,
+            coachIds[i],
+            i === 0 // El primero es principal
+          );
+        }
+
+        this.messageService.add({
+          severity: 'success',
+          summary: 'Éxito',
+          detail: 'Excepción creada correctamente'
+        });
+
+        this.closeExceptionDialog();
+      } else {
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Error',
+          detail: result?.error || 'Error al guardar la excepción'
+        });
+      }
+    } catch (error) {
+      console.error('Error saving exception:', error);
+      this.messageService.add({
+        severity: 'error',
+        summary: 'Error',
+        detail: 'Error al guardar la excepción'
+      });
+    } finally {
+      this.loading.set(false);
+    }
   }
 }
