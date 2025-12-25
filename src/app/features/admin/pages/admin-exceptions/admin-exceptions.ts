@@ -74,6 +74,9 @@ export class AdminExceptions implements OnInit {
   // Filtro para buscar excepciones
   selectedSlotFilter = signal<string | null>(null);
 
+  // Fecha mínima para el date picker (hoy)
+  minDate = new Date();
+
   async ngOnInit() {
     await this.loadData();
 
@@ -359,24 +362,24 @@ export class AdminExceptions implements OnInit {
     }
   }
 
-  // Filtrar excepciones
-  get filteredExceptions() {
+  // Filtrar excepciones (computed signal en lugar de getter)
+  filteredExceptions = () => {
     const filter = this.selectedSlotFilter();
     if (!filter) return this.exceptions();
 
     return this.exceptions().filter(e => e.schedule_slot_id === filter);
-  }
+  };
 
-  // Estadísticas
-  get upcomingExceptions() {
+  // Estadísticas (computed signal en lugar de getter)
+  upcomingExceptions = () => {
     const today = new Date().toISOString().split('T')[0];
     return this.exceptions().filter(e => e.override_date >= today);
-  }
+  };
 
-  get pastExceptions() {
+  pastExceptions = () => {
     const today = new Date().toISOString().split('T')[0];
     return this.exceptions().filter(e => e.override_date < today);
-  }
+  };
 
   // Limpiar filtro
   clearFilter() {
