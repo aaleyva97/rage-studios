@@ -1,0 +1,401 @@
+<div class="admin-exceptions-container">
+  <p-toast></p-toast>
+  <p-confirmDialog></p-confirmDialog>
+
+  <!-- Header Card -->
+  <p-card class="mb-4">
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      <div>
+        <h1 class="text-2xl font-bold text-gray-900 mb-2">Excepciones de Horarios</h1>
+        <p class="text-gray-600">Gestiona excepciones para fechas específicas con coaches personalizados</p>
+      </div>
+
+      <div class="flex gap-2">
+        <p-button
+          label="Actualizar"
+          icon="pi pi-refresh"
+          [loading]="loading()"
+          (click)="loadData()"
+          severity="secondary"
+          size="small">
+        </p-button>
+
+        <p-button
+          label="Nueva Excepción"
+          icon="pi pi-plus"
+          (click)="openCreateDialog()"
+          size="small">
+        </p-button>
+      </div>
+    </div>
+  </p-card>
+
+  <!-- Statistics Cards -->
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+    <p-card class="text-center">
+      <div class="text-3xl font-bold text-blue-600 mb-2">{{exceptions().length}}</div>
+      <div class="text-sm text-gray-600">Total Excepciones</div>
+    </p-card>
+
+    <p-card class="text-center">
+      <div class="text-3xl font-bold text-green-600 mb-2">{{upcomingExceptions().length}}</div>
+      <div class="text-sm text-gray-600">Próximas</div>
+    </p-card>
+
+    <p-card class="text-center">
+      <div class="text-3xl font-bold text-gray-600 mb-2">{{pastExceptions().length}}</div>
+      <div class="text-sm text-gray-600">Pasadas</div>
+    </p-card>
+  </div>
+
+  <!-- Filter Card -->
+  <p-card class="mb-4">
+    <div class="flex flex-col md:flex-row gap-4 items-end">
+      <div class="flex-1">
+        <label for="slotFilter" class="block text-sm font-medium text-gray-700 mb-2">
+          Filtrar por horario
+        </label>
+        <p-select
+          id="slotFilter"
+          [(ngModel)]="selectedSlotFilter"
+          [options]="scheduleSlotOptions"
+          optionLabel="label"
+          optionValue="value"
+          placeholder="Todos los horarios"
+          [style]="{'width': '100%'}"
+          [showClear]="true">
+        </p-select>
+      </div>
+
+      @if (selectedSlotFilter()) {
+        <p-button
+          label="Limpiar filtro"
+          icon="pi pi-times"
+          (click)="clearFilter()"
+          severity="secondary"
+          [outlined]="true"
+          size="small">
+        </p-button>
+      }
+    </div>
+  </p-card>
+
+  <!-- Main Table Card -->
+  <p-card>
+    <!-- Loading State -->
+    @if (loading()) {
+      <div class="space-y-4">
+        @for (item of [1,2,3,4,5]; track $index) {
+          <div class="grid grid-cols-1 md:grid-cols-5 gap-4 p-4 border-b">
+            <p-skeleton height="2rem"></p-skeleton>
+            <p-skeleton height="2rem"></p-skeleton>
+            <p-skeleton height="2rem"></p-skeleton>
+            <p-skeleton height="2rem"></p-skeleton>
+            <p-skeleton height="2rem"></p-skeleton>
+          </div>
+        }
+      </div>
+    } @else {
+      <!-- Desktop Table -->
+      <div class="hidden md:block overflow-x-auto">
+        <p-table
+          [value]="filteredExceptions()"
+          [sortField]="'override_date'"
+          [sortOrder]="-1"
+          styleClass="p-datatable-sm">
+
+          <ng-template pTemplate="header">
+            <tr>
+              <th pSortableColumn="override_date">
+                Fecha
+                <p-sortIcon field="override_date"></p-sortIcon>
+              </th>
+              <th>Horario Original</th>
+              <th>Coaches Asignados</th>
+              <th>Descripción</th>
+              <th class="text-center">Acciones</th>
+            </tr>
+          </ng-template>
+
+          <ng-template pTemplate="body" let-exception>
+            <tr>
+              <td>
+                <div class="flex flex-col">
+                  <span class="font-medium">{{formatDate(exception.override_date)}}</span>
+                  <span class="text-sm text-gray-500 font-mono">{{exception.override_date}}</span>
+                </div>
+              </td>
+
+              <td>
+                <div class="flex flex-col">
+                  <span class="font-medium">{{exception.slot_day_name}}</span>
+                  <span class="text-sm text-gray-500 font-mono">
+                    {{exception.slot_start_time.substring(0,5)}} - {{exception.slot_end_time.substring(0,5)}}
+                  </span>
+                </div>
+              </td>
+
+              <td>
+                <div class="space-y-1">
+                  @for (coach of exception.coaches; track coach.id) {
+                    <p-chip
+                      [label]="coach.name"
+                      [styleClass]="coach.is_primary ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'"
+                      size="small">
+                    </p-chip>
+                  }
+                  @if (exception.coaches.length === 0) {
+                    <span class="text-sm text-gray-500">Sin coach asignado</span>
+                  }
+                </div>
+              </td>
+
+              <td>
+                @if (exception.description) {
+                  <span class="text-sm text-gray-700">{{exception.description}}</span>
+                } @else {
+                  <span class="text-sm text-gray-400 italic">Sin descripción</span>
+                }
+              </td>
+
+              <td class="text-center">
+                <div class="flex justify-center gap-1">
+                  <p-button
+                    icon="pi pi-pencil"
+                    size="small"
+                    severity="secondary"
+                    [text]="true"
+                    pTooltip="Editar"
+                    (click)="openEditDialog(exception)">
+                  </p-button>
+
+                  <p-button
+                    icon="pi pi-trash"
+                    size="small"
+                    severity="danger"
+                    [text]="true"
+                    pTooltip="Eliminar"
+                    (click)="deleteException(exception)">
+                  </p-button>
+                </div>
+              </td>
+            </tr>
+          </ng-template>
+
+          <ng-template pTemplate="emptymessage">
+            <tr>
+              <td colspan="5" class="text-center py-8">
+                <div class="text-gray-500">
+                  <i class="pi pi-calendar-times text-4xl mb-4 block"></i>
+                  @if (selectedSlotFilter()) {
+                    <p class="text-lg font-medium mb-2">No hay excepciones para este horario</p>
+                    <p class="text-sm">Selecciona otro horario o crea una nueva excepción</p>
+                  } @else {
+                    <p class="text-lg font-medium mb-2">No hay excepciones configuradas</p>
+                    <p class="text-sm">Crea la primera excepción para comenzar</p>
+                  }
+                </div>
+              </td>
+            </tr>
+          </ng-template>
+        </p-table>
+      </div>
+
+      <!-- Mobile Cards -->
+      <div class="block md:hidden space-y-4">
+        @for (exception of filteredExceptions(); track exception.id) {
+          <div class="border rounded-lg p-4 bg-white shadow-sm">
+            <div class="flex justify-between items-start mb-3">
+              <div>
+                <h3 class="font-medium text-lg">{{formatDate(exception.override_date)}}</h3>
+                <p class="text-sm text-gray-600 font-mono">{{exception.override_date}}</p>
+              </div>
+            </div>
+
+            <div class="mb-3">
+              <p class="text-sm font-medium text-gray-700 mb-1">Horario Original:</p>
+              <p class="text-sm text-gray-600">
+                {{exception.slot_day_name}}
+                {{exception.slot_start_time.substring(0,5)}} - {{exception.slot_end_time.substring(0,5)}}
+              </p>
+            </div>
+
+            @if (exception.description) {
+              <p class="text-sm text-gray-600 mb-3 italic">"{{exception.description}}"</p>
+            }
+
+            <div class="mb-3">
+              <p class="text-sm font-medium text-gray-700 mb-2">Coaches:</p>
+              <div class="space-y-1">
+                @for (coach of exception.coaches; track coach.id) {
+                  <p-chip
+                    [label]="coach.name"
+                    [styleClass]="coach.is_primary ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'"
+                    size="small">
+                  </p-chip>
+                }
+                @if (exception.coaches.length === 0) {
+                  <span class="text-sm text-gray-500">Sin coach asignado</span>
+                }
+              </div>
+            </div>
+
+            <div class="flex justify-end gap-1 pt-3 border-t">
+              <p-button
+                icon="pi pi-pencil"
+                size="small"
+                severity="secondary"
+                [text]="true"
+                pTooltip="Editar"
+                (click)="openEditDialog(exception)">
+              </p-button>
+
+              <p-button
+                icon="pi pi-trash"
+                size="small"
+                severity="danger"
+                [text]="true"
+                pTooltip="Eliminar"
+                (click)="deleteException(exception)">
+              </p-button>
+            </div>
+          </div>
+        } @empty {
+          <div class="text-center py-8">
+            <div class="text-gray-500">
+              <i class="pi pi-calendar-times text-4xl mb-4 block"></i>
+              @if (selectedSlotFilter()) {
+                <p class="text-lg font-medium mb-2">No hay excepciones para este horario</p>
+                <p class="text-sm">Selecciona otro horario o crea una nueva excepción</p>
+              } @else {
+                <p class="text-lg font-medium mb-2">No hay excepciones configuradas</p>
+                <p class="text-sm">Crea la primera excepción para comenzar</p>
+              }
+            </div>
+          </div>
+        }
+      </div>
+    }
+  </p-card>
+</div>
+
+<!-- Create/Edit Dialog -->
+<p-dialog
+  [header]="dialogMode() === 'create' ? 'Crear Nueva Excepción' : 'Editar Excepción'"
+  [modal]="true"
+  [visible]="showDialog()"
+  (onHide)="closeDialog()"
+  [style]="{width: '90vw', maxWidth: '600px'}"
+  [draggable]="false"
+  [resizable]="false">
+
+  @if (selectedException()) {
+    <form class="space-y-6">
+      <!-- Horario -->
+      <div class="field">
+        <label for="scheduleSlot" class="block text-sm font-medium text-gray-700 mb-2">
+          Horario *
+        </label>
+        <p-select
+          id="scheduleSlot"
+          [(ngModel)]="selectedException()!.schedule_slot_id"
+          name="scheduleSlot"
+          [options]="scheduleSlotOptions"
+          optionLabel="label"
+          optionValue="value"
+          placeholder="Selecciona un horario"
+          [style]="{'width': '100%'}">
+        </p-select>
+        <small class="text-gray-500 mt-1 block">
+          Selecciona el horario regular que quieres modificar para una fecha específica
+        </small>
+      </div>
+
+      <!-- Fecha -->
+      <div class="field">
+        <label for="overrideDate" class="block text-sm font-medium text-gray-700 mb-2">
+          Fecha de la excepción *
+        </label>
+        <p-datepicker
+          id="overrideDate"
+          [(ngModel)]="selectedException()!.override_date"
+          name="overrideDate"
+          [minDate]="minDate"
+          dateFormat="dd/mm/yy"
+          placeholder="Selecciona una fecha"
+          [style]="{'width': '100%'}"
+          [showIcon]="true"
+          iconDisplay="input">
+        </p-datepicker>
+        <small class="text-gray-500 mt-1 block">
+          La fecha debe ser presente o futura
+        </small>
+      </div>
+
+      <!-- Coaches -->
+      <div class="field">
+        <label for="coaches" class="block text-sm font-medium text-gray-700 mb-2">
+          Coaches para esta fecha
+        </label>
+        <p-multiselect
+          appendTo="body"
+          id="coaches"
+          [(ngModel)]="selectedCoaches"
+          name="coaches"
+          [options]="coachOptions"
+          optionLabel="name"
+          optionValue="id"
+          placeholder="Selecciona coaches"
+          display="chip"
+          class="w-full"
+          (onChange)="onCoachesChange($event.value)">
+
+          <ng-template let-coach pTemplate="item">
+            <div>
+              <span>{{coach.name}}</span>
+            </div>
+          </ng-template>
+        </p-multiselect>
+        <small class="text-gray-500 mt-1 block">
+          El primer coach seleccionado será marcado como principal automáticamente
+        </small>
+      </div>
+
+      <!-- Descripción -->
+      <div class="field">
+        <label for="description" class="block text-sm font-medium text-gray-700 mb-2">
+          Descripción (opcional)
+        </label>
+        <textarea
+          id="description"
+          [(ngModel)]="selectedException()!.description"
+          name="description"
+          rows="3"
+          placeholder="Ej: Día festivo, clase especial, etc..."
+          pTextarea
+          [style]="{'width': '100%'}">
+        </textarea>
+        <small class="text-gray-500 mt-1 block">
+          Explica el motivo de la excepción para referencia futura
+        </small>
+      </div>
+    </form>
+  }
+
+  <ng-template pTemplate="footer">
+    <div class="flex justify-end gap-2">
+      <p-button
+        label="Cancelar"
+        severity="secondary"
+        (click)="closeDialog()"
+        [text]="true">
+      </p-button>
+
+      <p-button
+        [label]="dialogMode() === 'create' ? 'Crear' : 'Actualizar'"
+        [loading]="loading()"
+        (click)="saveException()">
+      </p-button>
+    </div>
+  </ng-template>
+</p-dialog>
