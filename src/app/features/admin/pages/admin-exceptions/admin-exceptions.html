@@ -297,6 +297,7 @@
           Horario *
         </label>
         <p-select
+        appendTo="body"
           id="scheduleSlot"
           [(ngModel)]="selectedException()!.schedule_slot_id"
           name="scheduleSlot"
@@ -317,6 +318,7 @@
           Fecha de la excepción *
         </label>
         <p-datepicker
+          appendTo="body"
           id="overrideDate"
           [(ngModel)]="selectedException()!.override_date"
           name="overrideDate"
