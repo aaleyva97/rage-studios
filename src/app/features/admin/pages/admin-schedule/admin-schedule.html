@@ -153,8 +153,8 @@
                     size="small"
                     severity="info"
                     [text]="true"
-                    pTooltip="Ver excepciones"
-                    (click)="viewExceptions(slot.id)">
+                    pTooltip="Crear excepción"
+                    (click)="viewExceptions(slot)">
                   </p-button>
 
                   <p-button
@@ -249,8 +249,8 @@
                   size="small"
                   severity="info"
                   [text]="true"
-                  pTooltip="Ver excepciones"
-                  (click)="viewExceptions(slot.id)">
+                  pTooltip="Crear excepción"
+                  (click)="viewExceptions(slot)">
                 </p-button>
 
                 <p-button
@@ -456,6 +456,118 @@
         [label]="dialogMode() === 'create' ? 'Crear' : 'Actualizar'"
         [loading]="loading()"
         (click)="saveSlot()">
+      </p-button>
+    </div>
+  </ng-template>
+</p-dialog>
+
+<!-- Exception Dialog -->
+<p-dialog
+  header="Crear Excepción de Horario"
+  [modal]="true"
+  [visible]="showExceptionDialog()"
+  (onHide)="closeExceptionDialog()"
+  [style]="{width: '90vw', maxWidth: '600px'}"
+  [draggable]="false"
+  [resizable]="false">
+
+  @if (selectedException()) {
+    <form class="space-y-6">
+      <!-- Info del horario -->
+      <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <p class="text-sm font-medium text-blue-900 mb-1">Creando excepción para:</p>
+        @if (selectedException()!.schedule_slot_id) {
+          @for (slot of scheduleSlots(); track slot.id) {
+            @if (slot.id === selectedException()!.schedule_slot_id) {
+              <p class="text-lg font-semibold text-blue-800">
+                {{slot.day_name}} {{slot.start_time.substring(0,5)}} - {{slot.end_time.substring(0,5)}}
+              </p>
+            }
+          }
+        }
+      </div>
+
+      <!-- Fecha -->
+      <div class="field">
+        <label for="exceptionDate" class="block text-sm font-medium text-gray-700 mb-2">
+          Fecha específica *
+        </label>
+        <p-datepicker
+          id="exceptionDate"
+          [(ngModel)]="selectedException()!.override_date"
+          name="exceptionDate"
+          [minDate]="minDate"
+          dateFormat="dd/mm/yy"
+          placeholder="Selecciona una fecha"
+          [style]="{'width': '100%'}"
+          [showIcon]="true"
+          iconDisplay="input">
+        </p-datepicker>
+        <small class="text-gray-500 mt-1 block">
+          Selecciona la fecha específica para la que quieres cambiar los coaches
+        </small>
+      </div>
+
+      <!-- Coaches -->
+      <div class="field">
+        <label for="exceptionCoaches" class="block text-sm font-medium text-gray-700 mb-2">
+          Coaches para esta fecha *
+        </label>
+        <p-multiselect
+          appendTo="body"
+          id="exceptionCoaches"
+          [(ngModel)]="selectedExceptionCoaches"
+          name="exceptionCoaches"
+          [options]="coachOptions"
+          optionLabel="name"
+          optionValue="id"
+          placeholder="Selecciona coaches"
+          display="chip"
+          class="w-full"
+          (onChange)="onExceptionCoachesChange($event.value)">
+
+          <ng-template let-coach pTemplate="item">
+            <div>
+              <span>{{coach.name}}</span>
+            </div>
+          </ng-template>
+        </p-multiselect>
+        <small class="text-gray-500 mt-1 block">
+          El primer coach seleccionado será marcado como principal
+        </small>
+      </div>
+
+      <!-- Descripción -->
+      <div class="field">
+        <label for="exceptionDescription" class="block text-sm font-medium text-gray-700 mb-2">
+          Motivo de la excepción (opcional)
+        </label>
+        <textarea
+          id="exceptionDescription"
+          [(ngModel)]="selectedException()!.description"
+          name="exceptionDescription"
+          rows="3"
+          placeholder="Ej: Día festivo, coach de vacaciones, clase especial..."
+          pTextarea
+          [style]="{'width': '100%'}">
+        </textarea>
+      </div>
+    </form>
+  }
+
+  <ng-template pTemplate="footer">
+    <div class="flex justify-end gap-2">
+      <p-button
+        label="Cancelar"
+        severity="secondary"
+        (click)="closeExceptionDialog()"
+        [text]="true">
+      </p-button>
+
+      <p-button
+        label="Crear Excepción"
+        [loading]="loading()"
+        (click)="saveException()">
       </p-button>
     </div>
   </ng-template>
