@@ -118,6 +118,10 @@ export const routes: Routes = [
       {
         path: 'horarios',
         loadComponent: () => import('./features/admin/pages/admin-schedule/admin-schedule').then(m => m.AdminSchedule)
+      },
+      {
+        path: 'excepciones',
+        loadComponent: () => import('./features/admin/pages/admin-exceptions/admin-exceptions').then(m => m.AdminExceptions)
       }
     ]
   },
