@@ -11,6 +11,7 @@ import { BookingDialog } from '../../../booking/components/booking-dialog/bookin
 import { GiftcardRedeemDialog } from '../../components/giftcard-redeem-dialog/giftcard-redeem-dialog';
 import { BookingUiService } from '../../../../core/services/booking-ui.service';
 import { SupabaseService } from '../../../../core/services/supabase-service';
+import { AuthUiService } from '../../../../core/services/auth-ui.service';
 import { ButtonModule } from 'primeng/button';
 
 @Component({
@@ -34,6 +35,7 @@ import { ButtonModule } from 'primeng/button';
 export class Landing implements OnInit {
   private bookingUiService = inject(BookingUiService);
   private supabaseService = inject(SupabaseService);
+  private authUiService = inject(AuthUiService);
   private title = inject(Title);
   private meta = inject(Meta);
 
@@ -46,6 +48,14 @@ export class Landing implements OnInit {
 
   isLoggedIn(): boolean {
     return this.supabaseService.isLoggedIn();
+  }
+
+  handleGiftCardClick(): void {
+    if (this.isLoggedIn()) {
+      this.showGiftCardDialog.set(true);
+    } else {
+      this.authUiService.openLoginDialog();
+    }
   }
 
   openGiftCardDialog(): void {
