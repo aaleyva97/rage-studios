@@ -14,31 +14,26 @@
     <!-- Calendario -->
     <div class="flex flex-col">
       <h3 class="text-lg font-semibold mb-3">Selecciona una fecha</h3>
-      @if (calendarReady()) {
-        <p-datepicker
-          [(ngModel)]="selectedDate"
-          [inline]="true"
-          [minDate]="minDate"
-          dateFormat="dd/mm/yy"
-          (onSelect)="onDateSelect($event)">
-
-          <!-- Template para customizar días con reservas -->
-          <ng-template #date let-date>
-            @if (hasBookingOnDate(date)) {
-              <span class="booking-day">
-                {{ date.day }}
-              </span>
-            } @else {
+      <p-datepicker 
+        #datePicker
+        [(ngModel)]="selectedDate"
+        [inline]="true"
+        [minDate]="minDate"
+        dateFormat="dd/mm/yy"
+        (onSelect)="onDateSelect($event)">
+        
+        <!-- Template para customizar días con reservas -->
+        <ng-template #date let-date>
+          @if (hasBookingOnDate(date)) {
+            <span class="booking-day">
               {{ date.day }}
-            }
-          </ng-template>
-
-        </p-datepicker>
-      } @else {
-        <div class="flex items-center justify-center h-72">
-          <p-skeleton width="100%" height="18rem" />
-        </div>
-      }
+            </span>
+          } @else {
+            {{ date.day }}
+          }
+        </ng-template>
+        
+      </p-datepicker>
     </div>
     
     <!-- Reservas del día -->
