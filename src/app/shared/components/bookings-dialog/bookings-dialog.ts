@@ -54,6 +54,9 @@ export class BookingsDialog implements OnInit, OnDestroy {
   bookingDates = signal<string[]>([]);
   isLoading = signal(true);
   minDate = new Date();
+
+  // Flag para forzar recreación del DatePicker (workaround zoneless + PrimeNG)
+  calendarReady = signal(false);
   
   private authSubscription?: Subscription;
   private currentUserId: string | null = null;
@@ -77,10 +80,16 @@ export class BookingsDialog implements OnInit, OnDestroy {
     if (!this.currentUserId) {
       return;
     }
-    
+
+    // Ocultar calendario mientras se cargan las fechas
+    this.calendarReady.set(false);
+
     await this.loadBookingDates();
     // Auto-cargar reservas del día actual
     await this.loadBookingsForToday();
+
+    // Mostrar calendario con fechas ya cargadas (fuerza recreación del DatePicker)
+    this.calendarReady.set(true);
   }
 
   // Método público para inicializar desde el componente padre
@@ -257,9 +266,11 @@ export class BookingsDialog implements OnInit, OnDestroy {
         detail: 'Reserva cancelada y créditos devueltos'
       });
 
-      // Recargar bookings y fechas
+      // Recargar bookings y fechas (forzar recreación del calendario)
+      this.calendarReady.set(false);
       await this.loadBookingDates();
       await this.loadBookingsForDate(this.selectedDate());
+      this.calendarReady.set(true);
     } else {
       this.messageService.add({
         severity: 'error',
