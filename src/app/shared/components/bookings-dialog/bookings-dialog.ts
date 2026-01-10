@@ -1,4 +1,4 @@
-import { Component, model, signal, inject, OnInit, OnDestroy, ViewChild, ElementRef, effect, AfterViewInit } from '@angular/core';
+import { Component, model, signal, inject, OnInit, OnDestroy, ViewChild, ElementRef } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { DatePipe } from '@angular/common';
 import { DialogModule } from 'primeng/dialog';
@@ -9,7 +9,7 @@ import { TagModule } from 'primeng/tag';
 import { ToastModule } from 'primeng/toast';
 import { ConfirmDialogModule } from 'primeng/confirmdialog';
 import { Tooltip } from 'primeng/tooltip';
-import { MessageService, ConfirmationService } from 'primeng/api';
+import { MessageService, ConfirmationService, PrimeTemplate } from 'primeng/api';
 import { BookingService } from '../../../core/services/booking.service';
 import { SupabaseService } from '../../../core/services/supabase-service';
 import { PaymentService } from '../../../core/services/payment.service';
@@ -30,13 +30,14 @@ import { Subscription } from 'rxjs';
     TagModule,
     ToastModule,
     ConfirmDialogModule,
-    Tooltip
+    Tooltip,
+    PrimeTemplate
   ],
   providers: [MessageService, ConfirmationService],
   templateUrl: './bookings-dialog.html',
   styleUrl: './bookings-dialog.scss'
 })
-export class BookingsDialog implements OnInit, OnDestroy, AfterViewInit {
+export class BookingsDialog implements OnInit, OnDestroy {
   visible = model<boolean>(false);
 
   @ViewChild('datePicker') datePicker!: ElementRef;
@@ -73,18 +74,6 @@ export class BookingsDialog implements OnInit, OnDestroy, AfterViewInit {
     this.authSubscription?.unsubscribe();
   }
 
-  ngAfterViewInit() {
-    // DEBUG: Verificar si el DatePicker tiene el template detectado
-    setTimeout(() => {
-      if (this.datePicker) {
-        const dp = this.datePicker as any;
-        console.log('🔍 [DEBUG] DatePicker component:', dp);
-        console.log('🔍 [DEBUG] dateTemplate:', dp.dateTemplate);
-        console.log('🔍 [DEBUG] _dateTemplate:', dp._dateTemplate);
-        console.log('🔍 [DEBUG] templates:', dp.templates);
-      }
-    }, 1000);
-  }
   
   async initializeDialogData() {
     if (!this.currentUserId) {
