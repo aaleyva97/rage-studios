@@ -39,7 +39,7 @@ import { Subscription } from 'rxjs';
 export class BookingsDialog implements OnInit, OnDestroy {
   visible = model<boolean>(false);
 
-  @ViewChild('datePicker') datePicker!: ElementRef;
+  @ViewChild('datePicker') datePicker: any;
 
   private bookingService = inject(BookingService);
   private supabaseService = inject(SupabaseService);
@@ -77,7 +77,15 @@ export class BookingsDialog implements OnInit, OnDestroy {
     if (!this.currentUserId) {
       return;
     }
-    
+
+    // DEBUG: Verificar si el DatePicker tiene el dateTemplate
+    setTimeout(() => {
+      if (this.datePicker) {
+        console.log('🔍 DatePicker dateTemplate:', this.datePicker.dateTemplate);
+        console.log('🔍 DatePicker _dateTemplate:', this.datePicker._dateTemplate);
+      }
+    }, 500);
+
     await this.loadBookingDates();
     // Auto-cargar reservas del día actual
     await this.loadBookingsForToday();
