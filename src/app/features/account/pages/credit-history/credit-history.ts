@@ -73,10 +73,10 @@ export class CreditHistory implements OnInit {
     return labels[type] || type;
   }
 
-  getTypeSeverity(type: string): string {
-    const severities: Record<string, string> = {
+  getTypeSeverity(type: string): 'success' | 'info' | 'warn' | 'danger' | 'secondary' | 'contrast' {
+    const severities: Record<string, 'success' | 'info' | 'warn' | 'danger' | 'secondary' | 'contrast'> = {
       'purchase': 'success',
-      'used': 'warning',
+      'used': 'warn',
       'refunded': 'info',
       'expired': 'danger',
       'added': 'success',

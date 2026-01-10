@@ -85,8 +85,8 @@ export class CreditManagement implements OnInit {
     return this.purchasesService.getStatusLabel(batch);
   }
   
-  getStatusSeverity(batch: ICreditBatch): string {
-    return this.purchasesService.getStatusSeverity(batch);
+  getStatusSeverity(batch: ICreditBatch): 'success' | 'info' | 'warn' | 'danger' | 'secondary' | 'contrast' {
+    return this.purchasesService.getStatusSeverity(batch) as 'success' | 'info' | 'warn' | 'danger' | 'secondary' | 'contrast';
   }
   
   getRemainingDays(expirationDate: string | null): number | null {
@@ -134,21 +134,21 @@ export class CreditManagement implements OnInit {
     return `${remainingDays} días restantes`;
   }
   
-  getExpirationSeverity(batch: ICreditBatch): string {
+  getExpirationSeverity(batch: ICreditBatch): 'success' | 'info' | 'warn' | 'danger' | 'secondary' | 'contrast' {
     if (!batch.expiration_activated || batch.is_unlimited) {
       return 'success';
     }
-    
+
     const remainingDays = this.getRemainingDays(batch.expiration_date);
-    
+
     if (remainingDays === null || remainingDays <= 0) {
       return 'danger';
     }
-    
+
     if (remainingDays <= 7) {
-      return 'warning';
+      return 'warn';
     }
-    
+
     return 'info';
   }
   
