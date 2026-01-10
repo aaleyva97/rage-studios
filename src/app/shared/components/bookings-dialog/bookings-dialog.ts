@@ -1,4 +1,4 @@
-import { Component, model, signal, inject, OnInit, OnDestroy, ViewChild, ElementRef, effect } from '@angular/core';
+import { Component, model, signal, inject, OnInit, OnDestroy, ViewChild, ElementRef, effect, AfterViewInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { DatePipe } from '@angular/common';
 import { DialogModule } from 'primeng/dialog';
@@ -36,7 +36,7 @@ import { Subscription } from 'rxjs';
   templateUrl: './bookings-dialog.html',
   styleUrl: './bookings-dialog.scss'
 })
-export class BookingsDialog implements OnInit, OnDestroy {
+export class BookingsDialog implements OnInit, OnDestroy, AfterViewInit {
   visible = model<boolean>(false);
 
   @ViewChild('datePicker') datePicker!: ElementRef;
@@ -71,6 +71,19 @@ export class BookingsDialog implements OnInit, OnDestroy {
   
   ngOnDestroy() {
     this.authSubscription?.unsubscribe();
+  }
+
+  ngAfterViewInit() {
+    // DEBUG: Verificar si el DatePicker tiene el template detectado
+    setTimeout(() => {
+      if (this.datePicker) {
+        const dp = this.datePicker as any;
+        console.log('🔍 [DEBUG] DatePicker component:', dp);
+        console.log('🔍 [DEBUG] dateTemplate:', dp.dateTemplate);
+        console.log('🔍 [DEBUG] _dateTemplate:', dp._dateTemplate);
+        console.log('🔍 [DEBUG] templates:', dp.templates);
+      }
+    }, 1000);
   }
   
   async initializeDialogData() {
