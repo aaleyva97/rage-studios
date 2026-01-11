@@ -14,26 +14,28 @@
     <!-- Calendario -->
     <div class="flex flex-col">
       <h3 class="text-lg font-semibold mb-3">Selecciona una fecha</h3>
-      <p-datepicker 
-        #datePicker
-        [(ngModel)]="selectedDate"
-        [inline]="true"
-        [minDate]="minDate"
-        dateFormat="dd/mm/yy"
-        (onSelect)="onDateSelect($event)">
-        
-        <!-- Template para customizar días con reservas -->
-        <ng-template pTemplate="date" let-date>
-          @if (hasBookingOnDate(date)) {
-            <span class="booking-day">
+      <!-- Usamos @for con track para forzar re-render cuando cambia calendarKey -->
+      @for (key of [calendarKey()]; track key) {
+        <p-datepicker
+          [(ngModel)]="selectedDate"
+          [inline]="true"
+          [minDate]="minDate"
+          dateFormat="dd/mm/yy"
+          (onSelect)="onDateSelect($event)">
+
+          <!-- Template para customizar días con reservas -->
+          <ng-template pTemplate="date" let-date>
+            @if (hasBookingOnDate(date)) {
+              <span class="booking-day">
+                {{ date.day }}
+              </span>
+            } @else {
               {{ date.day }}
-            </span>
-          } @else {
-            {{ date.day }}
-          }
-        </ng-template>
-        
-      </p-datepicker>
+            }
+          </ng-template>
+
+        </p-datepicker>
+      }
     </div>
     
     <!-- Reservas del día -->
