@@ -9,13 +9,13 @@
   [breakpoints]="{'960px': '95vw', '640px': '100vw'}"
   header="Mis Reservas Activas"
   (onHide)="closeDialog()">
-  
-  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 p-4">
-    <!-- Calendario -->
-    <div class="flex flex-col">
-      <h3 class="text-lg font-semibold mb-3">Selecciona una fecha</h3>
-      <!-- Usamos @for con track para forzar re-render cuando cambia calendarKey -->
-      @for (key of [calendarKey()]; track key) {
+
+  <!-- Solo renderizar contenido cuando el dialog está visible -->
+  @if (visible()) {
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 p-4">
+      <!-- Calendario -->
+      <div class="flex flex-col">
+        <h3 class="text-lg font-semibold mb-3">Selecciona una fecha</h3>
         <p-datepicker
           [(ngModel)]="selectedDate"
           [inline]="true"
@@ -35,8 +35,7 @@
           </ng-template>
 
         </p-datepicker>
-      }
-    </div>
+      </div>
     
     <!-- Reservas del día -->
     <div class="flex flex-col">
@@ -135,5 +134,6 @@
         </div>
       }
     </div>
-  </div>
+    </div>
+  }
 </p-dialog>
