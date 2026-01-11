@@ -1,4 +1,4 @@
-import { Component, model, signal, inject, OnInit, OnDestroy, ViewChild, ElementRef } from '@angular/core';
+import { Component, model, signal, inject, OnInit, OnDestroy, ViewChild, ElementRef, effect } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { DatePipe } from '@angular/common';
 import { DialogModule } from 'primeng/dialog';
@@ -9,7 +9,7 @@ import { TagModule } from 'primeng/tag';
 import { ToastModule } from 'primeng/toast';
 import { ConfirmDialogModule } from 'primeng/confirmdialog';
 import { Tooltip } from 'primeng/tooltip';
-import { MessageService, ConfirmationService, PrimeTemplate } from 'primeng/api';
+import { MessageService, ConfirmationService } from 'primeng/api';
 import { BookingService } from '../../../core/services/booking.service';
 import { SupabaseService } from '../../../core/services/supabase-service';
 import { PaymentService } from '../../../core/services/payment.service';
@@ -30,8 +30,7 @@ import { Subscription } from 'rxjs';
     TagModule,
     ToastModule,
     ConfirmDialogModule,
-    Tooltip,
-    PrimeTemplate
+    Tooltip
   ],
   providers: [MessageService, ConfirmationService],
   templateUrl: './bookings-dialog.html',
@@ -55,6 +54,9 @@ export class BookingsDialog implements OnInit, OnDestroy {
   bookingDates = signal<string[]>([]);
   isLoading = signal(true);
   minDate = new Date();
+
+  // Flag para forzar re-render del datepicker
+  calendarKey = signal(0);
   
   private authSubscription?: Subscription;
   private currentUserId: string | null = null;
@@ -73,14 +75,15 @@ export class BookingsDialog implements OnInit, OnDestroy {
   ngOnDestroy() {
     this.authSubscription?.unsubscribe();
   }
-
   
   async initializeDialogData() {
+    console.log('📅 [BookingsDialog] initializeDialogData called, userId:', this.currentUserId);
     if (!this.currentUserId) {
       return;
     }
-    
+
     await this.loadBookingDates();
+    console.log('📅 [BookingsDialog] After loadBookingDates, signal value:', this.bookingDates());
     // Auto-cargar reservas del día actual
     await this.loadBookingsForToday();
   }
@@ -97,12 +100,19 @@ export class BookingsDialog implements OnInit, OnDestroy {
   async loadBookingDates() {
     if (!this.currentUserId) {
       this.bookingDates.set([]);
+      console.log('📅 [BookingsDialog] No user ID, clearing booking dates');
       return;
     }
 
     try {
       const dates = await this.bookingService.getUserBookingDates(this.currentUserId);
+      console.log('📅 [BookingsDialog] Loaded booking dates from service:', dates);
       this.bookingDates.set(dates);
+      console.log('📅 [BookingsDialog] bookingDates signal updated:', this.bookingDates());
+
+      // Forzar re-render del datepicker para aplicar el template correctamente
+      this.calendarKey.update(k => k + 1);
+      console.log('📅 [BookingsDialog] Calendar key updated to force re-render:', this.calendarKey());
     } catch (error) {
       console.error('Error loading booking dates:', error);
       this.bookingDates.set([]);
@@ -357,6 +367,11 @@ export class BookingsDialog implements OnInit, OnDestroy {
     const day = date.day.toString().padStart(2, '0');
     const dateStr = `${year}-${month}-${day}`;
 
-    return this.bookingDates().includes(dateStr);
+    const hasBooking = this.bookingDates().includes(dateStr);
+
+    // DEBUG: Log para diagnosticar
+    console.log(`📅 hasBookingOnDate: ${dateStr} | otherMonth: ${date.otherMonth} | hasBooking: ${hasBooking} | bookingDates: [${this.bookingDates().join(', ')}]`);
+
+    return hasBooking;
   }
 }
