@@ -1,6 +1,6 @@
 import { Component, model, signal, inject, OnInit, OnDestroy, ViewChild, ElementRef, computed } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { DatePipe } from '@angular/common';
+import { DatePipe, NgIf } from '@angular/common';
 import { DialogModule } from 'primeng/dialog';
 import { DatePickerModule } from 'primeng/datepicker';
 import { ButtonModule } from 'primeng/button';
@@ -23,6 +23,7 @@ import { Subscription } from 'rxjs';
   imports: [
     FormsModule,
     DatePipe,
+    NgIf,
     DialogModule,
     DatePickerModule,
     ButtonModule,
