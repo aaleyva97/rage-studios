@@ -1,4 +1,4 @@
-import { Component, model, signal, inject, OnInit, OnDestroy, ViewChild, ElementRef, effect } from '@angular/core';
+import { Component, model, signal, inject, OnInit, OnDestroy, ViewChild, ElementRef, computed } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { DatePipe } from '@angular/common';
 import { DialogModule } from 'primeng/dialog';
@@ -55,8 +55,8 @@ export class BookingsDialog implements OnInit, OnDestroy {
   isLoading = signal(true);
   minDate = new Date();
 
-  // Flag para forzar re-render del datepicker
-  calendarKey = signal(0);
+  // Computed Set para búsqueda O(1) y mejor reactividad en zoneless
+  bookingDatesSet = computed(() => new Set(this.bookingDates()));
   
   private authSubscription?: Subscription;
   private currentUserId: string | null = null;
@@ -108,11 +108,7 @@ export class BookingsDialog implements OnInit, OnDestroy {
       const dates = await this.bookingService.getUserBookingDates(this.currentUserId);
       console.log('📅 [BookingsDialog] Loaded booking dates from service:', dates);
       this.bookingDates.set(dates);
-      console.log('📅 [BookingsDialog] bookingDates signal updated:', this.bookingDates());
-
-      // Forzar re-render del datepicker para aplicar el template correctamente
-      this.calendarKey.update(k => k + 1);
-      console.log('📅 [BookingsDialog] Calendar key updated to force re-render:', this.calendarKey());
+      console.log('📅 [BookingsDialog] bookingDates signal updated. Set:', [...this.bookingDatesSet()]);
     } catch (error) {
       console.error('Error loading booking dates:', error);
       this.bookingDates.set([]);
@@ -356,6 +352,7 @@ export class BookingsDialog implements OnInit, OnDestroy {
   }
 
   // Función para verificar si una fecha tiene reservas
+  // Usa computed Set para búsqueda O(1) y mejor reactividad en zoneless
   hasBookingOnDate(date: any): boolean {
     if (!date || !date.year || !date.month || !date.day) {
       return false;
@@ -367,10 +364,11 @@ export class BookingsDialog implements OnInit, OnDestroy {
     const day = date.day.toString().padStart(2, '0');
     const dateStr = `${year}-${month}-${day}`;
 
-    const hasBooking = this.bookingDates().includes(dateStr);
+    // Usar el computed Set para búsqueda eficiente
+    const hasBooking = this.bookingDatesSet().has(dateStr);
 
     // DEBUG: Log para diagnosticar
-    console.log(`📅 hasBookingOnDate: ${dateStr} | otherMonth: ${date.otherMonth} | hasBooking: ${hasBooking} | bookingDates: [${this.bookingDates().join(', ')}]`);
+    console.log(`📅 hasBookingOnDate: ${dateStr} | otherMonth: ${date.otherMonth} | hasBooking: ${hasBooking}`);
 
     return hasBooking;
   }
