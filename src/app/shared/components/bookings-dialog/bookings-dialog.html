@@ -10,34 +10,37 @@
   header="Mis Reservas Activas"
   (onHide)="closeDialog()">
 
-  <!-- Solo renderizar contenido cuando el dialog está visible -->
-  @if (visible()) {
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 p-4">
-      <!-- Calendario -->
-      <div class="flex flex-col">
-        <h3 class="text-lg font-semibold mb-3">Selecciona una fecha</h3>
-        <p-datepicker
-          [(ngModel)]="selectedDate"
-          [inline]="true"
-          [minDate]="minDate"
-          dateFormat="dd/mm/yy"
-          (onSelect)="onDateSelect($event)">
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 p-4">
+    <!-- Calendario -->
+    <div class="flex flex-col">
+      <h3 class="text-lg font-semibold mb-3">Selecciona una fecha</h3>
+      <p-datepicker
+        [(ngModel)]="selectedDate"
+        [inline]="true"
+        [minDate]="minDate"
+        dateFormat="dd/mm/yy"
+        (onSelect)="onDateSelect($event)">
 
-          <!-- Template para customizar días con reservas - usando sintaxis de documentación oficial -->
-          <ng-template #date let-date>
-            <span *ngIf="hasBookingOnDate(date); else normalDay" class="booking-day">{{ date.day }}</span>
-            <ng-template #normalDay>{{ date.day }}</ng-template>
-          </ng-template>
+        <!-- Template para customizar días con reservas -->
+        <ng-template #date let-date>
+          @if (hasBookingOnDate(date)) {
+            <span class="booking-day">
+              {{ date.day }}
+            </span>
+          } @else {
+            {{ date.day }}
+          }
+        </ng-template>
 
-        </p-datepicker>
-      </div>
-    
+      </p-datepicker>
+    </div>
+
     <!-- Reservas del día -->
     <div class="flex flex-col">
       <h3 class="text-lg font-semibold mb-3">
         Reservas para {{ selectedDate() | date:'EEEE, d MMMM yyyy':'':'es' }}
       </h3>
-      
+
       @if (isLoading()) {
         <div class="space-y-4">
           @for (item of [1,2,3]; track $index) {
@@ -77,13 +80,13 @@
                   <h4 class="text-lg font-semibold text-gray-900">{{ booking.formattedTime }}</h4>
                   <p class="text-sm text-gray-600">{{ booking.coach_name }}</p>
                 </div>
-                <p-tag 
+                <p-tag
                   [value]="booking.statusLabel"
                   [severity]="booking.statusSeverity"
                   [rounded]="true">
                 </p-tag>
               </div>
-              
+
               <!-- Details Grid -->
               <div class="grid grid-cols-2 gap-3">
                 <div>
@@ -101,7 +104,7 @@
                   </div>
                 }
               </div>
-              
+
               <!-- ID de reserva y botón de cancelación -->
               <div class="flex justify-between items-center pt-3 border-t border-gray-100 mt-3">
                 <span class="text-xs text-gray-400">ID: {{ booking.id.substring(0, 8) }}</span>
@@ -129,6 +132,5 @@
         </div>
       }
     </div>
-    </div>
-  }
+  </div>
 </p-dialog>
