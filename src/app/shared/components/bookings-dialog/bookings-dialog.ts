@@ -1,6 +1,6 @@
-import { Component, model, signal, inject, OnInit, OnDestroy, ViewChild, ElementRef, computed } from '@angular/core';
+import { Component, model, signal, inject, OnInit, OnDestroy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { DatePipe, NgIf } from '@angular/common';
+import { DatePipe } from '@angular/common';
 import { DialogModule } from 'primeng/dialog';
 import { DatePickerModule } from 'primeng/datepicker';
 import { ButtonModule } from 'primeng/button';
@@ -23,7 +23,6 @@ import { Subscription } from 'rxjs';
   imports: [
     FormsModule,
     DatePipe,
-    NgIf,
     DialogModule,
     DatePickerModule,
     ButtonModule,
@@ -40,8 +39,6 @@ import { Subscription } from 'rxjs';
 export class BookingsDialog implements OnInit, OnDestroy {
   visible = model<boolean>(false);
 
-  @ViewChild('datePicker') datePicker!: ElementRef;
-
   private bookingService = inject(BookingService);
   private supabaseService = inject(SupabaseService);
   private paymentService = inject(PaymentService);
@@ -56,43 +53,30 @@ export class BookingsDialog implements OnInit, OnDestroy {
   isLoading = signal(true);
   minDate = new Date();
 
-  // Computed Set para búsqueda O(1) y mejor reactividad en zoneless
-  bookingDatesSet = computed(() => new Set(this.bookingDates()));
-  
   private authSubscription?: Subscription;
   private currentUserId: string | null = null;
-  
-  constructor() {
-    // Removido el effect problemático que causa bucle infinito
-  }
 
   async ngOnInit() {
-    // Solo obtener usuario una vez, no suscribirse
     this.authSubscription = this.supabaseService.currentUser$.subscribe(user => {
       this.currentUserId = user?.id || null;
     });
   }
-  
+
   ngOnDestroy() {
     this.authSubscription?.unsubscribe();
   }
-  
+
   async initializeDialogData() {
-    console.log('📅 [BookingsDialog] initializeDialogData called, userId:', this.currentUserId);
     if (!this.currentUserId) {
       return;
     }
 
     await this.loadBookingDates();
-    console.log('📅 [BookingsDialog] After loadBookingDates, signal value:', this.bookingDates());
-    // Auto-cargar reservas del día actual
     await this.loadBookingsForToday();
   }
 
-  // Método público para inicializar desde el componente padre
   public async openDialog() {
     this.visible.set(true);
-    // Esperar un tick para que el dialog se abra
     setTimeout(() => {
       this.initializeDialogData();
     }, 100);
@@ -101,15 +85,12 @@ export class BookingsDialog implements OnInit, OnDestroy {
   async loadBookingDates() {
     if (!this.currentUserId) {
       this.bookingDates.set([]);
-      console.log('📅 [BookingsDialog] No user ID, clearing booking dates');
       return;
     }
 
     try {
       const dates = await this.bookingService.getUserBookingDates(this.currentUserId);
-      console.log('📅 [BookingsDialog] Loaded booking dates from service:', dates);
       this.bookingDates.set(dates);
-      console.log('📅 [BookingsDialog] bookingDates signal updated. Set:', [...this.bookingDatesSet()]);
     } catch (error) {
       console.error('Error loading booking dates:', error);
       this.bookingDates.set([]);
@@ -119,7 +100,6 @@ export class BookingsDialog implements OnInit, OnDestroy {
   async loadBookingsForToday() {
     const today = new Date();
     this.selectedDate.set(today);
-    // Cargar reservas del día actual inmediatamente
     await this.loadBookingsForDate(today);
   }
 
@@ -131,12 +111,7 @@ export class BookingsDialog implements OnInit, OnDestroy {
   async loadBookingsForDate(date: Date) {
     this.isLoading.set(true);
 
-    // ✅ FIX: Use local timezone conversion to prevent date shift bug
-    // BEFORE: date.toISOString().split('T')[0] - WRONG, converts to UTC causing date shift
-    // AFTER: formatDateToLocalYYYYMMDD(date) - CORRECT, preserves local date
     const dateStr = formatDateToLocalYYYYMMDD(date);
-
-    console.log('📅 [Bookings Dialog] Loading bookings for local date:', dateStr, 'from Date object:', date);
 
     if (!this.currentUserId) {
       this.isLoading.set(false);
@@ -147,9 +122,6 @@ export class BookingsDialog implements OnInit, OnDestroy {
     try {
       const bookings = await this.bookingService.getUserBookingsForDate(this.currentUserId, dateStr);
 
-      console.log(`📊 [Bookings Dialog] Found ${bookings.length} booking(s) for date ${dateStr}`);
-
-      // Formatear bookings
       const formattedBookings = bookings.map(booking => ({
         ...booking,
         formattedDate: formatDateForDisplay(booking.session_date),
@@ -188,32 +160,23 @@ export class BookingsDialog implements OnInit, OnDestroy {
     if (!user) return;
 
     try {
-      // 🚫 1. Cancelar notificaciones programadas ANTES de cancelar reserva
-      console.log('🔔 Cancelando notificaciones programadas para reserva:', booking.id);
       await this.notificationService.cancelBookingNotifications(booking.id);
-
     } catch (notificationError) {
-      console.warn('⚠️ Error cancelando notificaciones programadas:', notificationError);
-      // No bloquear el flujo principal por errores de notificaciones
+      console.warn('Error cancelando notificaciones programadas:', notificationError);
     }
 
     const result = await this.bookingService.cancelBookingWithRefund(booking.id, user.id);
 
     if (result.success) {
-      // Devolver créditos
       await this.paymentService.refundCreditsForBooking(
         user.id,
         booking.id,
         booking.credits_used
       );
 
-      // Refrescar créditos
       await this.creditsService.refreshCredits();
 
-      // 🔔 2. Programar notificación de confirmación de cancelación
       try {
-        console.log('🔔 Programando notificación de cancelación exitosa');
-
         const cancellationBookingData = {
           id: booking.id,
           class_name: booking.coach_name ? `clase con ${booking.coach_name}` : 'tu clase',
@@ -226,7 +189,6 @@ export class BookingsDialog implements OnInit, OnDestroy {
           user: { full_name: user.user_metadata?.['full_name'] || user.email }
         };
 
-        // Crear notificación inmediata de cancelación exitosa
         const scheduleData = {
           booking_id: booking.id,
           user_id: user.id,
@@ -236,7 +198,7 @@ export class BookingsDialog implements OnInit, OnDestroy {
           priority: 4,
           message_payload: await this.buildCancellationPayload(cancellationBookingData),
           delivery_channels: ['push'],
-          expires_at: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(), // 2h expiry
+          expires_at: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
           session_data: {
             originalBookingId: booking.id,
             cancellationType: 'user_self_cancellation',
@@ -244,20 +206,12 @@ export class BookingsDialog implements OnInit, OnDestroy {
           }
         };
 
-        // Programar la notificación usando Supabase directamente
-        const { error } = await this.supabaseService.client
+        await this.supabaseService.client
           .from('notification_schedules')
           .insert([scheduleData]);
 
-        if (error) {
-          console.error('❌ Error programando notificación de cancelación:', error);
-        } else {
-          console.log('✅ Notificación de cancelación programada exitosamente');
-        }
-
       } catch (notificationError) {
-        console.warn('⚠️ Error programando notificación de cancelación:', notificationError);
-        // No bloquear el flujo - la cancelación ya fue exitosa
+        console.warn('Error programando notificación de cancelación:', notificationError);
       }
 
       this.messageService.add({
@@ -266,7 +220,6 @@ export class BookingsDialog implements OnInit, OnDestroy {
         detail: 'Reserva cancelada y créditos devueltos'
       });
 
-      // Recargar bookings y fechas
       await this.loadBookingDates();
       await this.loadBookingsForDate(this.selectedDate());
     } else {
@@ -280,7 +233,6 @@ export class BookingsDialog implements OnInit, OnDestroy {
 
   private async buildCancellationPayload(bookingData: any): Promise<any> {
     try {
-      // Variables para el template de cancelación de usuario
       const variables = {
         user_name: bookingData.user?.full_name || 'Usuario',
         class_name: bookingData.class_name,
@@ -288,9 +240,6 @@ export class BookingsDialog implements OnInit, OnDestroy {
         refund_info: `Se han devuelto tus créditos automáticamente.`
       };
 
-      console.log('🏗️ Procesando template de cancelación con variables:', variables);
-
-      // Usar el template processor de Supabase
       const { data, error } = await this.supabaseService.client
         .rpc('process_notification_template', {
           p_template_key: 'cancellation_user_es',
@@ -299,10 +248,8 @@ export class BookingsDialog implements OnInit, OnDestroy {
         });
 
       if (error) {
-        console.error('❌ Error procesando template de cancelación:', error);
-        // Fallback payload
         return {
-          title: 'Reserva cancelada ✅',
+          title: 'Reserva cancelada',
           body: `Tu reserva para ${bookingData.class_name} del ${bookingData.session_date} ha sido cancelada exitosamente.`,
           icon: '/icons/icon-192x192.png',
           badge: '/icons/badge-72x72.png',
@@ -333,11 +280,8 @@ export class BookingsDialog implements OnInit, OnDestroy {
       };
 
     } catch (error) {
-      console.error('❌ Error en buildCancellationPayload:', error);
-
-      // Fallback básico
       return {
-        title: 'Reserva cancelada ✅',
+        title: 'Reserva cancelada',
         body: 'Tu reserva ha sido cancelada exitosamente.',
         icon: '/icons/icon-192x192.png',
         badge: '/icons/badge-72x72.png',
@@ -352,25 +296,16 @@ export class BookingsDialog implements OnInit, OnDestroy {
     }
   }
 
-  // Función para verificar si una fecha tiene reservas
-  // Usa computed Set para búsqueda O(1) y mejor reactividad en zoneless
   hasBookingOnDate(date: any): boolean {
     if (!date || !date.year || !date.month || !date.day) {
       return false;
     }
 
-    // Construir fecha en formato YYYY-MM-DD
     const year = date.year;
-    const month = (date.month + 1).toString().padStart(2, '0'); // month viene 0-indexed
+    const month = (date.month + 1).toString().padStart(2, '0');
     const day = date.day.toString().padStart(2, '0');
     const dateStr = `${year}-${month}-${day}`;
 
-    // Usar el computed Set para búsqueda eficiente
-    const hasBooking = this.bookingDatesSet().has(dateStr);
-
-    // DEBUG: Log para diagnosticar
-    console.log(`📅 hasBookingOnDate: ${dateStr} | otherMonth: ${date.otherMonth} | hasBooking: ${hasBooking}`);
-
-    return hasBooking;
+    return this.bookingDates().includes(dateStr);
   }
 }
