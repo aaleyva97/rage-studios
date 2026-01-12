@@ -51,6 +51,8 @@ export class BookingsDialog implements OnInit, OnDestroy {
   bookingsForDate = signal<any[]>([]);
   bookingDates = signal<string[]>([]);
   isLoading = signal(true);
+  // Signal para controlar si el calendario está listo (datos cargados)
+  calendarReady = signal(false);
   minDate = new Date();
 
   private authSubscription?: Subscription;
@@ -76,24 +78,33 @@ export class BookingsDialog implements OnInit, OnDestroy {
   }
 
   public async openDialog() {
+    // Resetear estado del calendario
+    this.calendarReady.set(false);
     this.visible.set(true);
+    // Pequeño delay para asegurar que el dialog esté montado
     setTimeout(() => {
       this.initializeDialogData();
-    }, 100);
+    }, 50);
   }
 
   async loadBookingDates() {
     if (!this.currentUserId) {
       this.bookingDates.set([]);
+      this.calendarReady.set(true);
       return;
     }
 
     try {
       const dates = await this.bookingService.getUserBookingDates(this.currentUserId);
+      console.log('🔍 [DEBUG] Booking dates loaded:', dates);
       this.bookingDates.set(dates);
+      console.log('🔍 [DEBUG] bookingDates signal after set:', this.bookingDates());
+      // Marcar calendario como listo DESPUÉS de tener los datos
+      this.calendarReady.set(true);
     } catch (error) {
       console.error('Error loading booking dates:', error);
       this.bookingDates.set([]);
+      this.calendarReady.set(true);
     }
   }
 
@@ -306,6 +317,17 @@ export class BookingsDialog implements OnInit, OnDestroy {
     const day = date.day.toString().padStart(2, '0');
     const dateStr = `${year}-${month}-${day}`;
 
-    return this.bookingDates().includes(dateStr);
+    const hasBooking = this.bookingDates().includes(dateStr);
+
+    // DEBUG: Log solo para el día 16 de enero para no saturar la consola
+    if (date.day === 16 && date.month === 0 && date.year === 2026) {
+      console.log('🔍 [DEBUG] hasBookingOnDate for 2026-01-16:', {
+        dateStr,
+        bookingDates: this.bookingDates(),
+        hasBooking
+      });
+    }
+
+    return hasBooking;
   }
 }
