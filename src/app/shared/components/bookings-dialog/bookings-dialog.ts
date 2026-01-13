@@ -345,6 +345,9 @@ export class BookingsDialog implements OnInit, OnDestroy {
 
   // Función para verificar si una fecha tiene reservas
   hasBookingOnDate(date: any): boolean {
+    // LOG CRÍTICO: Ver si esta función se llama
+    console.log('🔴 hasBookingOnDate CALLED:', date);
+
     if (!date || !date.year || !date.month || !date.day) {
       return false;
     }
@@ -355,6 +358,8 @@ export class BookingsDialog implements OnInit, OnDestroy {
     const day = date.day.toString().padStart(2, '0');
     const dateStr = `${year}-${month}-${day}`;
 
-    return this.bookingDates().includes(dateStr);
+    const result = this.bookingDates().includes(dateStr);
+    console.log('🔴 hasBookingOnDate result:', dateStr, result);
+    return result;
   }
 }
