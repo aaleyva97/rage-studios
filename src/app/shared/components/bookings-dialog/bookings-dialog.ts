@@ -320,13 +320,9 @@ export class BookingsDialog implements OnInit, OnDestroy {
 
     const hasBooking = this.bookingDates().includes(dateStr);
 
-    // DEBUG: Log solo para el día 16 de enero para no saturar la consola
-    if (date.day === 16 && date.month === 0 && date.year === 2026) {
-      console.log('🔍 [DEBUG] hasBookingOnDate for 2026-01-16:', {
-        dateStr,
-        bookingDates: this.bookingDates(),
-        hasBooking
-      });
+    // DEBUG: Log para TODOS los días de enero 2026 para ver si se llama
+    if (date.year === 2026 && date.month === 0) {
+      console.log(`🗓️ hasBookingOnDate(${dateStr}) = ${hasBooking}`);
     }
 
     return hasBooking;
