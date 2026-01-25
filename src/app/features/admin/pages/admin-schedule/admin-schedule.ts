@@ -102,25 +102,37 @@ export class AdminSchedule implements OnInit {
     { label: 'Domingo', value: 7 }
   ];
 
-  // Horarios predefinidos
-  timeOptions = [
-    { label: '06:00', value: '06:00:00' },
-    { label: '07:00', value: '07:00:00' },
-    { label: '08:00', value: '08:00:00' },
-    { label: '09:00', value: '09:00:00' },
-    { label: '10:00', value: '10:00:00' },
-    { label: '11:00', value: '11:00:00' },
-    { label: '12:00', value: '12:00:00' },
-    { label: '13:00', value: '13:00:00' },
-    { label: '14:00', value: '14:00:00' },
-    { label: '15:00', value: '15:00:00' },
-    { label: '16:00', value: '16:00:00' },
-    { label: '17:00', value: '17:00:00' },
-    { label: '18:00', value: '18:00:00' },
-    { label: '19:00', value: '19:00:00' },
-    { label: '20:00', value: '20:00:00' },
-    { label: '21:00', value: '21:00:00' }
-  ];
+  /**
+   * Genera opciones de tiempo de 06:00 a 21:00 con incrementos de 5 minutos
+   * Ejemplos: 06:00, 06:05, 06:10, ..., 20:55, 21:00
+   * Total: 181 opciones (16 horas * 12 opciones/hora + 1)
+   */
+  private generateTimeOptions(): Array<{ label: string; value: string }> {
+    const options: Array<{ label: string; value: string }> = [];
+    const startHour = 6;
+    const endHour = 21;
+    const minuteStep = 5;
+
+    for (let hour = startHour; hour <= endHour; hour++) {
+      // Para la hora final (21), solo agregar 21:00
+      const maxMinute = hour === endHour ? 0 : 55;
+
+      for (let minute = 0; minute <= maxMinute; minute += minuteStep) {
+        const hourStr = hour.toString().padStart(2, '0');
+        const minuteStr = minute.toString().padStart(2, '0');
+        const timeLabel = `${hourStr}:${minuteStr}`;
+        const timeValue = `${hourStr}:${minuteStr}:00`;
+
+        options.push({ label: timeLabel, value: timeValue });
+      }
+    }
+
+    return options;
+  }
+
+  // Horarios predefinidos: Opciones de 6:00 a 21:00 con incrementos de 5 minutos
+  // Esto permite crear horarios como 6:25-7:25, 7:10-8:10, etc.
+  timeOptions = this.generateTimeOptions();
 
   async ngOnInit() {
     await this.loadData();
@@ -222,6 +234,20 @@ export class AdminSchedule implements OnInit {
         severity: 'error',
         summary: 'Error',
         detail: 'La hora de inicio debe ser menor a la hora de fin'
+      });
+      return;
+    }
+
+    // Validar que el horario sea exactamente de 1 hora (60 minutos)
+    const startMinutes = this.parseTimeToMinutes(slot.start_time);
+    const endMinutes = this.parseTimeToMinutes(slot.end_time);
+    const durationMinutes = endMinutes - startMinutes;
+
+    if (durationMinutes !== 60) {
+      this.messageService.add({
+        severity: 'error',
+        summary: 'Error',
+        detail: `El horario debe ser exactamente de 1 hora. Duración actual: ${Math.floor(durationMinutes / 60)}h ${durationMinutes % 60}m`
       });
       return;
     }
@@ -396,6 +422,18 @@ export class AdminSchedule implements OnInit {
         }
       }
     });
+  }
+
+  /**
+   * Convierte una cadena de tiempo "HH:MM:SS" a minutos totales desde medianoche
+   * Ejemplos:
+   * - "06:00:00" -> 360 (6 * 60)
+   * - "06:25:00" -> 385 (6 * 60 + 25)
+   * - "21:00:00" -> 1260 (21 * 60)
+   */
+  private parseTimeToMinutes(timeStr: string): number {
+    const [hours, minutes] = timeStr.split(':').map(Number);
+    return hours * 60 + (minutes || 0);
   }
 
   // Método para formatear coaches como string

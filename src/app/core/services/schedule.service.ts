@@ -195,14 +195,15 @@ export class ScheduleService {
 
     scheduleSlots.forEach(slot => {
       // Generar slots de 1 hora dentro del rango start_time - end_time
+      // Ahora soporta minutos: ej. 06:25:00 - 07:25:00 genera un slot a las 06:25
       const startTime = this.parseTime(slot.start_time);
       const endTime = this.parseTime(slot.end_time);
-      
+
       let current = startTime;
       while (current < endTime) {
         const timeStr = this.formatTime(current);
         const coachNames = this.formatCoachNames(slot.coaches);
-        
+
         timeSlots.push({
           time: timeStr,
           coach: coachNames,
@@ -210,8 +211,8 @@ export class ScheduleService {
           occupiedBeds: 0,   // Se calculará después con bookings
           slot_id: slot.id
         });
-        
-        current += 1; // Incrementar 1 hora
+
+        current += 60; // Incrementar 60 minutos (1 hora)
       }
     });
 
@@ -237,18 +238,28 @@ export class ScheduleService {
   }
 
   /**
-   * Parse time string "HH:MM" to hours number
+   * Parse time string "HH:MM:SS" or "HH:MM" to total minutes from midnight
+   * Examples:
+   * - "06:00:00" -> 360 (6 * 60)
+   * - "06:25:00" -> 385 (6 * 60 + 25)
+   * - "21:00:00" -> 1260 (21 * 60)
    */
   private parseTime(timeStr: string): number {
-    const [hours] = timeStr.split(':').map(Number);
-    return hours;
+    const [hours, minutes] = timeStr.split(':').map(Number);
+    return hours * 60 + (minutes || 0);
   }
 
   /**
-   * Format hours number to "HH:MM" string
+   * Format total minutes from midnight to "HH:MM" string
+   * Examples:
+   * - 360 -> "06:00" (6 hours * 60 = 360 minutes)
+   * - 385 -> "06:25" (6 hours * 60 + 25 minutes)
+   * - 1260 -> "21:00" (21 hours * 60 = 1260 minutes)
    */
-  private formatTime(hours: number): string {
-    return `${hours.toString().padStart(2, '0')}:00`;
+  private formatTime(totalMinutes: number): string {
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
   }
 
   /**
