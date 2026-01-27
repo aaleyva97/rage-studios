@@ -310,17 +310,19 @@
     <form class="space-y-6">
       <!-- Advertencias -->
       @if (dialogMode() === 'edit' && existingBookingsCount() > 0) {
-        <p-message
-          severity="warn"
-          [text]="'Este horario tiene ' + existingBookingsCount() + ' reserva(s) activa(s). Cualquier cambio podría afectar a los usuarios.'">
-        </p-message>
+        <div class="mb-4">
+          <p-message severity="warn">
+            Este horario tiene {{existingBookingsCount()}} reserva(s) activa(s). Cualquier cambio podría afectar a los usuarios.
+          </p-message>
+        </div>
       }
 
       @if (hasScheduleConflict()) {
-        <p-message
-          severity="warn"
-          [text]="conflictMessage()">
-        </p-message>
+        <div class="mb-4">
+          <p-message severity="warn">
+            {{conflictMessage()}}
+          </p-message>
+        </div>
       }
 
       <!-- Día de la semana -->

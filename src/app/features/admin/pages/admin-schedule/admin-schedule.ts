@@ -292,6 +292,7 @@ export class AdminSchedule implements OnInit {
         acceptLabel: 'Sí, modificar',
         rejectLabel: 'Cancelar',
         acceptButtonStyleClass: 'p-button-warning',
+        defaultFocus: 'reject',
         accept: () => {
           this.performSaveSlot(slot);
         }
@@ -410,6 +411,7 @@ export class AdminSchedule implements OnInit {
       acceptLabel: 'Sí, eliminar',
       rejectLabel: 'Cancelar',
       acceptButtonStyleClass: bookingsCount > 0 ? 'p-button-danger' : 'p-button-warning',
+      defaultFocus: 'reject',
       accept: async () => {
         this.loading.set(true);
         
@@ -447,11 +449,14 @@ export class AdminSchedule implements OnInit {
 
   toggleSlotStatus(slot: ScheduleSlot) {
     const newStatus = !slot.is_active;
-    
+
     this.confirmationService.confirm({
       message: `¿Está seguro que desea ${newStatus ? 'activar' : 'desactivar'} este horario?`,
       header: 'Confirmar cambio',
       icon: 'pi pi-question-circle',
+      acceptLabel: 'Sí, cambiar',
+      rejectLabel: 'Cancelar',
+      defaultFocus: 'reject',
       accept: async () => {
         this.loading.set(true);
         
