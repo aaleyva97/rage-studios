@@ -16,6 +16,7 @@ import { SkeletonModule } from 'primeng/skeleton';
 import { ChipModule } from 'primeng/chip';
 import { TagModule } from 'primeng/tag';
 import { TooltipModule } from 'primeng/tooltip';
+import { MessageModule } from 'primeng/message';
 
 import { SupabaseService } from '../../../../core/services/supabase-service';
 import { ScheduleService, ScheduleSlot, Coach } from '../../../../core/services/schedule.service';
@@ -59,6 +60,7 @@ interface ExceptionForm {
     MultiSelectModule,
     ConfirmDialogModule,
     ToastModule,
+    MessageModule,
     SkeletonModule,
     ChipModule,
     TagModule
@@ -90,6 +92,12 @@ export class AdminSchedule implements OnInit {
   selectedException = signal<ExceptionForm | null>(null);
   selectedExceptionCoaches = signal<string[]>([]);
   minDate = new Date();
+
+  // Estados para advertencias y conflictos
+  hasScheduleConflict = signal(false);
+  conflictMessage = signal('');
+  existingBookingsCount = signal(0);
+  isCheckingConflicts = signal(false);
 
   // Opciones para dropdowns
   daysOfWeek = [
@@ -175,10 +183,16 @@ export class AdminSchedule implements OnInit {
       coaches: []
     });
     this.selectedCoaches.set([]);
+    this.hasScheduleConflict.set(false);
+    this.conflictMessage.set('');
+    this.existingBookingsCount.set(0);
     this.showDialog.set(true);
+
+    // Validar conflictos con valores iniciales
+    this.validateCurrentSlot();
   }
 
-  openEditDialog(slot: ScheduleSlot) {
+  async openEditDialog(slot: ScheduleSlot) {
     this.dialogMode.set('edit');
     this.selectedSlot.set({
       id: slot.id,
@@ -193,7 +207,17 @@ export class AdminSchedule implements OnInit {
     });
     // Extraer IDs de coaches para el multiselect
     this.selectedCoaches.set(slot.coaches.map(c => c.id));
+    this.hasScheduleConflict.set(false);
+    this.conflictMessage.set('');
+
+    // Cargar conteo de reservas existentes
+    const bookingsCount = await this.countExistingBookings(slot.id);
+    this.existingBookingsCount.set(bookingsCount);
+
     this.showDialog.set(true);
+
+    // Validar conflictos con valores actuales
+    this.validateCurrentSlot();
   }
 
   closeDialog() {
@@ -213,6 +237,13 @@ export class AdminSchedule implements OnInit {
         });
       }
     }
+    // Revalidar conflictos cuando cambia el día
+    this.validateCurrentSlot();
+  }
+
+  onTimeChange() {
+    // Revalidar conflictos cuando cambia la hora de inicio o fin
+    this.validateCurrentSlot();
   }
 
   async saveSlot() {
@@ -252,6 +283,30 @@ export class AdminSchedule implements OnInit {
       return;
     }
 
+    // Si estamos editando y hay reservas, pedir confirmación
+    if (this.dialogMode() === 'edit' && this.existingBookingsCount() > 0) {
+      this.confirmationService.confirm({
+        message: `Este horario tiene ${this.existingBookingsCount()} reserva(s) activa(s) de usuarios. Los cambios podrían afectar sus sesiones programadas. ¿Está seguro que desea continuar?`,
+        header: 'Confirmar modificación',
+        icon: 'pi pi-exclamation-triangle',
+        acceptLabel: 'Sí, modificar',
+        rejectLabel: 'Cancelar',
+        acceptButtonStyleClass: 'p-button-warning',
+        accept: () => {
+          this.performSaveSlot(slot);
+        }
+      });
+      return;
+    }
+
+    // Si no hay reservas o estamos creando, guardar directamente
+    this.performSaveSlot(slot);
+  }
+
+  /**
+   * Ejecuta el guardado del horario (separado para reutilizar con confirmación)
+   */
+  private async performSaveSlot(slot: ScheduleSlotForm) {
     this.loading.set(true);
 
     try {
@@ -340,11 +395,21 @@ export class AdminSchedule implements OnInit {
     }
   }
 
-  deleteSlot(slot: ScheduleSlot) {
+  async deleteSlot(slot: ScheduleSlot) {
+    // Primero verificar si hay reservas
+    const bookingsCount = await this.countExistingBookings(slot.id);
+
+    const warningMessage = bookingsCount > 0
+      ? `⚠️ Este horario tiene ${bookingsCount} reserva(s) activa(s) de usuarios. Al eliminarlo, se cancelarán estas reservas y los usuarios serán notificados.\n\n¿Está seguro que desea eliminar el horario del ${slot.day_name} de ${slot.start_time.substring(0, 5)} a ${slot.end_time.substring(0, 5)}?`
+      : `¿Está seguro que desea eliminar el horario del ${slot.day_name} de ${slot.start_time.substring(0, 5)} a ${slot.end_time.substring(0, 5)}?`;
+
     this.confirmationService.confirm({
-      message: `¿Está seguro que desea eliminar el horario del ${slot.day_name} de ${slot.start_time} a ${slot.end_time}?`,
-      header: 'Confirmar eliminación',
+      message: warningMessage,
+      header: bookingsCount > 0 ? '⚠️ Advertencia - Reservas Activas' : 'Confirmar eliminación',
       icon: 'pi pi-exclamation-triangle',
+      acceptLabel: 'Sí, eliminar',
+      rejectLabel: 'Cancelar',
+      acceptButtonStyleClass: bookingsCount > 0 ? 'p-button-danger' : 'p-button-warning',
       accept: async () => {
         this.loading.set(true);
         
@@ -434,6 +499,117 @@ export class AdminSchedule implements OnInit {
   private parseTimeToMinutes(timeStr: string): number {
     const [hours, minutes] = timeStr.split(':').map(Number);
     return hours * 60 + (minutes || 0);
+  }
+
+  /**
+   * Detecta si el horario propuesto tiene conflictos con horarios existentes
+   * Un conflicto ocurre cuando:
+   * - Es el mismo día de la semana
+   * - Los horarios se solapan (tienen al menos 1 minuto en común)
+   */
+  async checkScheduleConflicts(
+    dayOfWeek: number,
+    startTime: string,
+    endTime: string,
+    excludeSlotId?: string
+  ): Promise<{ hasConflict: boolean; conflictingSlots: ScheduleSlot[] }> {
+    const startMinutes = this.parseTimeToMinutes(startTime);
+    const endMinutes = this.parseTimeToMinutes(endTime);
+
+    // Filtrar slots del mismo día
+    const slotsInSameDay = this.scheduleSlots().filter(slot => {
+      // Excluir el slot actual si estamos editando
+      if (excludeSlotId && slot.id === excludeSlotId) {
+        return false;
+      }
+      return slot.day_of_week === dayOfWeek;
+    });
+
+    // Verificar solapamiento
+    const conflictingSlots = slotsInSameDay.filter(slot => {
+      const slotStart = this.parseTimeToMinutes(slot.start_time);
+      const slotEnd = this.parseTimeToMinutes(slot.end_time);
+
+      // Hay solapamiento si:
+      // - El inicio del nuevo horario está dentro del slot existente
+      // - El fin del nuevo horario está dentro del slot existente
+      // - El nuevo horario contiene completamente al slot existente
+      return (
+        (startMinutes >= slotStart && startMinutes < slotEnd) ||
+        (endMinutes > slotStart && endMinutes <= slotEnd) ||
+        (startMinutes <= slotStart && endMinutes >= slotEnd)
+      );
+    });
+
+    return {
+      hasConflict: conflictingSlots.length > 0,
+      conflictingSlots
+    };
+  }
+
+  /**
+   * Cuenta las reservas activas para un horario específico
+   * Esto ayuda a advertir al admin antes de modificar/eliminar
+   */
+  async countExistingBookings(slotId: string): Promise<number> {
+    try {
+      // Obtener el slot para conocer su día y horario
+      const slot = this.scheduleSlots().find(s => s.id === slotId);
+      if (!slot) return 0;
+
+      // Buscar reservas activas que coincidan con este horario
+      // Las reservas se guardan con session_time en formato HH:MM:00
+      const { count, error } = await this.supabaseService.client
+        .from('bookings')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'active')
+        .gte('session_date', new Date().toISOString().split('T')[0]) // Solo futuras
+        .eq('session_time', slot.start_time);
+
+      if (error) throw error;
+
+      return count || 0;
+    } catch (error) {
+      console.error('Error counting bookings:', error);
+      return 0;
+    }
+  }
+
+  /**
+   * Valida el horario actual y detecta conflictos
+   * Se llama cuando el usuario cambia día, hora inicio o hora fin
+   */
+  async validateCurrentSlot() {
+    const slot = this.selectedSlot();
+    if (!slot || !slot.day_of_week || !slot.start_time || !slot.end_time) {
+      this.hasScheduleConflict.set(false);
+      return;
+    }
+
+    this.isCheckingConflicts.set(true);
+
+    const { hasConflict, conflictingSlots } = await this.checkScheduleConflicts(
+      slot.day_of_week,
+      slot.start_time,
+      slot.end_time,
+      slot.id // Excluir el propio slot si estamos editando
+    );
+
+    this.hasScheduleConflict.set(hasConflict);
+
+    if (hasConflict) {
+      const conflicts = conflictingSlots.map(s =>
+        `${s.start_time.substring(0, 5)} - ${s.end_time.substring(0, 5)}`
+      ).join(', ');
+
+      this.conflictMessage.set(
+        `Este horario se solapa con: ${conflicts}. Los usuarios podrían confundirse al reservar.`
+      );
+    } else {
+      this.conflictMessage.set('');
+    }
+
+    this.isCheckingConflicts.set(false);
   }
 
   // Método para formatear coaches como string
