@@ -97,7 +97,7 @@
       background: var(--surface-0);
       border-bottom: 1px solid var(--surface-200);
       padding: 1.5rem;
-      
+
       .p-dialog-title {
         font-weight: 600;
         color: var(--text-color);
@@ -113,6 +113,27 @@
       background: var(--surface-0);
       border-top: 1px solid var(--surface-200);
       padding: 1rem 1.5rem;
+    }
+  }
+
+  // ConfirmDialog customization - ancho responsivo
+  :deep(.p-confirmdialog) {
+    width: 90vw !important;
+    max-width: 500px !important;
+
+    // En móviles, permitir más ancho
+    @media (max-width: 768px) {
+      max-width: 95vw !important;
+    }
+
+    .p-dialog-content {
+      padding: 1.5rem;
+
+      .p-confirmdialog-message {
+        margin-left: 1rem;
+        white-space: pre-line; // Permite saltos de línea en el mensaje
+        line-height: 1.6;
+      }
     }
   }
 
