@@ -51,16 +51,16 @@ export class NotificationService implements OnDestroy {
   private tokenMonitorInterval: any = null;
   private messageUnsubscribe: Unsubscribe | null = null;
 
-  // 🔄 RATE LIMITING & CACHING FOR TOKEN MANAGEMENT
-  private readonly TOKEN_CHECK_COOLDOWN = 10 * 60 * 1000; // 10 minutos cooldown
-  private readonly MAX_TOKEN_RETRIES = 2; // Máximo 2 reintentos
+  // 🔄 TOKEN MANAGEMENT - CONFIGURACIÓN OPTIMIZADA
+  private readonly TOKEN_CHECK_COOLDOWN = 2 * 60 * 1000; // ✅ REDUCIDO: 2 minutos (era 10)
+  private readonly MAX_TOKEN_RETRIES = 3; // ✅ AUMENTADO: 3 reintentos (era 2)
   private tokenRetryCount = 0;
   private tokenValidationCache = {
     token: null as string | null,
     validatedAt: 0,
-    ttl: 15 * 60 * 1000 // 15 minutos de cache
+    ttl: 5 * 60 * 1000 // ✅ REDUCIDO: 5 minutos de cache (era 15)
   };
-  private dbUpdateDebouncer: any = null;
+  // ❌ ELIMINADO: dbUpdateDebouncer - Ahora guardamos inmediatamente
 
   // 🔄 Reactive State Management
   private readonly _permissionStatus = signal<NotificationPermission>('default');
@@ -193,9 +193,15 @@ export class NotificationService implements OnDestroy {
         }
 
         this.setupFirebaseMessageHandlers();
+
+        // ✅ NUEVO: Iniciar monitoreo conservador de tokens (solo si hay token)
+        if (this._pushToken()) {
+          console.log('🔄 Starting conservative token monitoring (24h intervals)');
+          this.monitorTokenChanges();
+        }
       }
 
-      // Solo configurar debug tools (remover token monitoring agresivo)
+      // Configurar debug tools
       this.setupDebugTools();
 
       this._isInitialized.set(true);
@@ -409,39 +415,69 @@ export class NotificationService implements OnDestroy {
         await this.registerServiceWorker();
       }
 
-      // 🔄 RATE LIMITED TOKEN RETRIEVAL
+      // ✅ RETRY MEJORADO: Más intentos, mejor logging
       if (this.tokenRetryCount >= this.MAX_TOKEN_RETRIES) {
-        console.warn('⚠️ Max token retries reached, backing off');
-        throw new Error('Max token retry attempts exceeded');
+        console.warn(`⚠️ Max token retries reached (${this.MAX_TOKEN_RETRIES}), resetting counter and trying once more`);
+        this.tokenRetryCount = 0; // ✅ Reset para permitir futuros intentos
       }
 
-      // Obtener token con reintentos limitados
+      // Obtener token con reintentos exponenciales
       let token: string | undefined;
       let attempts = 0;
+      let lastError: any = null;
 
       while (!token && attempts < this.MAX_TOKEN_RETRIES) {
         try {
+          console.log(`🔑 Attempting to get FCM token (attempt ${attempts + 1}/${this.MAX_TOKEN_RETRIES})...`);
+
           token = await getToken(this.messaging, {
             vapidKey: this.firebaseVapidKey,
             serviceWorkerRegistration: swRegistration
           });
 
-          if (!token && attempts < this.MAX_TOKEN_RETRIES - 1) {
-            console.log(`⏳ Attempt ${attempts + 1} failed, retrying...`);
-            // Exponential backoff: 2s, 4s
-            await new Promise(resolve => setTimeout(resolve, 2000 * Math.pow(2, attempts)));
-            this.tokenRetryCount++;
+          if (token) {
+            console.log(`✅ FCM token obtained on attempt ${attempts + 1}`);
+            break;
           }
-        } catch (error) {
-          console.error(`❌ Token attempt ${attempts + 1} failed:`, error);
-          this.tokenRetryCount++;
-          if (attempts === this.MAX_TOKEN_RETRIES - 1) throw error;
+
+          // Si no obtuvo token pero tampoco hubo error
+          if (attempts < this.MAX_TOKEN_RETRIES - 1) {
+            const backoffTime = 1000 * Math.pow(2, attempts); // 1s, 2s, 4s
+            console.log(`⏳ No token received, retrying in ${backoffTime}ms...`);
+            await new Promise(resolve => setTimeout(resolve, backoffTime));
+          }
+
+        } catch (error: any) {
+          lastError = error;
+          console.error(`❌ Token attempt ${attempts + 1} failed:`, error.message || error);
+
+          if (attempts < this.MAX_TOKEN_RETRIES - 1) {
+            const backoffTime = 1000 * Math.pow(2, attempts);
+            console.log(`🔄 Retrying in ${backoffTime}ms...`);
+            await new Promise(resolve => setTimeout(resolve, backoffTime));
+          }
         }
+
         attempts++;
+        this.tokenRetryCount++;
       }
 
       if (!token) {
-        throw new Error('Failed to get FCM token after multiple attempts');
+        const errorMsg = lastError
+          ? `Failed after ${attempts} attempts. Last error: ${lastError.message || lastError}`
+          : `Failed to get FCM token after ${attempts} attempts (no error reported)`;
+
+        console.error('❌ Token registration failed:', errorMsg);
+
+        // ✅ Log detallado del fallo
+        await this.logEvent('token_registration_failed', {
+          attempts,
+          lastError: lastError?.message || lastError,
+          swActive: !!swRegistration.active,
+          swScriptURL: swRegistration.active?.scriptURL
+        });
+
+        throw new Error(errorMsg);
       }
 
       console.log('✅ FCM token obtained:', token.substring(0, 20) + '...');
@@ -473,7 +509,7 @@ export class NotificationService implements OnDestroy {
   }
 
   /**
-   * 💾 UPDATE TOKEN IN DATABASE - MEJORADO CON RATE LIMITING
+   * 💾 UPDATE TOKEN IN DATABASE - VERSIÓN OPTIMIZADA SIN DEBOUNCE
    */
   private async updateTokenInDatabase(token: string): Promise<void> {
     const user = await this.getCurrentUser();
@@ -482,23 +518,16 @@ export class NotificationService implements OnDestroy {
       return;
     }
 
-    // Verificar rate limiting local antes de hacer la petición
+    // ✅ RATE LIMITING REDUCIDO: Solo 2 minutos entre actualizaciones (era 10)
     const lastUpdate = localStorage.getItem('fcm_last_db_update');
     const now = Date.now();
     if (lastUpdate && (now - parseInt(lastUpdate)) < this.TOKEN_CHECK_COOLDOWN) {
-      console.log('ℹ️ Rate limiting: skipping database update (cooldown active)');
+      console.log(`ℹ️ Rate limiting: skipping database update (cooldown: ${Math.round((this.TOKEN_CHECK_COOLDOWN - (now - parseInt(lastUpdate))) / 1000)}s remaining)`);
       return;
     }
 
-    // 🔄 DEBOUNCE: Cancelar actualización anterior pendiente
-    if (this.dbUpdateDebouncer) {
-      clearTimeout(this.dbUpdateDebouncer);
-    }
-
-    // Debounce de 30 segundos para evitar actualizaciones muy frecuentes
-    this.dbUpdateDebouncer = setTimeout(async () => {
-      await this.performActualDatabaseUpdate(token, user, now);
-    }, 30000);
+    // ✅ SIN DEBOUNCE: Guardar INMEDIATAMENTE para no perder el token
+    await this.performActualDatabaseUpdate(token, user, now);
   }
 
   /**
@@ -583,34 +612,58 @@ export class NotificationService implements OnDestroy {
   }
 
   /**
-   * 🔍 VALIDATE FCM TOKEN FORMAT
+   * 🔍 VALIDATE FCM TOKEN FORMAT - VERSIÓN MEJORADA
    */
   private isValidFCMToken(token: string): boolean {
-    if (!token || typeof token !== 'string') return false;
-    if (token.startsWith('eyJ')) return false; // JWT format, invalid for FCM
-    if (token.length < 100) return false; // Too short
-    if (token.includes(' ')) return false; // Contains spaces
+    if (!token || typeof token !== 'string') {
+      console.warn('⚠️ Token validation failed: empty or invalid type');
+      return false;
+    }
 
-    // Valid FCM token format: xxxxx:xxxxxxxxx
+    if (token.startsWith('eyJ')) {
+      console.warn('⚠️ Token validation failed: JWT format detected (not FCM)');
+      return false;
+    }
+
+    if (token.length < 100) {
+      console.warn(`⚠️ Token validation failed: too short (${token.length} chars, minimum 100)`);
+      return false;
+    }
+
+    if (token.includes(' ')) {
+      console.warn('⚠️ Token validation failed: contains spaces');
+      return false;
+    }
+
+    // ✅ VALIDACIÓN MEJORADA: FCM tokens tienen formato "xxxxx:xxxxxxxxx"
+    // Acepta caracteres alfanuméricos, guiones y guiones bajos
     const fcmPattern = /^[a-zA-Z0-9_-]+:[a-zA-Z0-9_-]+$/;
-    return fcmPattern.test(token);
+
+    if (!fcmPattern.test(token)) {
+      console.warn('⚠️ Token validation failed: does not match FCM pattern (expected format: xxxxx:xxxxxxxxx)');
+      console.warn(`   Token preview: ${token.substring(0, 30)}...`);
+      return false;
+    }
+
+    console.log('✅ Token validation passed');
+    return true;
   }
 
   /**
-   * 🔄 MONITOR TOKEN CHANGES - OPTIMIZADO
-   * Solo verificar cuando sea absolutamente necesario
+   * 🔄 MONITOR TOKEN CHANGES - VERSIÓN ULTRA-CONSERVADORA
+   * ✅ Solo verificar cuando sea absolutamente necesario para evitar sobrecarga
    */
   private async monitorTokenChanges(): Promise<void> {
     if (!this.messaging) return;
 
-    console.log('🔄 Starting optimized token monitoring...');
+    console.log('🔄 Starting conservative token monitoring (checks every 24h)...');
 
-    // 🔄 DRASTICALLY REDUCED TOKEN MONITORING: Solo cada 8 horas en lugar de 4
+    // ✅ ULTRA-CONSERVADOR: Solo cada 24 horas
     this.tokenMonitorInterval = setInterval(async () => {
       if (!this.messaging || this._permissionStatus() !== 'granted') return;
 
       try {
-        // Solo verificar si tenemos una sesión activa usando el método seguro
+        // Solo verificar si tenemos una sesión activa
         const sessionResult = await this.supabase.getSessionSafe();
         if (!sessionResult || !sessionResult.data?.session) {
           console.log('ℹ️ No active session, skipping token check');
@@ -623,36 +676,47 @@ export class NotificationService implements OnDestroy {
           return;
         }
 
-        // 🔄 INCREASED COOLDOWN: 24 horas entre verificaciones (era 6)
+        // ✅ COOLDOWN DE 48 HORAS entre verificaciones
         const lastCheck = localStorage.getItem('fcm_last_token_check');
         const now = Date.now();
-        if (lastCheck && (now - parseInt(lastCheck)) < 24 * 60 * 60 * 1000) {
+        const cooldownHours = 48;
+
+        if (lastCheck && (now - parseInt(lastCheck)) < cooldownHours * 60 * 60 * 1000) {
+          const hoursRemaining = Math.ceil((cooldownHours * 60 * 60 * 1000 - (now - parseInt(lastCheck))) / (60 * 60 * 1000));
+          console.log(`ℹ️ Token check cooldown active (${hoursRemaining}h remaining)`);
           return;
         }
+
+        console.log('🔍 Performing scheduled token verification...');
 
         const actualToken = await getToken(this.messaging, {
           vapidKey: this.firebaseVapidKey
         });
 
         if (actualToken && actualToken !== currentStoredToken) {
-          console.log('🔄 Token change detected after extended period');
+          console.log('🔄 Token change detected, updating database');
           await this.handleTokenRefresh(actualToken);
+        } else if (actualToken) {
+          console.log('✅ Token verified, no changes');
         }
-        
+
         localStorage.setItem('fcm_last_token_check', now.toString());
-      } catch (error) {
+
+      } catch (error: any) {
         console.error('❌ Token monitoring error:', error);
-        // Si hay error de rate limiting, aumentar el intervalo drásticamente
-        if (error instanceof Error && error.message.includes('rate limit')) {
-          console.log('⚠️ Rate limit detected, reducing monitoring frequency significantly');
-          clearInterval(this.tokenMonitorInterval);
-          // 🔄 MASSIVE BACKOFF: 48 horas en lugar de 8
-          this.tokenMonitorInterval = setInterval(() => {
-            this.monitorTokenChanges();
-          }, 48 * 60 * 60 * 1000);
+
+        // Log del error pero no detener el monitoreo
+        await this.logEvent('token_monitor_error', {
+          error: error?.message || error,
+          timestamp: new Date().toISOString()
+        });
+
+        // Si hay error de rate limiting, simplemente omitir esta verificación
+        if (error?.message?.includes('rate limit')) {
+          console.log('⚠️ Rate limit detected, will retry in next scheduled check');
         }
       }
-    }, 8 * 60 * 60 * 1000); // 🔄 REDUCED FREQUENCY: 8 horas en lugar de 4
+    }, 24 * 60 * 60 * 1000); // ✅ 24 horas entre verificaciones automáticas
   }
 
   /**
@@ -1456,28 +1520,38 @@ private async registerServiceWorker(): Promise<void> {
       }
     }
 
-    // Esperar a que Angular registre el SW
+    // ✅ TIMEOUT REDUCIDO: Esperar al SW con timeout más corto
     console.log('⏳ Waiting for Service Worker registration...');
-    
+
     let attempts = 0;
-    const maxAttempts = isDevelopment ? 20 : 60; // 10s dev, 30s prod
-    
+    const maxAttempts = isDevelopment ? 10 : 20; // ✅ REDUCIDO: 5s dev, 10s prod (era 10s/30s)
+    const checkInterval = 500; // Check cada 500ms
+
     while (attempts < maxAttempts) {
       const reg = await navigator.serviceWorker.getRegistration('/');
-      
+
       if (reg?.active?.scriptURL.includes('firebase-messaging-sw.js')) {
         console.log('✅ Combined Service Worker registered!');
         this._serviceWorkerReady.set(true);
         this.setupServiceWorkerListener();
         await this.verifyServiceWorkerStatus();
+
+        // ✅ NUEVO: Intentar obtener token inmediatamente si hay permisos
+        if (this._permissionStatus() === 'granted') {
+          console.log('🔑 SW ready + permissions granted → attempting immediate token retrieval');
+          this.tryGetExistingFirebaseToken().catch(err =>
+            console.warn('⚠️ Immediate token retrieval failed:', err)
+          );
+        }
+
         return;
       }
-      
-      await new Promise(resolve => setTimeout(resolve, 500));
+
+      await new Promise(resolve => setTimeout(resolve, checkInterval));
       attempts++;
-      
+
       if (attempts % 4 === 0) {
-        console.log(`⏳ Still waiting... (${attempts/2}s)`);
+        console.log(`⏳ Still waiting for SW... (${(attempts * checkInterval) / 1000}s)`);
       }
     }
     
