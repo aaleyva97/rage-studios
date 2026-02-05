@@ -348,12 +348,15 @@ export class BookingDialog {
     const coach = this.selectedCoach();
     const beds = this.selectedBeds();
     const user = this.supabaseService.getUser();
-    
+
     if (!date || !time || !coach || !user) {
       this.isBooking.set(false);
       return;
     }
-  
+
+    // 🔔 PROFESIONAL: Solicitar permisos de notificaciones ANTES de crear la reserva
+    await this.ensureNotificationPermissions();
+
     // Validar créditos disponibles
     const requiredCredits = this.companions().length + 1;
     const availableCredits = this.creditsService.totalCredits();
@@ -486,6 +489,54 @@ export class BookingDialog {
     // 🚨 CRÍTICO: Siempre restablecer estado
     this.isBooking.set(false);
     this.isLoading.set(false);
+  }
+}
+
+/**
+ * 🔔 PROFESIONAL: Solicitar permisos de notificaciones push ANTES de crear reserva
+ * - Solo pide si aún no hay permisos
+ * - No bloquea si el usuario rechaza (la reserva continúa)
+ * - Timeout de 5 segundos para no bloquear indefinidamente
+ */
+private async ensureNotificationPermissions(): Promise<void> {
+  try {
+    // Verificar estado actual de permisos
+    const currentPermission = this.notificationService.permissionStatus();
+
+    console.log('🔔 Current notification permission:', currentPermission);
+
+    // Si ya tiene permisos concedidos, no hacer nada
+    if (currentPermission === 'granted') {
+      console.log('✅ Notification permissions already granted');
+      return;
+    }
+
+    // Si el usuario rechazó previamente, no insistir
+    if (currentPermission === 'denied') {
+      console.log('ℹ️ Notification permissions were denied by user, proceeding with booking');
+      return;
+    }
+
+    // Si está en 'default', pedir permisos con timeout
+    console.log('🔔 Requesting notification permissions...');
+
+    const permissionPromise = this.notificationService.requestPermissions();
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Permission request timeout')), 5000)
+    );
+
+    const result = await Promise.race([permissionPromise, timeoutPromise]) as any;
+
+    if (result?.granted) {
+      console.log('✅ Notification permissions granted by user');
+    } else {
+      console.log('ℹ️ Notification permissions not granted, proceeding with booking anyway');
+    }
+
+  } catch (error) {
+    // Si falla o timeout, continuar sin notificaciones push
+    // La reserva NO debe bloquearse por esto
+    console.warn('⚠️ Could not request notification permissions, proceeding with booking:', error);
   }
 }
 
