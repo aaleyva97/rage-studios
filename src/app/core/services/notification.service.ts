@@ -531,7 +531,7 @@ export class NotificationService implements OnDestroy {
   }
 
   /**
-   * 💾 PERFORM ACTUAL DATABASE UPDATE (DEBOUNCED)
+   * 💾 PERFORM ACTUAL DATABASE UPDATE - VERSIÓN CON VERIFICACIÓN POST-UPSERT
    */
   private async performActualDatabaseUpdate(token: string, user: any, now: number): Promise<void> {
 
@@ -539,8 +539,36 @@ export class NotificationService implements OnDestroy {
       // Validar token antes de guardar
       if (!this.isValidFCMToken(token)) {
         console.error('❌ Invalid token format, not saving to database');
+        await this.logEvent('token_save_failed', {
+          reason: 'invalid_format',
+          tokenPreview: token.substring(0, 30)
+        });
         return;
       }
+
+      // ✅ LOGGING EXHAUSTIVO: Debug completo del contexto de autenticación
+      console.log('🔍 DB Update Context:', {
+        userId: user.id,
+        tokenPreview: token.substring(0, 30) + '...',
+        tokenLength: token.length,
+        timestamp: new Date().toISOString()
+      });
+
+      // Verificar sesión activa
+      const { data: sessionData } = await this.supabase.client.auth.getSession();
+      if (!sessionData?.session) {
+        console.error('❌ No active session during token update');
+        await this.logEvent('token_save_failed', {
+          reason: 'no_active_session',
+          userId: user.id
+        });
+        return;
+      }
+
+      console.log('✅ Active session confirmed:', {
+        sessionUserId: sessionData.session.user.id,
+        matchesUser: sessionData.session.user.id === user.id
+      });
 
       // Verificar cache de validación
       const cachedToken = this.tokenValidationCache.token;
@@ -558,11 +586,21 @@ export class NotificationService implements OnDestroy {
       };
 
       // Actualizar con verificación de cambios
-      const { data: existing } = await this.supabase.client
+      const { data: existing, error: selectError } = await this.supabase.client
         .from('user_notification_preferences')
-        .select('primary_device_token')
+        .select('primary_device_token, last_token_updated_at')
         .eq('user_id', user.id)
         .single();
+
+      if (selectError) {
+        console.warn('⚠️ Pre-upsert SELECT failed:', selectError);
+        await this.logEvent('token_precheck_failed', {
+          error: selectError.message,
+          code: selectError.code,
+          userId: user.id
+        });
+        // Continuar con upsert de todas formas
+      }
 
       if (existing?.primary_device_token === token) {
         console.log('ℹ️ Token unchanged in database, updating cache only');
@@ -570,43 +608,134 @@ export class NotificationService implements OnDestroy {
         return;
       }
 
-      const { error } = await this.supabase.client
-        .from('user_notification_preferences')
-        .upsert({
-          user_id: user.id,
-          primary_device_token: token,
-          push_tokens: [pushTokenData],
-          last_token_updated_at: new Date().toISOString(),
-          push_notifications_enabled: true,
-          updated_at: new Date().toISOString()
-        }, {
-          onConflict: 'user_id'
-        });
+      console.log('🔄 Attempting upsert...');
 
-      if (error) {
+      // ✅ CAPTURA COMPLETA: data, error, status, statusText
+      const upsertPayload = {
+        user_id: user.id,
+        primary_device_token: token,
+        push_tokens: [pushTokenData],
+        last_token_updated_at: new Date().toISOString(),
+        push_notifications_enabled: true,
+        updated_at: new Date().toISOString()
+      };
+
+      const { data: upsertData, error: upsertError, status, statusText } = await this.supabase.client
+        .from('user_notification_preferences')
+        .upsert(upsertPayload, {
+          onConflict: 'user_id'
+        })
+        .select(); // ✅ CRÍTICO: Agregar .select() para obtener data de respuesta
+
+      // ✅ LOGGING COMPLETO de la respuesta
+      console.log('📊 Upsert response:', {
+        status,
+        statusText,
+        hasData: !!upsertData,
+        dataCount: upsertData?.length || 0,
+        hasError: !!upsertError,
+        error: upsertError
+      });
+
+      if (upsertError) {
         // Manejar errores de rate limiting específicamente
-        if (error.message?.includes('rate limit') || error.code === 'too_many_requests') {
+        if (upsertError.message?.includes('rate limit') || upsertError.code === 'too_many_requests') {
           console.warn('⚠️ Rate limit reached, deferring token update');
+          await this.logEvent('token_save_rate_limited', {
+            error: upsertError.message,
+            userId: user.id
+          });
           // Intentar de nuevo en 5 minutos
           setTimeout(() => {
             this.updateTokenInDatabase(token).catch(console.error);
           }, 5 * 60 * 1000);
           return;
         }
-        throw error;
+
+        // Log del error completo antes de lanzar
+        console.error('❌ Upsert error details:', {
+          message: upsertError.message,
+          code: upsertError.code,
+          details: upsertError.details,
+          hint: upsertError.hint
+        });
+
+        await this.logEvent('token_save_failed', {
+          error: upsertError.message,
+          code: upsertError.code,
+          details: upsertError.details,
+          userId: user.id
+        });
+
+        throw upsertError;
       }
 
-      console.log('✅ Token stored in database');
+      // ✅ VERIFICACIÓN POST-UPSERT: Confirmar que se guardó en BD
+      console.log('🔍 Verifying token was saved...');
+
+      const { data: verification, error: verifyError } = await this.supabase.client
+        .from('user_notification_preferences')
+        .select('primary_device_token, last_token_updated_at, updated_at')
+        .eq('user_id', user.id)
+        .single();
+
+      if (verifyError) {
+        console.error('❌ Post-upsert verification failed:', verifyError);
+        await this.logEvent('token_verification_failed', {
+          error: verifyError.message,
+          userId: user.id
+        });
+        throw new Error(`Token upsert appeared to succeed but verification failed: ${verifyError.message}`);
+      }
+
+      if (!verification || verification.primary_device_token !== token) {
+        const errorMsg = verification
+          ? `Token mismatch after upsert. Expected: ${token.substring(0, 20)}..., Got: ${verification.primary_device_token?.substring(0, 20) || 'null'}...`
+          : 'No record found after upsert';
+
+        console.error('❌ Verification failed:', errorMsg);
+        await this.logEvent('token_persistence_failed', {
+          reason: verification ? 'token_mismatch' : 'record_not_found',
+          expectedToken: token.substring(0, 30),
+          actualToken: verification?.primary_device_token?.substring(0, 30) || null,
+          userId: user.id
+        });
+
+        throw new Error(errorMsg);
+      }
+
+      console.log('✅ Token verified in database:', {
+        tokenMatches: true,
+        lastUpdated: verification.last_token_updated_at,
+        recordUpdated: verification.updated_at
+      });
+
       localStorage.setItem('fcm_last_db_update', now.toString());
-      
+
       // Actualizar cache de validación
       this.tokenValidationCache = { token, validatedAt: now, ttl: this.tokenValidationCache.ttl };
+
+      // Log éxito con todos los detalles
+      await this.logEvent('token_saved_successfully', {
+        userId: user.id,
+        deviceType: 'web',
+        lastUpdated: verification.last_token_updated_at,
+        verificationPassed: true
+      });
 
       // Forzar sincronización de notificaciones programadas solo si es necesario
       await this.syncScheduledNotifications(user.id, token);
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ Database update error:', error);
+
+      // Log error completo incluyendo stack trace
+      await this.logEvent('token_update_exception', {
+        error: error?.message || String(error),
+        stack: error?.stack?.substring(0, 200),
+        userId: user?.id
+      });
+
       throw error;
     }
   }
