@@ -501,7 +501,7 @@ export class BookingDialog {
 private async ensureNotificationPermissions(): Promise<void> {
   try {
     // Verificar estado actual de permisos
-    const currentPermission = this.notificationService.permissionStatus();
+    const currentPermission = this.notificationService.getPermissionStatus();
 
     console.log('🔔 Current notification permission:', currentPermission);
 
