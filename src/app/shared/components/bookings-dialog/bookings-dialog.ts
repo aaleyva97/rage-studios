@@ -1,4 +1,4 @@
-import { Component, model, signal, inject, OnInit, OnDestroy, ViewChild, ElementRef, effect } from '@angular/core';
+import { Component, model, signal, inject, OnInit, OnDestroy, ViewChild, ElementRef } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { DatePipe } from '@angular/common';
 import { DialogModule } from 'primeng/dialog';
@@ -53,6 +53,7 @@ export class BookingsDialog implements OnInit, OnDestroy {
   bookingsForDate = signal<any[]>([]);
   bookingDates = signal<string[]>([]);
   isLoading = signal(true);
+  isCancelling = signal(false);
   minDate = new Date();
 
   private authSubscription?: Subscription;
@@ -164,6 +165,7 @@ export class BookingsDialog implements OnInit, OnDestroy {
   }
 
   confirmCancelBooking(booking: any) {
+    if (this.isCancelling()) return;
     this.confirmationService.confirm({
       message: `¿Estás seguro de cancelar tu reserva del ${booking.formattedDate} a las ${booking.formattedTime}?`,
       header: 'Confirmar Cancelación',
@@ -175,8 +177,10 @@ export class BookingsDialog implements OnInit, OnDestroy {
   }
 
   async cancelBooking(booking: any) {
+    if (this.isCancelling()) return;
     const user = this.supabaseService.getUser();
     if (!user) return;
+    this.isCancelling.set(true);
 
     try {
       // 🚫 1. Cancelar notificaciones programadas ANTES de cancelar reserva
@@ -267,6 +271,7 @@ export class BookingsDialog implements OnInit, OnDestroy {
         detail: result.error || 'No se pudo cancelar la reserva'
       });
     }
+    this.isCancelling.set(false);
   }
 
   private async buildCancellationPayload(bookingData: any): Promise<any> {

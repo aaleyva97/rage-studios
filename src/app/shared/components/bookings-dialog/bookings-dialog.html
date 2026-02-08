@@ -111,12 +111,13 @@
                 <span class="text-xs text-gray-400">ID: {{ booking.id.substring(0, 8) }}</span>
                 @if (booking.canCancel) {
                   <p-button
-                    icon="pi pi-times"
+                    [icon]="isCancelling() ? 'pi pi-spin pi-spinner' : 'pi pi-times'"
                     severity="danger"
                     [text]="true"
                     [rounded]="true"
                     size="small"
                     pTooltip="Cancelar reserva"
+                    [disabled]="isCancelling()"
                     (onClick)="confirmCancelBooking(booking)">
                   </p-button>
                 } @else {
