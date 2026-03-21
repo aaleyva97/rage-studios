@@ -165,24 +165,16 @@ export class AdminReservas implements OnInit {
         return;
       }
 
-      // Generate 1-hour time slots from schedule slots
+      // Use actual start_time values from schedule slots
       const times = [{ label: 'Todas las horas', value: 'all' }];
-      const generatedTimes = new Set<string>(); // Use Set to avoid duplicates
+      const generatedTimes = new Set<string>();
 
       if (data && data.length > 0) {
         data.forEach(slot => {
-          // Parse start and end times
-          const startHour = parseInt(slot.start_time.split(':')[0]);
-          const endHour = parseInt(slot.end_time.split(':')[0]);
-
-          // Generate 1-hour slots within the range
-          for (let hour = startHour; hour < endHour; hour++) {
-            const timeStr = `${hour.toString().padStart(2, '0')}:00`;
-            generatedTimes.add(timeStr);
-          }
+          const timeStr = slot.start_time.substring(0, 5);
+          generatedTimes.add(timeStr);
         });
 
-        // Convert Set to array and sort
         const sortedTimes = Array.from(generatedTimes).sort();
 
         sortedTimes.forEach(time => {
