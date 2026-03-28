@@ -267,7 +267,8 @@
     [header]="dialogMode() === 'create' ? 'Nueva Membres\u00eda' : 'Editar Membres\u00eda'"
     [(visible)]="showDialog"
     [modal]="true"
-    [style]="{ width: '90vw', maxWidth: '500px' }"
+    [style]="{ width: '90vw', 'max-width': '500px' }"
+    [breakpoints]="{ '640px': '95vw' }"
     [dismissableMask]="true">
 
     <div class="space-y-4">
@@ -290,9 +291,9 @@
         <label class="block text-sm font-medium text-gray-700 mb-1">
           Vincular a usuario (opcional)
         </label>
-        @if (formUserId) {
+        @if (formUserId && selectedUser) {
           <div class="flex items-center gap-2">
-            <p-chip [label]="formUserSearch" icon="pi pi-user" />
+            <p-chip [label]="selectedUser.full_name" icon="pi pi-user" />
             <p-button
               icon="pi pi-times"
               severity="secondary"
@@ -302,16 +303,42 @@
               (click)="clearUserSelection()" />
           </div>
         } @else {
-          <p-autocomplete
-            [(ngModel)]="formUserSearch"
-            [suggestions]="userSuggestions"
+          <p-autoComplete
+            [(ngModel)]="selectedUser"
+            [suggestions]="filteredUsers()"
             (completeMethod)="searchUsers($event)"
             (onSelect)="onUserSelect($event)"
-            field="full_name"
-            placeholder="Buscar usuario por nombre..."
+            optionLabel="full_name"
+            placeholder="Buscar por nombre o tel&eacute;fono..."
             [minLength]="2"
-            class="w-full" />
-          <small class="text-gray-500">Escribe al menos 2 caracteres para buscar</small>
+            [dropdown]="false"
+            [forceSelection]="true"
+            class="w-full"
+            styleClass="w-full user-autocomplete"
+            [inputStyleClass]="'w-full'">
+
+            <ng-template let-user pTemplate="item">
+              <div class="flex items-center gap-3 p-2">
+                <div class="flex-1">
+                  <div class="font-medium text-gray-900">{{ user.full_name }}</div>
+                  @if (user.phone) {
+                    <div class="text-sm text-gray-600">{{ user.phone }}</div>
+                  }
+                </div>
+              </div>
+            </ng-template>
+
+            <ng-template let-user pTemplate="selectedItem">
+              <div class="flex items-center gap-2">
+                <i class="pi pi-user text-blue-500"></i>
+                <span>{{ user.full_name }}</span>
+                @if (user.phone) {
+                  <span class="text-gray-500">({{ user.phone }})</span>
+                }
+              </div>
+            </ng-template>
+          </p-autoComplete>
+          <small class="text-gray-500 block mt-1">Escribe al menos 2 caracteres para buscar</small>
         }
       </div>
 
@@ -354,7 +381,8 @@
     header="Gestionar Horarios"
     [(visible)]="showScheduleDialog"
     [modal]="true"
-    [style]="{ width: '95vw', maxWidth: '700px' }"
+    [style]="{ width: '95vw', 'max-width': '700px' }"
+    [breakpoints]="{ '640px': '100vw' }"
     [dismissableMask]="true">
 
     @if (selectedMembership(); as membership) {

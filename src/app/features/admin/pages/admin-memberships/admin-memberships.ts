@@ -25,6 +25,7 @@ import {
   MembershipSchedule,
 } from '../../../../core/services/membership.service';
 import { ScheduleService, ScheduleSlot } from '../../../../core/services/schedule.service';
+import { SupabaseService } from '../../../../core/services/supabase-service';
 
 interface ScheduleOption {
   label: string;
@@ -62,6 +63,7 @@ interface ScheduleOption {
 export class AdminMemberships implements OnInit {
   private membershipService = inject(MembershipService);
   private scheduleService = inject(ScheduleService);
+  private supabaseService = inject(SupabaseService);
   private messageService = inject(MessageService);
   private confirmationService = inject(ConfirmationService);
 
@@ -79,8 +81,8 @@ export class AdminMemberships implements OnInit {
   formClientName = '';
   formUserId: string | null = null;
   formNotes = '';
-  formUserSearch = '';
-  userSuggestions: { id: string; full_name: string }[] = [];
+  selectedUser: any = null;
+  filteredUsers = signal<any[]>([]);
 
   // Schedule assignment dialog
   showScheduleDialog = signal(false);
@@ -158,7 +160,7 @@ export class AdminMemberships implements OnInit {
     this.formClientName = '';
     this.formUserId = null;
     this.formNotes = '';
-    this.formUserSearch = '';
+    this.selectedUser = null;
     this.editingMembershipId.set(null);
     this.showDialog.set(true);
   }
@@ -168,31 +170,39 @@ export class AdminMemberships implements OnInit {
     this.formClientName = membership.client_name;
     this.formUserId = membership.user_id;
     this.formNotes = membership.notes || '';
-    this.formUserSearch = membership.user_full_name || '';
+    this.selectedUser = membership.user_id
+      ? { id: membership.user_id, full_name: membership.user_full_name || '' }
+      : null;
     this.editingMembershipId.set(membership.id);
     this.showDialog.set(true);
   }
 
   async searchUsers(event: any) {
-    const query = event.query?.trim();
+    const query = event.query;
     if (!query || query.length < 2) {
-      this.userSuggestions = [];
+      this.filteredUsers.set([]);
       return;
     }
-    this.userSuggestions = await this.membershipService.searchProfiles(query);
+    try {
+      const users = await this.supabaseService.searchUsers(query);
+      this.filteredUsers.set(users);
+    } catch (error) {
+      console.error('Error searching users:', error);
+      this.filteredUsers.set([]);
+    }
   }
 
   onUserSelect(event: any) {
-    const profile = event.value;
-    if (profile && typeof profile === 'object') {
-      this.formUserId = profile.id;
-      this.formUserSearch = profile.full_name;
+    const user = event?.value ? event.value : event;
+    if (user && typeof user === 'object') {
+      this.formUserId = user.id;
+      this.selectedUser = user;
     }
   }
 
   clearUserSelection() {
     this.formUserId = null;
-    this.formUserSearch = '';
+    this.selectedUser = null;
   }
 
   async saveMembership() {
@@ -340,22 +350,15 @@ export class AdminMemberships implements OnInit {
     this.loadingBeds.set(true);
     try {
       const membership = this.selectedMembership();
+
+      // Validate all 14 beds to find which are occupied by other memberships
       const validation = await this.membershipService.validateBeds(
         this.selectedScheduleSlotId,
-        [], // Empty to just get occupied beds
+        [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14],
         membership?.id
       );
 
-      // Get occupied beds from other memberships
-      const { data } = await this.membershipService['supabaseService'].client
-        .rpc('validate_membership_beds', {
-          p_schedule_slot_id: this.selectedScheduleSlotId,
-          p_bed_numbers: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14],
-          p_exclude_membership_id: membership?.id || null,
-        });
-
-      const conflicting = data?.conflicting_beds || [];
-      this.occupiedBedsByOtherMemberships.set(conflicting);
+      this.occupiedBedsByOtherMemberships.set(validation.conflicting_beds || []);
       this.selectedBeds.set([]);
     } catch (error) {
       console.error('Error loading bed availability:', error);
