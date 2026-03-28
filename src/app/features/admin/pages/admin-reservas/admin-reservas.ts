@@ -366,17 +366,20 @@ export class AdminReservas implements OnInit {
           const dateStr = formatDateToLocalYYYYMMDD(current);
           formatted.push({
             ...res,
+            id: res.membership_id || '',
             isMembership: true,
             session_date: dateStr,
             formattedDate: formatDateForDisplay(dateStr),
-            formattedTime: res.start_time.substring(0, 5),
+            formattedTime: res.start_time ? res.start_time.substring(0, 5) : '--:--',
             statusLabel: 'Membres\u00eda',
             statusSeverity: 'info',
             canCancel: false,
-            userDisplayName: res.client_name,
+            userDisplayName: res.client_name || 'VIP',
             coach_name: res.coach_names || '',
             credits_used: 0,
             status: 'membership',
+            bed_numbers: res.bed_numbers || [],
+            total_attendees: res.total_attendees || 0,
           });
         }
 

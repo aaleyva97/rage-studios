@@ -88,13 +88,21 @@ export class BookingService {
   async getAvailableSlots(date: string): Promise<TimeSlot[]> {
     const daySchedule = await this.getDaySchedule(date);
 
-    // Obtener reservas + membresías para esa fecha via RPC
-    const { data: bookings, error } = await this.supabaseService.client
+    // Try RPC first (returns bookings + memberships), fallback to direct query
+    let bookings: any[] = [];
+    const { data: rpcData, error: rpcError } = await this.supabaseService.client
       .rpc('get_occupied_beds_for_date', { p_session_date: date });
 
-    if (error) {
-      console.error('Error fetching occupied beds for date:', error);
-      return daySchedule;
+    if (!rpcError && rpcData) {
+      bookings = rpcData;
+    } else {
+      // Fallback: direct bookings query (works even without membership tables)
+      const { data: directData } = await this.supabaseService.client
+        .from('bookings')
+        .select('session_time, bed_numbers')
+        .eq('session_date', date)
+        .eq('status', 'active');
+      bookings = directData || [];
     }
 
     // 🕒 DETECTAR SI ES HOY para validar horarios pasados (zona horaria México)
