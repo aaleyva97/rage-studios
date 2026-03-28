@@ -47,24 +47,6 @@
     }
   }
 
-  // Chip styles for schedules
-  :deep(.chip-active) {
-    .p-chip {
-      background-color: #dbeafe;
-      color: #1e40af;
-      font-size: 0.75rem;
-    }
-  }
-
-  :deep(.chip-inactive) {
-    .p-chip {
-      background-color: #f3f4f6;
-      color: #9ca3af;
-      font-size: 0.75rem;
-      text-decoration: line-through;
-    }
-  }
-
   // Bed selection (reusing booking-dialog pattern)
   .bed-selection-container {
     max-width: 500px;
