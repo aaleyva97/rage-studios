@@ -107,9 +107,10 @@
               <span class="text-xs text-gray-500 uppercase tracking-wider">Horarios</span>
               <div class="flex flex-wrap gap-1 mt-1">
                 @for (schedule of membership.schedules; track schedule.id) {
-                  <p-chip
-                    [label]="schedule.day_name.substring(0, 3) + ' ' + schedule.start_time.substring(0, 5) + ' [' + schedule.bed_numbers.join(',') + ']'"
-                    [class]="schedule.is_active ? 'chip-active' : 'chip-inactive'" />
+                  <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium"
+                    [class]="schedule.is_active ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-400 line-through'">
+                    {{ schedule.day_name.substring(0, 3) }} {{ schedule.start_time.substring(0, 5) }} [{{ schedule.bed_numbers.join(',') }}]
+                  </span>
                 }
               </div>
             </div>
@@ -197,9 +198,10 @@
                 @if (membership.schedules.length > 0) {
                   <div class="flex flex-wrap gap-1">
                     @for (schedule of membership.schedules; track schedule.id) {
-                      <p-chip
-                        [label]="schedule.day_name.substring(0, 3) + ' ' + schedule.start_time.substring(0, 5) + ' [' + schedule.bed_numbers.join(',') + ']'"
-                        [class]="schedule.is_active ? 'chip-active' : 'chip-inactive'" />
+                      <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium"
+                        [class]="schedule.is_active ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-400 line-through'">
+                        {{ schedule.day_name.substring(0, 3) }} {{ schedule.start_time.substring(0, 5) }} [{{ schedule.bed_numbers.join(',') }}]
+                      </span>
                     }
                   </div>
                 } @else {
@@ -267,18 +269,17 @@
     [header]="dialogMode() === 'create' ? 'Nueva Membres\u00eda' : 'Editar Membres\u00eda'"
     [(visible)]="showDialog"
     [modal]="true"
-    [style]="{ width: '90vw', 'max-width': '500px' }"
+    [style]="{ width: '95vw', 'max-width': '600px' }"
     [breakpoints]="{ '640px': '95vw' }"
     [dismissableMask]="true">
 
     <div class="space-y-4">
       <!-- Client Name -->
       <div class="field">
-        <label for="clientName" class="block text-sm font-medium text-gray-700 mb-1">
+        <label class="block text-sm font-medium text-gray-700 mb-1">
           Nombre del cliente *
         </label>
         <input
-          id="clientName"
           type="text"
           pInputText
           [(ngModel)]="formClientName"
@@ -291,31 +292,21 @@
         <label class="block text-sm font-medium text-gray-700 mb-1">
           Vincular a usuario (opcional)
         </label>
-        @if (formUserId && selectedUser) {
-          <div class="flex items-center gap-2">
-            <p-chip [label]="selectedUser.full_name" icon="pi pi-user" />
-            <p-button
-              icon="pi pi-times"
-              severity="secondary"
-              [text]="true"
-              [rounded]="true"
-              size="small"
-              (click)="clearUserSelection()" />
-          </div>
-        } @else {
+        <div class="flex items-center gap-2">
           <p-autoComplete
             [(ngModel)]="selectedUser"
             [suggestions]="filteredUsers()"
             (completeMethod)="searchUsers($event)"
             (onSelect)="onUserSelect($event)"
+            (onClear)="clearUserSelection()"
             optionLabel="full_name"
             placeholder="Buscar por nombre o tel&eacute;fono..."
             [minLength]="2"
             [dropdown]="false"
             [forceSelection]="true"
-            class="w-full"
             styleClass="w-full user-autocomplete"
-            [inputStyleClass]="'w-full'">
+            [inputStyleClass]="'w-full'"
+            appendTo="body">
 
             <ng-template let-user pTemplate="item">
               <div class="flex items-center gap-3 p-2">
@@ -332,30 +323,132 @@
               <div class="flex items-center gap-2">
                 <i class="pi pi-user text-blue-500"></i>
                 <span>{{ user.full_name }}</span>
-                @if (user.phone) {
-                  <span class="text-gray-500">({{ user.phone }})</span>
-                }
               </div>
             </ng-template>
           </p-autoComplete>
-          <small class="text-gray-500 block mt-1">Escribe al menos 2 caracteres para buscar</small>
-        }
+          @if (formUserId) {
+            <p-button
+              icon="pi pi-times"
+              severity="secondary"
+              [text]="true"
+              [rounded]="true"
+              size="small"
+              pTooltip="Quitar usuario"
+              (click)="clearUserSelection()" />
+          }
+        </div>
+        <small class="text-gray-500 block mt-1">Escribe al menos 2 caracteres para buscar</small>
       </div>
 
       <!-- Notes -->
       <div class="field">
-        <label for="notes" class="block text-sm font-medium text-gray-700 mb-1">
-          Notas
-        </label>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Notas</label>
         <textarea
-          id="notes"
           pTextarea
           [(ngModel)]="formNotes"
           placeholder="Notas adicionales..."
-          rows="3"
+          rows="2"
           class="w-full">
         </textarea>
       </div>
+
+      <!-- Schedule + Beds (only in create mode) -->
+      @if (dialogMode() === 'create') {
+        <div class="border-t border-gray-200 pt-4">
+          <h4 class="text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wider">
+            Asignar horario y camas
+          </h4>
+
+          <!-- Schedule slot selector -->
+          <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 mb-1">Horario</label>
+            <p-select
+              [(ngModel)]="selectedScheduleSlotId"
+              [options]="scheduleOptions()"
+              optionLabel="label"
+              optionValue="value"
+              placeholder="Seleccionar horario..."
+              class="w-full"
+              appendTo="body"
+              (onChange)="onScheduleSlotChange()" />
+          </div>
+
+          <!-- Bed selection -->
+          @if (selectedScheduleSlotId) {
+            <div class="mb-4">
+              <label class="block text-sm font-medium text-gray-700 mb-2">Seleccionar camas</label>
+
+              @if (loadingBeds()) {
+                <div class="flex justify-center p-4">
+                  <i class="pi pi-spin pi-spinner text-2xl text-blue-500"></i>
+                </div>
+              } @else {
+                <div class="bed-selection-container">
+                  <!-- Row 1 -->
+                  <div class="bed-row">
+                    <div class="row-label">Fila 1</div>
+                    <div class="beds-grid">
+                      @for (bed of [1,2,3,4,5,6,7]; track bed) {
+                        <button
+                          type="button"
+                          [class.bed-selected]="isBedSelected(bed)"
+                          [class.bed-occupied]="isBedOccupied(bed)"
+                          [class.bed-available]="!isBedOccupied(bed) && !isBedSelected(bed)"
+                          [disabled]="isBedOccupied(bed)"
+                          (click)="toggleBed(bed)"
+                          class="bed-button">
+                          {{ bed }}
+                        </button>
+                      }
+                    </div>
+                  </div>
+
+                  <!-- Row 2 -->
+                  <div class="bed-row">
+                    <div class="row-label">Fila 2</div>
+                    <div class="beds-grid">
+                      @for (bed of [8,9,10,11,12,13,14]; track bed) {
+                        <button
+                          type="button"
+                          [class.bed-selected]="isBedSelected(bed)"
+                          [class.bed-occupied]="isBedOccupied(bed)"
+                          [class.bed-available]="!isBedOccupied(bed) && !isBedSelected(bed)"
+                          [disabled]="isBedOccupied(bed)"
+                          (click)="toggleBed(bed)"
+                          class="bed-button">
+                          {{ bed }}
+                        </button>
+                      }
+                    </div>
+                  </div>
+
+                  <!-- Legend -->
+                  <div class="bed-legend">
+                    <div class="legend-item">
+                      <div class="legend-box bed-available"></div>
+                      <span>Disponible</span>
+                    </div>
+                    <div class="legend-item">
+                      <div class="legend-box bed-selected"></div>
+                      <span>Seleccionada</span>
+                    </div>
+                    <div class="legend-item">
+                      <div class="legend-box bed-occupied"></div>
+                      <span>Otra membres&iacute;a</span>
+                    </div>
+                  </div>
+                </div>
+
+                @if (selectedBeds().length > 0) {
+                  <p class="text-sm text-gray-600 mt-2">
+                    Camas seleccionadas: <strong>{{ selectedBeds().join(', ') }}</strong>
+                  </p>
+                }
+              }
+            </div>
+          }
+        </div>
+      }
     </div>
 
     <ng-template #footer>
@@ -382,7 +475,7 @@
     [(visible)]="showScheduleDialog"
     [modal]="true"
     [style]="{ width: '95vw', 'max-width': '700px' }"
-    [breakpoints]="{ '640px': '100vw' }"
+    [breakpoints]="{ '640px': '95vw' }"
     [dismissableMask]="true">
 
     @if (selectedMembership(); as membership) {
@@ -457,6 +550,7 @@
               optionValue="value"
               placeholder="Seleccionar horario..."
               class="w-full"
+              appendTo="body"
               (onChange)="onScheduleSlotChange()" />
           </div>
 

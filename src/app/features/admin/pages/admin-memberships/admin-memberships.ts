@@ -14,7 +14,6 @@ import { MultiSelectModule } from 'primeng/multiselect';
 import { ToggleSwitchModule } from 'primeng/toggleswitch';
 import { SkeletonModule } from 'primeng/skeleton';
 import { TooltipModule } from 'primeng/tooltip';
-import { ChipModule } from 'primeng/chip';
 import { IconFieldModule } from 'primeng/iconfield';
 import { InputIconModule } from 'primeng/inputicon';
 import { AutoCompleteModule } from 'primeng/autocomplete';
@@ -51,7 +50,6 @@ interface ScheduleOption {
     ToggleSwitchModule,
     SkeletonModule,
     TooltipModule,
-    ChipModule,
     IconFieldModule,
     InputIconModule,
     AutoCompleteModule,
@@ -162,6 +160,9 @@ export class AdminMemberships implements OnInit {
     this.formNotes = '';
     this.selectedUser = null;
     this.editingMembershipId.set(null);
+    this.selectedScheduleSlotId = '';
+    this.selectedBeds.set([]);
+    this.occupiedBedsByOtherMemberships.set([]);
     this.showDialog.set(true);
   }
 
@@ -226,6 +227,22 @@ export class AdminMemberships implements OnInit {
 
         if (!result.success) {
           throw new Error(result.error);
+        }
+
+        // If schedule and beds were selected, add them to the new membership
+        if (this.selectedScheduleSlotId && this.selectedBeds().length > 0 && result.id) {
+          const scheduleResult = await this.membershipService.addSchedule(
+            result.id,
+            this.selectedScheduleSlotId,
+            this.selectedBeds()
+          );
+          if (!scheduleResult.success) {
+            this.messageService.add({
+              severity: 'warn',
+              summary: 'Atenci\u00f3n',
+              detail: 'Membres\u00eda creada pero error al asignar horario: ' + scheduleResult.error,
+            });
+          }
         }
 
         this.messageService.add({
