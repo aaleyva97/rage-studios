@@ -17,8 +17,9 @@ import { InputTextModule } from 'primeng/inputtext';
 import { MessageService, ConfirmationService } from 'primeng/api';
 import { BookingService } from '../../../../core/services/booking.service';
 import { SupabaseService } from '../../../../core/services/supabase-service';
-import { formatDateForDisplay } from '../../../../core/functions/date-utils';
+import { formatDateForDisplay, formatDateToLocalYYYYMMDD } from '../../../../core/functions/date-utils';
 import { NotificationService } from '../../../../core/services/notification.service';
+import { MembershipService } from '../../../../core/services/membership.service';
 
 interface StatusOption {
   label: string;
@@ -54,8 +55,10 @@ export class AdminReservas implements OnInit {
   private messageService = inject(MessageService);
   private confirmationService = inject(ConfirmationService);
   private notificationService = inject(NotificationService);
-  
+  private membershipService = inject(MembershipService);
+
   bookings = signal<any[]>([]);
+  membershipReservations = signal<any[]>([]);
   isLoading = signal(true);
   skeletonData = Array(8).fill({});
   
@@ -119,6 +122,9 @@ export class AdminReservas implements OnInit {
       }));
 
       this.bookings.set(formattedBookings);
+
+      // Load membership reservations for the same date range
+      await this.loadMembershipReservations(dateRange[0], dateRange[1]);
 
       // Load available times based on selected date range
       await this.loadAvailableTimes();
@@ -333,27 +339,96 @@ export class AdminReservas implements OnInit {
     }
   }
   
-  // Filtered bookings (applied at front-end level)
+  private async loadMembershipReservations(startDate: Date, endDate: Date) {
+    try {
+      const startStr = formatDateToLocalYYYYMMDD(startDate);
+      const endStr = formatDateToLocalYYYYMMDD(endDate);
+
+      const reservations = await this.membershipService.getMembershipReservationsForDates(startStr, endStr);
+
+      // Generate one entry per matching date in the range
+      const formatted: any[] = [];
+
+      const current = new Date(startDate);
+      current.setHours(0, 0, 0, 0);
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+
+      while (current <= end) {
+        let dayOfWeek = current.getDay();
+        dayOfWeek = dayOfWeek === 0 ? 7 : dayOfWeek;
+
+        const matchingReservations = reservations.filter(
+          (r: any) => r.day_of_week === dayOfWeek
+        );
+
+        for (const res of matchingReservations) {
+          const dateStr = formatDateToLocalYYYYMMDD(current);
+          formatted.push({
+            ...res,
+            isMembership: true,
+            session_date: dateStr,
+            formattedDate: formatDateForDisplay(dateStr),
+            formattedTime: res.start_time.substring(0, 5),
+            statusLabel: 'Membres\u00eda',
+            statusSeverity: 'info',
+            canCancel: false,
+            userDisplayName: res.client_name,
+            coach_name: res.coach_names || '',
+            credits_used: 0,
+            status: 'membership',
+          });
+        }
+
+        current.setDate(current.getDate() + 1);
+      }
+
+      this.membershipReservations.set(formatted);
+    } catch (error) {
+      console.error('Error loading membership reservations:', error);
+      this.membershipReservations.set([]);
+    }
+  }
+
+  // Filtered bookings + membership reservations (applied at front-end level)
   get filteredBookings() {
-    let filtered = this.bookings();
+    // Merge bookings and membership reservations
+    const status = this.selectedStatus();
+    let allEntries = [...this.bookings()];
+
+    // Include membership reservations if not filtering by cancelled-only
+    if (status !== 'cancelled') {
+      allEntries = [...allEntries, ...this.membershipReservations()];
+    }
+
+    // Sort by date and time
+    allEntries.sort((a, b) => {
+      const dateCompare = a.session_date.localeCompare(b.session_date);
+      if (dateCompare !== 0) return dateCompare;
+      return a.formattedTime.localeCompare(b.formattedTime);
+    });
 
     // Apply search filter by name
     const searchTerm = this.searchTerm().toLowerCase().trim();
     if (searchTerm) {
-      filtered = filtered.filter(booking =>
-        booking.userDisplayName.toLowerCase().includes(searchTerm)
+      allEntries = allEntries.filter(entry =>
+        entry.userDisplayName.toLowerCase().includes(searchTerm)
       );
     }
 
     // Apply time filter
     const selectedTime = this.selectedTime();
     if (selectedTime && selectedTime !== 'all') {
-      filtered = filtered.filter(booking =>
-        booking.formattedTime === selectedTime
+      allEntries = allEntries.filter(entry =>
+        entry.formattedTime === selectedTime
       );
     }
 
-    return filtered;
+    return allEntries;
+  }
+
+  getMembershipCount(): number {
+    return this.filteredBookings.filter(b => b.isMembership).length;
   }
 
   // Mobile pagination methods

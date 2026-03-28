@@ -72,6 +72,11 @@ export class AdminLayout {
       routerLink: '/admin/horarios',
     },
     {
+      label: 'Membres\u00edas',
+      icon: 'pi pi-id-card',
+      routerLink: '/admin/membresias',
+    },
+    {
       label: 'Excepciones',
       icon: 'pi pi-exclamation-circle',
       routerLink: '/admin/excepciones',
