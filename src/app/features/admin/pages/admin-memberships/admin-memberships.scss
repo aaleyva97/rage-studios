@@ -231,12 +231,42 @@
     }
   }
 
-  // AutoComplete full width
-  :deep(.p-autocomplete) {
+  // AutoComplete full width + panel styling
+  :deep(.user-autocomplete) {
     width: 100%;
+
+    .p-inputtext {
+      width: 100%;
+      display: flex;
+      align-items: center;
+    }
 
     .p-autocomplete-input {
       width: 100%;
+    }
+  }
+
+  :deep(.p-autocomplete-panel) {
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    border: 1px solid #d1d5db;
+  }
+
+  :deep(.p-autocomplete-item) {
+    padding: 0.5rem;
+    border-bottom: 1px solid #f3f4f6;
+
+    &:last-child {
+      border-bottom: none;
+    }
+
+    &:hover {
+      background-color: #f3f4f6;
+    }
+
+    &.p-highlight {
+      background-color: #dbeafe;
+      color: #1e40af;
     }
   }
 
