@@ -41,12 +41,32 @@ export interface MembershipReservation {
   coach_names: string;
 }
 
+export interface UserMembership {
+  id: string;
+  client_name: string;
+  is_active: boolean;
+  notes: string | null;
+  schedules: {
+    id: string;
+    bed_numbers: number[];
+    is_active: boolean;
+    day_name: string;
+    start_time: string;
+    end_time: string;
+  }[];
+}
+
 @Injectable({
   providedIn: 'root',
 })
 export class MembershipService {
   private supabaseService = inject(SupabaseService);
   private _memberships = signal<Membership[]>([]);
+  private _userMembership = signal<UserMembership | null>(null);
+
+  get userMembership() {
+    return this._userMembership.asReadonly();
+  }
 
   get memberships() {
     return this._memberships.asReadonly();
@@ -270,6 +290,57 @@ export class MembershipService {
       console.error('Error searching profiles:', error);
       return [];
     }
+  }
+
+  async loadUserMembership(userId: string): Promise<UserMembership | null> {
+    try {
+      const { data, error } = await this.supabaseService.client
+        .from('memberships')
+        .select(`
+          id, client_name, is_active, notes,
+          membership_schedules (
+            id, bed_numbers, is_active,
+            schedule_slots (day_name, start_time, end_time)
+          )
+        `)
+        .eq('user_id', userId)
+        .eq('is_active', true)
+        .maybeSingle();
+
+      if (error) throw error;
+      if (!data) {
+        this._userMembership.set(null);
+        return null;
+      }
+
+      const membership: UserMembership = {
+        id: data.id,
+        client_name: data.client_name,
+        is_active: data.is_active,
+        notes: data.notes,
+        schedules: ((data.membership_schedules as any[]) || [])
+          .filter((s: any) => s.is_active)
+          .map((s: any) => ({
+            id: s.id,
+            bed_numbers: s.bed_numbers,
+            is_active: s.is_active,
+            day_name: s.schedule_slots?.day_name || '',
+            start_time: s.schedule_slots?.start_time || '',
+            end_time: s.schedule_slots?.end_time || '',
+          })),
+      };
+
+      this._userMembership.set(membership);
+      return membership;
+    } catch (error) {
+      console.error('Error loading user membership:', error);
+      this._userMembership.set(null);
+      return null;
+    }
+  }
+
+  clearUserMembership() {
+    this._userMembership.set(null);
   }
 
   async getMembershipReservationsForDates(

@@ -88,10 +88,16 @@
           styleClass="ml-4">
         </p-button>
       } @else {
-         <!-- Badge de créditos -->
+         <!-- Badge de membresía -->
+        @if (userMembership()) {
+          <div class="membership-badge" pTooltip="Mi Membres\u00eda" tooltipPosition="bottom">
+            <i class="pi pi-id-card text-xl text-gray-600 cursor-pointer" (click)="openMembershipDialog()"></i>
+          </div>
+        }
+        <!-- Badge de créditos -->
         <div class="credits-badge" pTooltip="{{ getCreditsTooltip() }}" tooltipPosition="bottom">
-          <p-overlaybadge 
-            [value]="creditsService.getCreditsDisplay()" 
+          <p-overlaybadge
+            [value]="creditsService.getCreditsDisplay()"
             severity="success"
             styleClass="credits-overlay-badge">
             <i class="pi pi-wallet text-xl text-gray-600"></i>
@@ -197,6 +203,15 @@
       }
     }
     
+    @if (isLoggedIn() && userMembership()) {
+      <a
+        class="mobile-nav-item cursor-pointer"
+        (click)="openMembershipDialog(); closeMobileMenu()">
+        <i class="pi pi-id-card mr-2"></i>
+        <span>Membres&iacute;a</span>
+      </a>
+    }
+
     <div class="pt-4 mt-4 border-t border-gray-200 w-full">
       @if (!isLoggedIn()) {
         <p-button 
@@ -248,7 +263,11 @@
   [(visible)]="showBookingDialog">
 </app-booking-dialog>
 
-<app-bookings-dialog 
+<app-bookings-dialog
   #bookingsDialog
   [(visible)]="showBookingsDialog">
 </app-bookings-dialog>
+
+<app-membership-info-dialog
+  [(visible)]="showMembershipDialog">
+</app-membership-info-dialog>
