@@ -89,11 +89,9 @@
         </p-button>
       } @else {
          <!-- Badge de membresía -->
-        @if (userMembership()) {
-          <div class="membership-badge" pTooltip="Mi Membres\u00eda" tooltipPosition="bottom">
-            <i class="pi pi-id-card text-xl text-gray-600 cursor-pointer" (click)="openMembershipDialog()"></i>
-          </div>
-        }
+        <div class="membership-badge" pTooltip="Mi Membres\u00eda" tooltipPosition="bottom">
+          <i class="pi pi-id-card text-xl text-gray-600 cursor-pointer" (click)="openMembershipDialog()"></i>
+        </div>
         <!-- Badge de créditos -->
         <div class="credits-badge" pTooltip="{{ getCreditsTooltip() }}" tooltipPosition="bottom">
           <p-overlaybadge
@@ -203,7 +201,7 @@
       }
     }
     
-    @if (isLoggedIn() && userMembership()) {
+    @if (isLoggedIn()) {
       <a
         class="mobile-nav-item cursor-pointer"
         (click)="openMembershipDialog(); closeMobileMenu()">

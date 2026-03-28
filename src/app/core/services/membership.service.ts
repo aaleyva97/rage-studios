@@ -294,40 +294,60 @@ export class MembershipService {
 
   async loadUserMembership(userId: string): Promise<UserMembership | null> {
     try {
-      const { data, error } = await this.supabaseService.client
+      // Step 1: Get the membership
+      const { data: membershipData, error: membershipError } = await this.supabaseService.client
         .from('memberships')
-        .select(`
-          id, client_name, is_active, notes,
-          membership_schedules (
-            id, bed_numbers, is_active,
-            schedule_slots (day_name, start_time, end_time)
-          )
-        `)
+        .select('id, client_name, is_active, notes')
         .eq('user_id', userId)
         .eq('is_active', true)
         .maybeSingle();
 
-      if (error) throw error;
-      if (!data) {
+      if (membershipError) throw membershipError;
+      if (!membershipData) {
         this._userMembership.set(null);
         return null;
       }
 
+      // Step 2: Get schedules for this membership with slot details
+      const { data: schedulesData, error: schedulesError } = await this.supabaseService.client
+        .from('membership_schedules')
+        .select('id, bed_numbers, is_active, schedule_slot_id')
+        .eq('membership_id', membershipData.id)
+        .eq('is_active', true);
+
+      if (schedulesError) throw schedulesError;
+
+      // Step 3: Get schedule slot details
+      const slotIds = (schedulesData || []).map((s: any) => s.schedule_slot_id);
+      let slotsMap: Record<string, any> = {};
+
+      if (slotIds.length > 0) {
+        const { data: slotsData, error: slotsError } = await this.supabaseService.client
+          .from('schedule_slots')
+          .select('id, day_name, start_time, end_time')
+          .in('id', slotIds);
+
+        if (!slotsError && slotsData) {
+          slotsMap = Object.fromEntries(slotsData.map((s: any) => [s.id, s]));
+        }
+      }
+
       const membership: UserMembership = {
-        id: data.id,
-        client_name: data.client_name,
-        is_active: data.is_active,
-        notes: data.notes,
-        schedules: ((data.membership_schedules as any[]) || [])
-          .filter((s: any) => s.is_active)
-          .map((s: any) => ({
+        id: membershipData.id,
+        client_name: membershipData.client_name,
+        is_active: membershipData.is_active,
+        notes: membershipData.notes,
+        schedules: (schedulesData || []).map((s: any) => {
+          const slot = slotsMap[s.schedule_slot_id] || {};
+          return {
             id: s.id,
             bed_numbers: s.bed_numbers,
             is_active: s.is_active,
-            day_name: s.schedule_slots?.day_name || '',
-            start_time: s.schedule_slots?.start_time || '',
-            end_time: s.schedule_slots?.end_time || '',
-          })),
+            day_name: slot.day_name || '',
+            start_time: slot.start_time || '',
+            end_time: slot.end_time || '',
+          };
+        }),
       };
 
       this._userMembership.set(membership);
