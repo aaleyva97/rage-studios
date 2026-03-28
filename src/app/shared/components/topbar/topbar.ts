@@ -20,6 +20,8 @@ import { CreditsService } from '../../../core/services/credits.service';
 import { BookingDialog } from '../../../features/booking/components/booking-dialog/booking-dialog';
 import { BookingService } from '../../../core/services/booking.service';
 import { BookingsDialog } from '../bookings-dialog/bookings-dialog';
+import { MembershipService } from '../../../core/services/membership.service';
+import { MembershipInfoDialog } from '../membership-info-dialog/membership-info-dialog';
 
 interface NavItem {
   label: string;
@@ -53,8 +55,9 @@ interface Profile {
     OverlayBadge,
     Tooltip,
     BookingDialog,
-    BookingsDialog, 
-    RouterLink
+    BookingsDialog,
+    RouterLink,
+    MembershipInfoDialog
   ],
   providers: [MessageService],
   templateUrl: './topbar.html',
@@ -72,6 +75,7 @@ export class Topbar implements OnInit, OnDestroy {
   private router = inject(Router);
   protected creditsService = inject(CreditsService);
   private bookingService = inject(BookingService);
+  private membershipService = inject(MembershipService);
   
   isLoggedIn = signal(false);
   currentUser = signal<any>(null);
@@ -88,6 +92,8 @@ export class Topbar implements OnInit, OnDestroy {
   userMenuVisible = signal(false);
   userMenuItems = signal<MenuItem[]>([]);
   showBookingsDialog = signal(false);
+  showMembershipDialog = signal(false);
+  userMembership = this.membershipService.userMembership;
   
   // 🔄 USAR SIGNAL REACTIVO CENTRALIZADO DEL BOOKING SERVICE
   activeBookingsCount = this.bookingService.activeBookingsCount;
@@ -138,11 +144,14 @@ export class Topbar implements OnInit, OnDestroy {
         await this.loadUserProfile(user.id);
         // 🔄 ESTABLECER USUARIO EN BOOKING SERVICE PARA TRACKING REACTIVO
         this.bookingService.setCurrentUser(user.id);
+        // Load user membership
+        this.membershipService.loadUserMembership(user.id);
       } else if (!user) {
         this.userProfile.set(null);
         this.profileLoadAttempted.set(false);
         // 🔄 LIMPIAR USUARIO EN BOOKING SERVICE
         this.bookingService.setCurrentUser(null);
+        this.membershipService.clearUserMembership();
       }
       
       // ACTUALIZAR MENÚS DESPUÉS DE CARGAR EL PERFIL
@@ -369,5 +378,9 @@ export class Topbar implements OnInit, OnDestroy {
     if (count === 0) return 'No tienes reservas activas';
     if (count === 1) return '1 reserva activa';
     return `${count} reservas activas`;
+  }
+
+  openMembershipDialog() {
+    this.showMembershipDialog.set(true);
   }
 }
