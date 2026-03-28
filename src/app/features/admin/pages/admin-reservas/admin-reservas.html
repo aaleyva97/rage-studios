@@ -210,10 +210,14 @@
             <!-- Actions Footer -->
             <div class="border-t border-gray-100 pt-3">
               <div class="flex justify-between items-center">
-                <span class="text-xs text-gray-400">ID: {{ booking.id.substring(0, 8) }}</span>
+                @if (booking.isMembership) {
+                  <p-tag value="VIP" severity="info" [rounded]="true" size="small" />
+                } @else {
+                  <span class="text-xs text-gray-400">ID: {{ booking.id.substring(0, 8) }}</span>
+                }
                 @if (booking.canCancel) {
-                  <p-button 
-                    icon="pi pi-times" 
+                  <p-button
+                    icon="pi pi-times"
                     severity="danger"
                     [text]="true"
                     [rounded]="true"
@@ -221,9 +225,9 @@
                     pTooltip="Cancelar reserva"
                     (onClick)="confirmCancelBooking(booking)">
                   </p-button>
-                } @else {
-                  <p-tag 
-                    value="No cancelable" 
+                } @else if (!booking.isMembership) {
+                  <p-tag
+                    value="No cancelable"
                     severity="secondary"
                     [rounded]="true"
                     size="small">
