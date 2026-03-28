@@ -355,97 +355,207 @@
       <!-- Schedule + Beds (only in create mode) -->
       @if (dialogMode() === 'create') {
         <div class="border-t border-gray-200 pt-4">
-          <h4 class="text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wider">
-            Asignar horario y camas
-          </h4>
-
-          <!-- Schedule slot selector -->
-          <div class="mb-4">
-            <label class="block text-sm font-medium text-gray-700 mb-1">Horario</label>
-            <p-select
-              [(ngModel)]="selectedScheduleSlotId"
-              [options]="scheduleOptions()"
-              optionLabel="label"
-              optionValue="value"
-              placeholder="Seleccionar horario..."
-              class="w-full"
-              appendTo="body"
-              (onChange)="onScheduleSlotChange()" />
+          <div class="flex items-center justify-between mb-3">
+            <h4 class="text-sm font-semibold text-gray-700 uppercase tracking-wider">
+              Horarios y camas
+            </h4>
+            <div class="flex items-center gap-2">
+              <label class="text-xs text-gray-500">Mismas camas para todos</label>
+              <p-toggleSwitch
+                [(ngModel)]="sameBeds"
+                (onChange)="onSameBedsToggle()" />
+            </div>
           </div>
 
-          <!-- Bed selection -->
-          @if (selectedScheduleSlotId) {
+          <!-- ===== SAME BEDS MODE ===== -->
+          @if (sameBeds) {
+            <!-- Step 1: Select beds -->
             <div class="mb-4">
-              <label class="block text-sm font-medium text-gray-700 mb-2">Seleccionar camas</label>
-
-              @if (loadingBeds()) {
-                <div class="flex justify-center p-4">
-                  <i class="pi pi-spin pi-spinner text-2xl text-blue-500"></i>
-                </div>
-              } @else {
-                <div class="bed-selection-container">
-                  <!-- Row 1 -->
-                  <div class="bed-row">
-                    <div class="row-label">Fila 1</div>
-                    <div class="beds-grid">
-                      @for (bed of [1,2,3,4,5,6,7]; track bed) {
-                        <button
-                          type="button"
-                          [class.bed-selected]="isBedSelected(bed)"
-                          [class.bed-occupied]="isBedOccupied(bed)"
-                          [class.bed-available]="!isBedOccupied(bed) && !isBedSelected(bed)"
-                          [disabled]="isBedOccupied(bed)"
-                          (click)="toggleBed(bed)"
-                          class="bed-button">
-                          {{ bed }}
-                        </button>
-                      }
-                    </div>
-                  </div>
-
-                  <!-- Row 2 -->
-                  <div class="bed-row">
-                    <div class="row-label">Fila 2</div>
-                    <div class="beds-grid">
-                      @for (bed of [8,9,10,11,12,13,14]; track bed) {
-                        <button
-                          type="button"
-                          [class.bed-selected]="isBedSelected(bed)"
-                          [class.bed-occupied]="isBedOccupied(bed)"
-                          [class.bed-available]="!isBedOccupied(bed) && !isBedSelected(bed)"
-                          [disabled]="isBedOccupied(bed)"
-                          (click)="toggleBed(bed)"
-                          class="bed-button">
-                          {{ bed }}
-                        </button>
-                      }
-                    </div>
-                  </div>
-
-                  <!-- Legend -->
-                  <div class="bed-legend">
-                    <div class="legend-item">
-                      <div class="legend-box bed-available"></div>
-                      <span>Disponible</span>
-                    </div>
-                    <div class="legend-item">
-                      <div class="legend-box bed-selected"></div>
-                      <span>Seleccionada</span>
-                    </div>
-                    <div class="legend-item">
-                      <div class="legend-box bed-occupied"></div>
-                      <span>Otra membres&iacute;a</span>
-                    </div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">
+                1. Seleccionar camas
+              </label>
+              <div class="bed-selection-container">
+                <div class="bed-row">
+                  <div class="row-label">Fila 1</div>
+                  <div class="beds-grid">
+                    @for (bed of [1,2,3,4,5,6,7]; track bed) {
+                      <button
+                        type="button"
+                        [class.bed-selected]="isBedSelected(bed)"
+                        [class.bed-available]="!isBedSelected(bed)"
+                        (click)="toggleBed(bed)"
+                        class="bed-button">
+                        {{ bed }}
+                      </button>
+                    }
                   </div>
                 </div>
-
-                @if (selectedBeds().length > 0) {
-                  <p class="text-sm text-gray-600 mt-2">
-                    Camas seleccionadas: <strong>{{ selectedBeds().join(', ') }}</strong>
-                  </p>
-                }
+                <div class="bed-row">
+                  <div class="row-label">Fila 2</div>
+                  <div class="beds-grid">
+                    @for (bed of [8,9,10,11,12,13,14]; track bed) {
+                      <button
+                        type="button"
+                        [class.bed-selected]="isBedSelected(bed)"
+                        [class.bed-available]="!isBedSelected(bed)"
+                        (click)="toggleBed(bed)"
+                        class="bed-button">
+                        {{ bed }}
+                      </button>
+                    }
+                  </div>
+                </div>
+              </div>
+              @if (selectedBeds().length > 0) {
+                <p class="text-sm text-gray-600 mt-1">
+                  Camas: <strong>{{ selectedBeds().join(', ') }}</strong>
+                </p>
               }
             </div>
+
+            <!-- Step 2: Multi-select schedules -->
+            @if (selectedBeds().length > 0) {
+              <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-1">
+                  2. Seleccionar horarios
+                </label>
+                <p-multiSelect
+                  [(ngModel)]="selectedSlotIds"
+                  [options]="scheduleOptions()"
+                  optionLabel="label"
+                  optionValue="value"
+                  placeholder="Seleccionar horarios..."
+                  [maxSelectedLabels]="3"
+                  selectedItemsLabel="{0} horarios seleccionados"
+                  class="w-full"
+                  appendTo="body" />
+              </div>
+
+              @if (selectedSlotIds().length > 0) {
+                <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                  <p class="text-sm font-medium text-blue-900 mb-1">Resumen</p>
+                  <p class="text-sm text-blue-700">
+                    {{ selectedSlotIds().length }} horario(s) con camas {{ selectedBeds().join(', ') }}
+                  </p>
+                </div>
+              }
+            }
+
+          <!-- ===== PER-SCHEDULE MODE ===== -->
+          } @else {
+            <!-- Already added pending schedules -->
+            @if (pendingSchedules().length > 0) {
+              <div class="space-y-2 mb-4">
+                @for (ps of pendingSchedules(); track $index) {
+                  <div class="flex items-center justify-between bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
+                    <div class="flex-1">
+                      <span class="font-medium text-blue-900 text-sm">{{ ps.slotLabel }}</span>
+                      <span class="text-blue-700 text-sm ml-2">Camas: {{ ps.beds.join(', ') }}</span>
+                    </div>
+                    <p-button
+                      icon="pi pi-times"
+                      severity="danger"
+                      [text]="true"
+                      [rounded]="true"
+                      size="small"
+                      (click)="removePendingSchedule($index)" />
+                  </div>
+                }
+              </div>
+            }
+
+            <!-- Schedule slot selector -->
+            <div class="mb-4">
+              <label class="block text-sm font-medium text-gray-700 mb-1">Horario</label>
+              <p-select
+                [(ngModel)]="selectedScheduleSlotId"
+                [options]="availableScheduleOptionsForCreate"
+                optionLabel="label"
+                optionValue="value"
+                placeholder="Seleccionar horario..."
+                class="w-full"
+                appendTo="body"
+                (onChange)="onScheduleSlotChange()" />
+            </div>
+
+            <!-- Bed selection -->
+            @if (selectedScheduleSlotId) {
+              <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Seleccionar camas</label>
+
+                @if (loadingBeds()) {
+                  <div class="flex justify-center p-4">
+                    <i class="pi pi-spin pi-spinner text-2xl text-blue-500"></i>
+                  </div>
+                } @else {
+                  <div class="bed-selection-container">
+                    <div class="bed-row">
+                      <div class="row-label">Fila 1</div>
+                      <div class="beds-grid">
+                        @for (bed of [1,2,3,4,5,6,7]; track bed) {
+                          <button
+                            type="button"
+                            [class.bed-selected]="isBedSelected(bed)"
+                            [class.bed-occupied]="isBedOccupied(bed)"
+                            [class.bed-available]="!isBedOccupied(bed) && !isBedSelected(bed)"
+                            [disabled]="isBedOccupied(bed)"
+                            (click)="toggleBed(bed)"
+                            class="bed-button">
+                            {{ bed }}
+                          </button>
+                        }
+                      </div>
+                    </div>
+                    <div class="bed-row">
+                      <div class="row-label">Fila 2</div>
+                      <div class="beds-grid">
+                        @for (bed of [8,9,10,11,12,13,14]; track bed) {
+                          <button
+                            type="button"
+                            [class.bed-selected]="isBedSelected(bed)"
+                            [class.bed-occupied]="isBedOccupied(bed)"
+                            [class.bed-available]="!isBedOccupied(bed) && !isBedSelected(bed)"
+                            [disabled]="isBedOccupied(bed)"
+                            (click)="toggleBed(bed)"
+                            class="bed-button">
+                            {{ bed }}
+                          </button>
+                        }
+                      </div>
+                    </div>
+                    <div class="bed-legend">
+                      <div class="legend-item">
+                        <div class="legend-box bed-available"></div>
+                        <span>Disponible</span>
+                      </div>
+                      <div class="legend-item">
+                        <div class="legend-box bed-selected"></div>
+                        <span>Seleccionada</span>
+                      </div>
+                      <div class="legend-item">
+                        <div class="legend-box bed-occupied"></div>
+                        <span>Otra membres&iacute;a</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  @if (selectedBeds().length > 0) {
+                    <div class="mt-3">
+                      <p class="text-sm text-gray-600 mb-2">
+                        Camas: <strong>{{ selectedBeds().join(', ') }}</strong>
+                      </p>
+                      <p-button
+                        label="Agregar este horario"
+                        icon="pi pi-plus"
+                        severity="info"
+                        [outlined]="true"
+                        size="small"
+                        (click)="addPendingSchedule()" />
+                    </div>
+                  }
+                }
+              </div>
+            }
           }
         </div>
       }
