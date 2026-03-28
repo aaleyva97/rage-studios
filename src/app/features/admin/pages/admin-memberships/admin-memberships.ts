@@ -32,6 +32,12 @@ interface ScheduleOption {
   slot: ScheduleSlot;
 }
 
+interface PendingSchedule {
+  slotId: string;
+  slotLabel: string;
+  beds: number[];
+}
+
 @Component({
   selector: 'app-admin-memberships',
   imports: [
@@ -87,12 +93,17 @@ export class AdminMemberships implements OnInit {
   selectedMembership = signal<Membership | null>(null);
   editingMembershipId = signal<string | null>(null);
 
-  // Schedule form
+  // Schedule form (used in both create dialog and schedule dialog)
   scheduleOptions = signal<ScheduleOption[]>([]);
   selectedScheduleSlotId = '';
   selectedBeds = signal<number[]>([]);
   occupiedBedsByOtherMemberships = signal<number[]>([]);
   loadingBeds = signal(false);
+
+  // Pending schedules for create mode (multiple horarios at once)
+  pendingSchedules = signal<PendingSchedule[]>([]);
+  sameBeds = true; // toggle: same beds for all schedules
+  selectedSlotIds = signal<string[]>([]); // multi-select for same-beds mode
 
   async ngOnInit() {
     await this.loadData();
@@ -163,6 +174,9 @@ export class AdminMemberships implements OnInit {
     this.selectedScheduleSlotId = '';
     this.selectedBeds.set([]);
     this.occupiedBedsByOtherMemberships.set([]);
+    this.pendingSchedules.set([]);
+    this.sameBeds = true;
+    this.selectedSlotIds.set([]);
     this.showDialog.set(true);
   }
 
@@ -229,18 +243,26 @@ export class AdminMemberships implements OnInit {
           throw new Error(result.error);
         }
 
-        // If schedule and beds were selected, add them to the new membership
-        if (this.selectedScheduleSlotId && this.selectedBeds().length > 0 && result.id) {
-          const scheduleResult = await this.membershipService.addSchedule(
-            result.id,
-            this.selectedScheduleSlotId,
-            this.selectedBeds()
-          );
-          if (!scheduleResult.success) {
+        // Build the list of schedules to save
+        const schedulesToSave = this.buildSchedulesToSave();
+
+        if (schedulesToSave.length > 0 && result.id) {
+          const errors: string[] = [];
+          for (const schedule of schedulesToSave) {
+            const scheduleResult = await this.membershipService.addSchedule(
+              result.id,
+              schedule.slotId,
+              schedule.beds
+            );
+            if (!scheduleResult.success) {
+              errors.push(`${schedule.slotLabel}: ${scheduleResult.error}`);
+            }
+          }
+          if (errors.length > 0) {
             this.messageService.add({
               severity: 'warn',
               summary: 'Atenci\u00f3n',
-              detail: 'Membres\u00eda creada pero error al asignar horario: ' + scheduleResult.error,
+              detail: 'Membres\u00eda creada pero algunos horarios fallaron:\n' + errors.join('\n'),
             });
           }
         }
@@ -248,7 +270,7 @@ export class AdminMemberships implements OnInit {
         this.messageService.add({
           severity: 'success',
           summary: '\u00c9xito',
-          detail: 'Membres\u00eda creada correctamente',
+          detail: `Membres\u00eda creada con ${schedulesToSave.length} horario(s)`,
         });
       } else {
         const id = this.editingMembershipId();
@@ -366,13 +388,14 @@ export class AdminMemberships implements OnInit {
 
     this.loadingBeds.set(true);
     try {
+      // In schedule dialog we have a membership to exclude; in create mode we don't
       const membership = this.selectedMembership();
+      const excludeId = membership?.id || this.editingMembershipId() || undefined;
 
-      // Validate all 14 beds to find which are occupied by other memberships
       const validation = await this.membershipService.validateBeds(
         this.selectedScheduleSlotId,
         [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14],
-        membership?.id
+        excludeId
       );
 
       this.occupiedBedsByOtherMemberships.set(validation.conflicting_beds || []);
@@ -406,17 +429,81 @@ export class AdminMemberships implements OnInit {
     return option ? option.label : slotId;
   }
 
-  isScheduleAlreadyAssigned(slotId: string): boolean {
-    const membership = this.selectedMembership();
-    if (!membership) return false;
-    return membership.schedules.some((s) => s.schedule_slot_id === slotId);
-  }
-
+  // Available options for the schedule management dialog (existing membership)
   get availableScheduleOptions(): ScheduleOption[] {
     const membership = this.selectedMembership();
     if (!membership) return this.scheduleOptions();
     const assignedIds = new Set(membership.schedules.map((s) => s.schedule_slot_id));
     return this.scheduleOptions().filter((o) => !assignedIds.has(o.value));
+  }
+
+  // Available options for the create dialog (excludes already-added pending schedules)
+  get availableScheduleOptionsForCreate(): ScheduleOption[] {
+    const pendingIds = new Set(this.pendingSchedules().map((p) => p.slotId));
+    return this.scheduleOptions().filter((o) => !pendingIds.has(o.value));
+  }
+
+  // Builds the final list of schedules to save based on current mode
+  private buildSchedulesToSave(): PendingSchedule[] {
+    if (this.sameBeds) {
+      // Same-beds mode: beds + multi-selected slots
+      const beds = this.selectedBeds();
+      const slotIds = this.selectedSlotIds();
+      if (beds.length === 0 || slotIds.length === 0) return [];
+      return slotIds.map((slotId) => ({
+        slotId,
+        slotLabel: this.getScheduleOptionLabel(slotId),
+        beds: [...beds],
+      }));
+    } else {
+      // Per-schedule mode: pending list + current unsaved selection
+      const list = [...this.pendingSchedules()];
+      if (this.selectedScheduleSlotId && this.selectedBeds().length > 0) {
+        list.push({
+          slotId: this.selectedScheduleSlotId,
+          slotLabel: this.getScheduleOptionLabel(this.selectedScheduleSlotId),
+          beds: [...this.selectedBeds()],
+        });
+      }
+      return list;
+    }
+  }
+
+  addPendingSchedule() {
+    if (!this.selectedScheduleSlotId || this.selectedBeds().length === 0) {
+      this.messageService.add({
+        severity: 'warn',
+        summary: 'Atenci\u00f3n',
+        detail: 'Selecciona un horario y al menos una cama',
+      });
+      return;
+    }
+
+    const label = this.getScheduleOptionLabel(this.selectedScheduleSlotId);
+    const pending: PendingSchedule = {
+      slotId: this.selectedScheduleSlotId,
+      slotLabel: label,
+      beds: [...this.selectedBeds()],
+    };
+
+    this.pendingSchedules.set([...this.pendingSchedules(), pending]);
+    this.selectedScheduleSlotId = '';
+    this.selectedBeds.set([]);
+    this.occupiedBedsByOtherMemberships.set([]);
+  }
+
+  removePendingSchedule(index: number) {
+    const current = this.pendingSchedules();
+    this.pendingSchedules.set(current.filter((_, i) => i !== index));
+  }
+
+  onSameBedsToggle() {
+    // Reset schedule selections when switching modes
+    this.selectedScheduleSlotId = '';
+    this.selectedSlotIds.set([]);
+    this.selectedBeds.set([]);
+    this.occupiedBedsByOtherMemberships.set([]);
+    this.pendingSchedules.set([]);
   }
 
   async addScheduleToMembership() {
