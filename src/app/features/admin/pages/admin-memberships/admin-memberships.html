@@ -1,0 +1,522 @@
+<div class="admin-memberships-container">
+  <p-toast />
+  <p-confirmDialog />
+
+  <!-- Header Card -->
+  <p-card class="mb-4">
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      <div>
+        <h1 class="text-2xl font-bold text-gray-900 mb-2">Gesti&oacute;n de Membres&iacute;as</h1>
+        <p class="text-gray-600">Administra clientes VIP con horarios y camas recurrentes</p>
+      </div>
+
+      <div class="flex gap-2">
+        <p-button
+          label="Actualizar"
+          icon="pi pi-refresh"
+          [loading]="loading()"
+          (click)="loadData()"
+          severity="secondary"
+          size="small" />
+
+        <p-button
+          label="Nueva Membres&iacute;a"
+          icon="pi pi-plus"
+          (click)="openCreateDialog()"
+          size="small" />
+      </div>
+    </div>
+  </p-card>
+
+  <!-- Statistics Cards -->
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+    <p-card class="text-center">
+      <div class="text-3xl font-bold text-blue-600 mb-2">{{ memberships().length }}</div>
+      <div class="text-sm text-gray-600">Total Membres&iacute;as</div>
+    </p-card>
+
+    <p-card class="text-center">
+      <div class="text-3xl font-bold text-green-600 mb-2">{{ activeMembershipsCount }}</div>
+      <div class="text-sm text-gray-600">Activas</div>
+    </p-card>
+
+    <p-card class="text-center">
+      <div class="text-3xl font-bold text-purple-600 mb-2">{{ totalSchedulesCount }}</div>
+      <div class="text-sm text-gray-600">Horarios Asignados</div>
+    </p-card>
+  </div>
+
+  <!-- Search -->
+  <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200 mb-6">
+    <p-iconfield iconPosition="left">
+      <p-inputicon class="pi pi-search" />
+      <input
+        type="text"
+        pInputText
+        [(ngModel)]="searchTerm"
+        placeholder="Buscar por nombre de cliente..."
+        class="w-full" />
+    </p-iconfield>
+  </div>
+
+  <!-- Loading State -->
+  @if (loading()) {
+    <div class="space-y-4">
+      @for (item of [1,2,3]; track $index) {
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+          <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <p-skeleton height="2rem" />
+            <p-skeleton height="2rem" />
+            <p-skeleton height="2rem" />
+            <p-skeleton height="2rem" />
+          </div>
+        </div>
+      }
+    </div>
+  } @else if (filteredMemberships.length === 0) {
+    <div class="text-center py-12">
+      <i class="pi pi-id-card text-5xl text-gray-300 mb-4"></i>
+      <p class="text-gray-500 text-lg">No se encontraron membres&iacute;as</p>
+      <p class="text-gray-400 text-sm">Crea una nueva membres&iacute;a para comenzar</p>
+    </div>
+  } @else {
+    <!-- Mobile Card Layout -->
+    <div class="block md:hidden space-y-4">
+      @for (membership of filteredMemberships; track membership.id) {
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 hover:shadow-md transition-shadow">
+          <!-- Header -->
+          <div class="flex justify-between items-start mb-3">
+            <div>
+              <h3 class="text-lg font-semibold text-gray-900">{{ membership.client_name }}</h3>
+              @if (membership.user_full_name) {
+                <p class="text-sm text-gray-500">
+                  <i class="pi pi-user text-xs mr-1"></i>
+                  {{ membership.user_full_name }}
+                </p>
+              }
+            </div>
+            <p-tag
+              [value]="membership.is_active ? 'Activa' : 'Pausada'"
+              [severity]="membership.is_active ? 'success' : 'warn'"
+              [rounded]="true" />
+          </div>
+
+          <!-- Schedules -->
+          @if (membership.schedules.length > 0) {
+            <div class="mb-3">
+              <span class="text-xs text-gray-500 uppercase tracking-wider">Horarios</span>
+              <div class="flex flex-wrap gap-1 mt-1">
+                @for (schedule of membership.schedules; track schedule.id) {
+                  <p-chip
+                    [label]="schedule.day_name.substring(0, 3) + ' ' + schedule.start_time.substring(0, 5) + ' [' + schedule.bed_numbers.join(',') + ']'"
+                    [class]="schedule.is_active ? 'chip-active' : 'chip-inactive'" />
+                }
+              </div>
+            </div>
+          } @else {
+            <p class="text-sm text-gray-400 italic mb-3">Sin horarios asignados</p>
+          }
+
+          <!-- Notes -->
+          @if (membership.notes) {
+            <p class="text-sm text-gray-500 mb-3 italic">{{ membership.notes }}</p>
+          }
+
+          <!-- Actions -->
+          <div class="border-t border-gray-100 pt-3 flex flex-wrap gap-2">
+            <p-button
+              icon="pi pi-calendar-plus"
+              label="Horarios"
+              severity="info"
+              [text]="true"
+              size="small"
+              (click)="openScheduleDialog(membership)" />
+            <p-button
+              icon="pi pi-pencil"
+              severity="secondary"
+              [text]="true"
+              size="small"
+              pTooltip="Editar"
+              (click)="openEditDialog(membership)" />
+            <p-button
+              [icon]="membership.is_active ? 'pi pi-pause' : 'pi pi-play'"
+              [severity]="membership.is_active ? 'warn' : 'success'"
+              [text]="true"
+              size="small"
+              [pTooltip]="membership.is_active ? 'Pausar' : 'Activar'"
+              (click)="toggleMembershipActive(membership)" />
+            <p-button
+              icon="pi pi-trash"
+              severity="danger"
+              [text]="true"
+              size="small"
+              pTooltip="Eliminar"
+              (click)="confirmDeleteMembership(membership)" />
+          </div>
+        </div>
+      }
+    </div>
+
+    <!-- Desktop Table -->
+    <div class="hidden md:block">
+      <p-card>
+        <p-table
+          [value]="filteredMemberships"
+          [rows]="15"
+          [paginator]="true"
+          [rowHover]="true"
+          dataKey="id"
+          [showCurrentPageReport]="true"
+          currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords}"
+          [rowsPerPageOptions]="[15, 25, 50]">
+
+          <ng-template pTemplate="header">
+            <tr>
+              <th>Cliente</th>
+              <th>Usuario Web</th>
+              <th>Horarios</th>
+              <th>Estado</th>
+              <th>Notas</th>
+              <th class="text-center">Acciones</th>
+            </tr>
+          </ng-template>
+
+          <ng-template pTemplate="body" let-membership>
+            <tr>
+              <td>
+                <span class="font-medium text-gray-900">{{ membership.client_name }}</span>
+              </td>
+              <td>
+                @if (membership.user_full_name) {
+                  <span class="text-gray-700">{{ membership.user_full_name }}</span>
+                } @else {
+                  <span class="text-gray-400 italic">No vinculado</span>
+                }
+              </td>
+              <td>
+                @if (membership.schedules.length > 0) {
+                  <div class="flex flex-wrap gap-1">
+                    @for (schedule of membership.schedules; track schedule.id) {
+                      <p-chip
+                        [label]="schedule.day_name.substring(0, 3) + ' ' + schedule.start_time.substring(0, 5) + ' [' + schedule.bed_numbers.join(',') + ']'"
+                        [class]="schedule.is_active ? 'chip-active' : 'chip-inactive'" />
+                    }
+                  </div>
+                } @else {
+                  <span class="text-gray-400 italic text-sm">Sin horarios</span>
+                }
+              </td>
+              <td>
+                <p-tag
+                  [value]="membership.is_active ? 'Activa' : 'Pausada'"
+                  [severity]="membership.is_active ? 'success' : 'warn'"
+                  [rounded]="true" />
+              </td>
+              <td>
+                <span class="text-sm text-gray-500 max-w-48 truncate block">
+                  {{ membership.notes || '-' }}
+                </span>
+              </td>
+              <td class="text-center">
+                <div class="flex gap-1 justify-center">
+                  <p-button
+                    icon="pi pi-calendar-plus"
+                    severity="info"
+                    [text]="true"
+                    [rounded]="true"
+                    size="small"
+                    pTooltip="Gestionar horarios"
+                    (click)="openScheduleDialog(membership)" />
+                  <p-button
+                    icon="pi pi-pencil"
+                    severity="secondary"
+                    [text]="true"
+                    [rounded]="true"
+                    size="small"
+                    pTooltip="Editar"
+                    (click)="openEditDialog(membership)" />
+                  <p-button
+                    [icon]="membership.is_active ? 'pi pi-pause' : 'pi pi-play'"
+                    [severity]="membership.is_active ? 'warn' : 'success'"
+                    [text]="true"
+                    [rounded]="true"
+                    size="small"
+                    [pTooltip]="membership.is_active ? 'Pausar' : 'Activar'"
+                    (click)="toggleMembershipActive(membership)" />
+                  <p-button
+                    icon="pi pi-trash"
+                    severity="danger"
+                    [text]="true"
+                    [rounded]="true"
+                    size="small"
+                    pTooltip="Eliminar"
+                    (click)="confirmDeleteMembership(membership)" />
+                </div>
+              </td>
+            </tr>
+          </ng-template>
+        </p-table>
+      </p-card>
+    </div>
+  }
+
+  <!-- ============================================================ -->
+  <!-- CREATE/EDIT MEMBERSHIP DIALOG -->
+  <!-- ============================================================ -->
+  <p-dialog
+    [header]="dialogMode() === 'create' ? 'Nueva Membres\u00eda' : 'Editar Membres\u00eda'"
+    [(visible)]="showDialog"
+    [modal]="true"
+    [style]="{ width: '90vw', maxWidth: '500px' }"
+    [dismissableMask]="true">
+
+    <div class="space-y-4">
+      <!-- Client Name -->
+      <div class="field">
+        <label for="clientName" class="block text-sm font-medium text-gray-700 mb-1">
+          Nombre del cliente *
+        </label>
+        <input
+          id="clientName"
+          type="text"
+          pInputText
+          [(ngModel)]="formClientName"
+          placeholder="Nombre completo"
+          class="w-full" />
+      </div>
+
+      <!-- User Link (optional) -->
+      <div class="field">
+        <label class="block text-sm font-medium text-gray-700 mb-1">
+          Vincular a usuario (opcional)
+        </label>
+        @if (formUserId) {
+          <div class="flex items-center gap-2">
+            <p-chip [label]="formUserSearch" icon="pi pi-user" />
+            <p-button
+              icon="pi pi-times"
+              severity="secondary"
+              [text]="true"
+              [rounded]="true"
+              size="small"
+              (click)="clearUserSelection()" />
+          </div>
+        } @else {
+          <p-autocomplete
+            [(ngModel)]="formUserSearch"
+            [suggestions]="userSuggestions"
+            (completeMethod)="searchUsers($event)"
+            (onSelect)="onUserSelect($event)"
+            field="full_name"
+            placeholder="Buscar usuario por nombre..."
+            [minLength]="2"
+            class="w-full" />
+          <small class="text-gray-500">Escribe al menos 2 caracteres para buscar</small>
+        }
+      </div>
+
+      <!-- Notes -->
+      <div class="field">
+        <label for="notes" class="block text-sm font-medium text-gray-700 mb-1">
+          Notas
+        </label>
+        <textarea
+          id="notes"
+          pTextarea
+          [(ngModel)]="formNotes"
+          placeholder="Notas adicionales..."
+          rows="3"
+          class="w-full">
+        </textarea>
+      </div>
+    </div>
+
+    <ng-template #footer>
+      <div class="flex justify-end gap-2">
+        <p-button
+          label="Cancelar"
+          severity="secondary"
+          [outlined]="true"
+          (click)="showDialog.set(false)" />
+        <p-button
+          [label]="dialogMode() === 'create' ? 'Crear' : 'Guardar'"
+          icon="pi pi-check"
+          [loading]="saving()"
+          (click)="saveMembership()" />
+      </div>
+    </ng-template>
+  </p-dialog>
+
+  <!-- ============================================================ -->
+  <!-- SCHEDULE MANAGEMENT DIALOG -->
+  <!-- ============================================================ -->
+  <p-dialog
+    header="Gestionar Horarios"
+    [(visible)]="showScheduleDialog"
+    [modal]="true"
+    [style]="{ width: '95vw', maxWidth: '700px' }"
+    [dismissableMask]="true">
+
+    @if (selectedMembership(); as membership) {
+      <div class="space-y-6">
+        <!-- Client info -->
+        <div class="bg-gray-50 rounded-lg p-3">
+          <h3 class="font-semibold text-gray-900">{{ membership.client_name }}</h3>
+          <p-tag
+            [value]="membership.is_active ? 'Activa' : 'Pausada'"
+            [severity]="membership.is_active ? 'success' : 'warn'"
+            [rounded]="true"
+            size="small" />
+        </div>
+
+        <!-- Current schedules -->
+        @if (membership.schedules.length > 0) {
+          <div>
+            <h4 class="text-sm font-semibold text-gray-700 mb-2 uppercase tracking-wider">
+              Horarios asignados
+            </h4>
+            <div class="space-y-2">
+              @for (schedule of membership.schedules; track schedule.id) {
+                <div class="flex items-center justify-between bg-white border border-gray-200 rounded-lg p-3">
+                  <div>
+                    <span class="font-medium text-gray-900">
+                      {{ schedule.day_name }} {{ schedule.start_time.substring(0, 5) }} - {{ schedule.end_time.substring(0, 5) }}
+                    </span>
+                    <div class="text-sm text-gray-500 mt-1">
+                      Camas: <strong>{{ schedule.bed_numbers.join(', ') }}</strong>
+                    </div>
+                    @if (!schedule.is_active) {
+                      <p-tag value="Pausado" severity="warn" [rounded]="true" size="small" />
+                    }
+                  </div>
+                  <div class="flex gap-1">
+                    <p-button
+                      [icon]="schedule.is_active ? 'pi pi-pause' : 'pi pi-play'"
+                      [severity]="schedule.is_active ? 'warn' : 'success'"
+                      [text]="true"
+                      [rounded]="true"
+                      size="small"
+                      [pTooltip]="schedule.is_active ? 'Pausar' : 'Activar'"
+                      (click)="toggleScheduleActive(schedule)" />
+                    <p-button
+                      icon="pi pi-trash"
+                      severity="danger"
+                      [text]="true"
+                      [rounded]="true"
+                      size="small"
+                      pTooltip="Quitar"
+                      (click)="confirmRemoveSchedule(schedule)" />
+                  </div>
+                </div>
+              }
+            </div>
+          </div>
+        }
+
+        <!-- Add new schedule -->
+        <div class="border-t border-gray-200 pt-4">
+          <h4 class="text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wider">
+            Agregar horario
+          </h4>
+
+          <!-- Schedule slot selector -->
+          <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 mb-1">Horario</label>
+            <p-select
+              [(ngModel)]="selectedScheduleSlotId"
+              [options]="availableScheduleOptions"
+              optionLabel="label"
+              optionValue="value"
+              placeholder="Seleccionar horario..."
+              class="w-full"
+              (onChange)="onScheduleSlotChange()" />
+          </div>
+
+          <!-- Bed selection -->
+          @if (selectedScheduleSlotId) {
+            <div class="mb-4">
+              <label class="block text-sm font-medium text-gray-700 mb-2">Seleccionar camas</label>
+
+              @if (loadingBeds()) {
+                <div class="flex justify-center p-4">
+                  <i class="pi pi-spin pi-spinner text-2xl text-blue-500"></i>
+                </div>
+              } @else {
+                <div class="bed-selection-container">
+                  <!-- Row 1 -->
+                  <div class="bed-row">
+                    <div class="row-label">Fila 1</div>
+                    <div class="beds-grid">
+                      @for (bed of [1,2,3,4,5,6,7]; track bed) {
+                        <button
+                          type="button"
+                          [class.bed-selected]="isBedSelected(bed)"
+                          [class.bed-occupied]="isBedOccupied(bed)"
+                          [class.bed-available]="!isBedOccupied(bed) && !isBedSelected(bed)"
+                          [disabled]="isBedOccupied(bed)"
+                          (click)="toggleBed(bed)"
+                          class="bed-button">
+                          {{ bed }}
+                        </button>
+                      }
+                    </div>
+                  </div>
+
+                  <!-- Row 2 -->
+                  <div class="bed-row">
+                    <div class="row-label">Fila 2</div>
+                    <div class="beds-grid">
+                      @for (bed of [8,9,10,11,12,13,14]; track bed) {
+                        <button
+                          type="button"
+                          [class.bed-selected]="isBedSelected(bed)"
+                          [class.bed-occupied]="isBedOccupied(bed)"
+                          [class.bed-available]="!isBedOccupied(bed) && !isBedSelected(bed)"
+                          [disabled]="isBedOccupied(bed)"
+                          (click)="toggleBed(bed)"
+                          class="bed-button">
+                          {{ bed }}
+                        </button>
+                      }
+                    </div>
+                  </div>
+
+                  <!-- Legend -->
+                  <div class="bed-legend">
+                    <div class="legend-item">
+                      <div class="legend-box bed-available"></div>
+                      <span>Disponible</span>
+                    </div>
+                    <div class="legend-item">
+                      <div class="legend-box bed-selected"></div>
+                      <span>Seleccionada</span>
+                    </div>
+                    <div class="legend-item">
+                      <div class="legend-box bed-occupied"></div>
+                      <span>Otra membres&iacute;a</span>
+                    </div>
+                  </div>
+                </div>
+
+                @if (selectedBeds().length > 0) {
+                  <p class="text-sm text-gray-600 mt-2">
+                    Camas seleccionadas: <strong>{{ selectedBeds().join(', ') }}</strong>
+                  </p>
+                }
+              }
+            </div>
+
+            <!-- Add button -->
+            <p-button
+              label="Agregar horario"
+              icon="pi pi-plus"
+              [loading]="saving()"
+              [disabled]="selectedBeds().length === 0"
+              (click)="addScheduleToMembership()"
+              class="w-full" />
+          }
+        </div>
+      </div>
+    }
+  </p-dialog>
+</div>

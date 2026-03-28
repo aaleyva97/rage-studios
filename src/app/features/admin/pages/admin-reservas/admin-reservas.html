@@ -6,7 +6,7 @@
     <h2 class="text-2xl font-bold mb-4">Gestión de Reservas</h2>
     
     <!-- Summary Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
       <p-card class="summary-card">
         <div class="flex items-center justify-between">
           <div>
@@ -16,7 +16,7 @@
           <i class="pi pi-calendar text-blue-500 text-2xl"></i>
         </div>
       </p-card>
-      
+
       <p-card class="summary-card">
         <div class="flex items-center justify-between">
           <div>
@@ -26,7 +26,7 @@
           <i class="pi pi-check-circle text-green-500 text-2xl"></i>
         </div>
       </p-card>
-      
+
       <p-card class="summary-card">
         <div class="flex items-center justify-between">
           <div>
@@ -34,6 +34,16 @@
             <p class="text-xl font-bold text-red-600">{{ getCancelledBookingsCount() }}</p>
           </div>
           <i class="pi pi-times-circle text-red-500 text-2xl"></i>
+        </div>
+      </p-card>
+
+      <p-card class="summary-card">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm font-medium text-gray-600">Membres&iacute;as</p>
+            <p class="text-xl font-bold text-purple-600">{{ getMembershipCount() }}</p>
+          </div>
+          <i class="pi pi-id-card text-purple-500 text-2xl"></i>
         </div>
       </p-card>
     </div>
@@ -157,15 +167,20 @@
           </div>
         }
       } @else {
-        @for (booking of paginatedBookings; track booking.id) {
-          <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4 hover:shadow-md transition-shadow">
+        @for (booking of paginatedBookings; track $index) {
+          <div [class]="'rounded-lg shadow-sm border p-4 mb-4 hover:shadow-md transition-shadow ' + (booking.isMembership ? 'bg-purple-50 border-purple-200' : 'bg-white border-gray-200')">
             <!-- Header: Usuario y Estado -->
             <div class="flex justify-between items-start mb-3">
               <div>
-                <h3 class="text-lg font-semibold text-gray-900">{{ booking.userDisplayName }}</h3>
+                <h3 class="text-lg font-semibold text-gray-900">
+                  @if (booking.isMembership) {
+                    <i class="pi pi-id-card text-purple-500 mr-1"></i>
+                  }
+                  {{ booking.userDisplayName }}
+                </h3>
                 <p class="text-sm text-gray-600">{{ booking.formattedDate }} - {{ booking.formattedTime }}</p>
               </div>
-              <p-tag 
+              <p-tag
                 [value]="booking.statusLabel"
                 [severity]="booking.statusSeverity"
                 [rounded]="true">
@@ -279,11 +294,18 @@
               </td>
             </tr>
           } @else {
-            <tr>
+            <tr [class]="booking.isMembership ? 'membership-row' : ''">
               <td>
                 <div>
-                  <div class="font-medium text-gray-900">{{ booking.userDisplayName }}</div>
-                  <div class="text-xs text-gray-500">ID: {{ booking.id.substring(0, 8) }}</div>
+                  <div class="font-medium text-gray-900">
+                    @if (booking.isMembership) {
+                      <i class="pi pi-id-card text-purple-500 mr-1"></i>
+                    }
+                    {{ booking.userDisplayName }}
+                  </div>
+                  @if (!booking.isMembership) {
+                    <div class="text-xs text-gray-500">ID: {{ booking.id.substring(0, 8) }}</div>
+                  }
                 </div>
               </td>
               <td>{{ booking.formattedDate }}</td>
@@ -293,16 +315,18 @@
               <td>{{ booking.total_attendees || 0 }}</td>
               <td>{{ booking.credits_used }}</td>
               <td>
-                <p-tag 
+                <p-tag
                   [value]="booking.statusLabel"
                   [severity]="booking.statusSeverity"
                   [rounded]="true">
                 </p-tag>
               </td>
               <td class="text-center">
-                @if (booking.canCancel) {
-                  <p-button 
-                    icon="pi pi-times" 
+                @if (booking.isMembership) {
+                  <span class="text-xs text-purple-500">VIP</span>
+                } @else if (booking.canCancel) {
+                  <p-button
+                    icon="pi pi-times"
                     severity="danger"
                     [text]="true"
                     [rounded]="true"
@@ -311,8 +335,8 @@
                     (onClick)="confirmCancelBooking(booking)">
                   </p-button>
                 } @else {
-                  <p-tag 
-                    value="No cancelable" 
+                  <p-tag
+                    value="No cancelable"
                     severity="secondary"
                     [rounded]="true"
                     size="small">

@@ -120,6 +120,10 @@ export const routes: Routes = [
         loadComponent: () => import('./features/admin/pages/admin-schedule/admin-schedule').then(m => m.AdminSchedule)
       },
       {
+        path: 'membresias',
+        loadComponent: () => import('./features/admin/pages/admin-memberships/admin-memberships').then(m => m.AdminMemberships)
+      },
+      {
         path: 'excepciones',
         loadComponent: () => import('./features/admin/pages/admin-exceptions/admin-exceptions').then(m => m.AdminExceptions)
       }
