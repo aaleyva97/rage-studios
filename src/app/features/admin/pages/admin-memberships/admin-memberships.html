@@ -294,11 +294,12 @@
             (completeMethod)="searchUsers($event)"
             (onSelect)="onUserSelect($event)"
             (onClear)="onUserClear()"
+            (onBlur)="onUserBlur()"
             optionLabel="full_name"
             placeholder="Buscar por nombre o teléfono..."
             [minLength]="2"
             [dropdown]="false"
-            [forceSelection]="true"
+            [forceSelection]="false"
             styleClass="w-full user-autocomplete"
             [inputStyleClass]="'w-full'"
             appendTo="body">

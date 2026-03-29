@@ -86,6 +86,13 @@ export class AdminCreditsDeduct {
     await this.loadUserCredits(selectedUser.id);
   }
 
+  onUserBlur() {
+    const form = this.deductionForm();
+    if (form.selectedUser && typeof form.selectedUser !== 'object') {
+      this.deductionForm.set({ ...form, selectedUser: null });
+    }
+  }
+
   async loadUserCredits(userId: string) {
     this.isLoadingCredits.set(true);
     try {

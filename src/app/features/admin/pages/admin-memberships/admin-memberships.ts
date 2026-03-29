@@ -228,6 +228,14 @@ export class AdminMemberships implements OnInit {
     this.formClientName = '';
   }
 
+  onUserBlur() {
+    // If no valid user was selected (user typed text but didn't pick from suggestions), clear
+    if (!this.formUserId) {
+      this.selectedUser = null;
+      this.formClientName = '';
+    }
+  }
+
   onLinkToggleChange() {
     // Reset user/name when switching modes
     this.formUserId = null;
