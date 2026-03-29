@@ -99,6 +99,13 @@ export class AdminCredits implements OnInit {
     });
   }
   
+  onUserBlur() {
+    const form = this.assignmentForm();
+    if (form.selectedUser && typeof form.selectedUser !== 'object') {
+      this.assignmentForm.set({ ...form, selectedUser: null });
+    }
+  }
+
   onPackageSelect(event: any) {
     const selectedPackage = event.value as Package;
     const form = this.assignmentForm();
