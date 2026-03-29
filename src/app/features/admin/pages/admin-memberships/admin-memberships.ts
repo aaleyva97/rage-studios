@@ -87,6 +87,7 @@ export class AdminMemberships implements OnInit {
   formNotes = '';
   selectedUser: any = null;
   filteredUsers = signal<any[]>([]);
+  linkToWebUser = true; // toggle: link to web user (default ON)
 
   // Schedule assignment dialog
   showScheduleDialog = signal(false);
@@ -170,6 +171,7 @@ export class AdminMemberships implements OnInit {
     this.formUserId = null;
     this.formNotes = '';
     this.selectedUser = null;
+    this.linkToWebUser = true;
     this.editingMembershipId.set(null);
     this.selectedScheduleSlotId = '';
     this.selectedBeds.set([]);
@@ -185,6 +187,7 @@ export class AdminMemberships implements OnInit {
     this.formClientName = membership.client_name;
     this.formUserId = membership.user_id;
     this.formNotes = membership.notes || '';
+    this.linkToWebUser = !!membership.user_id;
     this.selectedUser = membership.user_id
       ? { id: membership.user_id, full_name: membership.user_full_name || '' }
       : null;
@@ -208,23 +211,64 @@ export class AdminMemberships implements OnInit {
   }
 
   onUserSelect(event: any) {
-    const user = event?.value ? event.value : event;
-    if (user && typeof user === 'object') {
+    const user = event?.value ?? event;
+    if (user && typeof user === 'object' && user.id) {
       this.formUserId = user.id;
       this.selectedUser = user;
+      // Auto-fill client name from user's full_name
+      if (user.full_name) {
+        this.formClientName = user.full_name;
+      }
     }
+  }
+
+  onUserClear() {
+    this.formUserId = null;
+    this.selectedUser = null;
+    this.formClientName = '';
+  }
+
+  onLinkToggleChange() {
+    // Reset user/name when switching modes
+    this.formUserId = null;
+    this.selectedUser = null;
+    this.formClientName = '';
   }
 
   clearUserSelection() {
     this.formUserId = null;
     this.selectedUser = null;
+    this.formClientName = '';
   }
 
   async saveMembership() {
+    if (this.linkToWebUser && !this.formUserId) {
+      this.messageService.add({
+        severity: 'warn',
+        summary: 'Atención',
+        detail: 'Debes seleccionar un usuario de la web',
+      });
+      return;
+    }
+
+    if (!this.linkToWebUser && !this.formClientName.trim()) {
+      this.messageService.add({
+        severity: 'warn',
+        summary: 'Atención',
+        detail: 'El nombre del cliente es requerido',
+      });
+      return;
+    }
+
+    // Ensure client_name is set
+    if (this.linkToWebUser && this.selectedUser?.full_name) {
+      this.formClientName = this.selectedUser.full_name;
+    }
+
     if (!this.formClientName.trim()) {
       this.messageService.add({
         severity: 'warn',
-        summary: 'Atenci\u00f3n',
+        summary: 'Atención',
         detail: 'El nombre del cliente es requerido',
       });
       return;

@@ -274,37 +274,32 @@
     [dismissableMask]="true">
 
     <div class="space-y-4">
-      <!-- Client Name -->
-      <div class="field">
-        <label class="block text-sm font-medium text-gray-700 mb-1">
-          Nombre del cliente *
-        </label>
-        <input
-          type="text"
-          pInputText
-          [(ngModel)]="formClientName"
-          placeholder="Nombre completo"
-          class="w-full" />
+      <!-- Link to web user toggle -->
+      <div class="flex items-center gap-3">
+        <p-toggleSwitch
+          [(ngModel)]="linkToWebUser"
+          (onChange)="onLinkToggleChange()" />
+        <label class="text-sm font-medium text-gray-700">Vincular a usuario de la web</label>
       </div>
 
-      <!-- User Link (optional) -->
-      <div class="field">
-        <label class="block text-sm font-medium text-gray-700 mb-1">
-          Vincular a usuario (opcional)
-        </label>
-        <div class="flex items-center gap-2">
+      <!-- User autocomplete (when linked) -->
+      @if (linkToWebUser) {
+        <div class="field">
+          <label class="block text-sm font-medium text-gray-700 mb-1">
+            Usuario *
+          </label>
           <p-autoComplete
             [(ngModel)]="selectedUser"
             [suggestions]="filteredUsers()"
             (completeMethod)="searchUsers($event)"
             (onSelect)="onUserSelect($event)"
-            (onClear)="clearUserSelection()"
-            optionLabel="full_name"
-            placeholder="Buscar por nombre o tel&eacute;fono..."
+            (onClear)="onUserClear()"
+            field="full_name"
+            placeholder="Buscar por nombre o teléfono..."
             [minLength]="2"
             [dropdown]="false"
             [forceSelection]="true"
-            styleClass="w-full user-autocomplete"
+            class="w-full user-autocomplete"
             [inputStyleClass]="'w-full'"
             appendTo="body">
 
@@ -318,27 +313,36 @@
                 </div>
               </div>
             </ng-template>
-
-            <ng-template let-user pTemplate="selectedItem">
-              <div class="flex items-center gap-2">
-                <i class="pi pi-user text-blue-500"></i>
-                <span>{{ user.full_name }}</span>
-              </div>
-            </ng-template>
           </p-autoComplete>
           @if (formUserId) {
-            <p-button
-              icon="pi pi-times"
-              severity="secondary"
-              [text]="true"
-              [rounded]="true"
-              size="small"
-              pTooltip="Quitar usuario"
-              (click)="clearUserSelection()" />
+            <div class="flex items-center gap-2 mt-2 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+              <i class="pi pi-check-circle text-green-500"></i>
+              <span class="text-sm text-green-800 font-medium">{{ selectedUser?.full_name }}</span>
+              <p-button
+                icon="pi pi-times"
+                severity="secondary"
+                [text]="true"
+                [rounded]="true"
+                size="small"
+                (click)="clearUserSelection()" />
+            </div>
           }
+          <small class="text-gray-500 block mt-1">Escribe al menos 2 caracteres para buscar</small>
         </div>
-        <small class="text-gray-500 block mt-1">Escribe al menos 2 caracteres para buscar</small>
-      </div>
+      } @else {
+        <!-- Client Name (when not linked) -->
+        <div class="field">
+          <label class="block text-sm font-medium text-gray-700 mb-1">
+            Nombre del cliente *
+          </label>
+          <input
+            type="text"
+            pInputText
+            [(ngModel)]="formClientName"
+            placeholder="Nombre completo"
+            class="w-full" />
+        </div>
+      }
 
       <!-- Notes -->
       <div class="field">

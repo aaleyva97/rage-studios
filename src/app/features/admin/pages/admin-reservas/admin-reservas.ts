@@ -374,7 +374,7 @@ export class AdminReservas implements OnInit {
             statusLabel: 'Membres\u00eda',
             statusSeverity: 'info',
             canCancel: false,
-            userDisplayName: res.client_name || 'VIP',
+            userDisplayName: res.user_full_name || res.client_name || 'VIP',
             coach_name: res.coach_names || '',
             credits_used: 0,
             status: 'membership',
