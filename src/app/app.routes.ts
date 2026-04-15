@@ -50,10 +50,12 @@ export const routes: Routes = [
         path: 'gestion-creditos',
         loadComponent: () => import('./features/account/pages/credit-management/credit-management').then(m => m.CreditManagement)
       },
+      /*
       {
         path: 'historial-creditos',
        loadComponent: () => import('./features/account/pages/credit-history/credit-history').then(m => m.CreditHistory)
       }
+       */
     ]
   },
   {

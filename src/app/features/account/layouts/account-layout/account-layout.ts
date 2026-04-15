@@ -53,11 +53,13 @@ export class AccountLayout {
       icon: 'pi pi-credit-card',
       routerLink: '/mi-cuenta/gestion-creditos'
     },
+    /*
     {
       label: 'Historial de Créditos',
       icon: 'pi pi-wallet',
       routerLink: '/mi-cuenta/historial-creditos'
     }
+     */
   ];
   
   ngOnInit() {
