@@ -22,6 +22,7 @@ import { BookingService } from '../../../core/services/booking.service';
 import { BookingsDialog } from '../bookings-dialog/bookings-dialog';
 import { MembershipService } from '../../../core/services/membership.service';
 import { MembershipInfoDialog } from '../membership-info-dialog/membership-info-dialog';
+import { WaitlistService } from '../../../core/services/waitlist.service';
 
 interface NavItem {
   label: string;
@@ -76,6 +77,7 @@ export class Topbar implements OnInit, OnDestroy {
   protected creditsService = inject(CreditsService);
   private bookingService = inject(BookingService);
   private membershipService = inject(MembershipService);
+  private waitlistService = inject(WaitlistService);
   
   isLoggedIn = signal(false);
   currentUser = signal<any>(null);
@@ -144,6 +146,8 @@ export class Topbar implements OnInit, OnDestroy {
         await this.loadUserProfile(user.id);
         // 🔄 ESTABLECER USUARIO EN BOOKING SERVICE PARA TRACKING REACTIVO
         this.bookingService.setCurrentUser(user.id);
+        // 📝 ESTABLECER USUARIO EN WAITLIST SERVICE
+        this.waitlistService.setCurrentUser(user.id);
         // Load user membership
         this.membershipService.loadUserMembership(user.id);
       } else if (!user) {
@@ -151,6 +155,8 @@ export class Topbar implements OnInit, OnDestroy {
         this.profileLoadAttempted.set(false);
         // 🔄 LIMPIAR USUARIO EN BOOKING SERVICE
         this.bookingService.setCurrentUser(null);
+        // 📝 LIMPIAR USUARIO EN WAITLIST SERVICE
+        this.waitlistService.setCurrentUser(null);
         this.membershipService.clearUserMembership();
       }
       

@@ -44,6 +44,7 @@ export interface TimeSlot {
   available: boolean;
   occupiedBeds: number;
   slot_id?: string;
+  capacity?: number;
 }
 
 @Injectable({
@@ -209,7 +210,8 @@ export class ScheduleService {
           coach: coachNames,
           available: true, // Se calculará después con bookings
           occupiedBeds: 0,   // Se calculará después con bookings
-          slot_id: slot.id
+          slot_id: slot.id,
+          capacity: slot.max_capacity
         });
 
         current += 60; // Incrementar 60 minutos (1 hora)

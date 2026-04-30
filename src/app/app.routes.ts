@@ -47,6 +47,10 @@ export const routes: Routes = [
         loadComponent: () => import('./features/account/pages/my-bookings/my-bookings').then(m => m.MyBookings)
       },
       {
+        path: 'lista-espera',
+        loadComponent: () => import('./features/account/pages/my-waitlist/my-waitlist').then(m => m.MyWaitlist)
+      },
+      {
         path: 'gestion-creditos',
         loadComponent: () => import('./features/account/pages/credit-management/credit-management').then(m => m.CreditManagement)
       },

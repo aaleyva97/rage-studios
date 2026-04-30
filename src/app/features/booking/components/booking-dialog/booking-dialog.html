@@ -137,25 +137,34 @@
               } @else {
                 <div class="grid grid-cols-2 gap-3">
                   @for (slot of availableSlots(); track slot.time) {
+                    @let slotCapacity = slot.capacity ?? 14;
+                    @let canSelect = slot.available || (slot.isFull && !slot.isPast);
                     <button
                       type="button"
-                      [class.bg-blue-500]="selectedTime() === slot.time"
+                      [class.bg-blue-500]="selectedTime() === slot.time && !slot.isFull"
+                      [class.bg-amber-500]="selectedTime() === slot.time && slot.isFull"
                       [class.text-white]="selectedTime() === slot.time"
                       [class.bg-gray-100]="selectedTime() !== slot.time && slot.available"
-                      [class.bg-gray-300]="!slot.available"
-                      [class.cursor-not-allowed]="!slot.available"
-                      [class.opacity-50]="!slot.available"
-                      [disabled]="!slot.available"
+                      [class.bg-amber-50]="selectedTime() !== slot.time && slot.isFull && !slot.isPast"
+                      [class.border-amber-300]="slot.isFull && !slot.isPast"
+                      [class.bg-gray-300]="slot.isPast"
+                      [class.cursor-not-allowed]="!canSelect"
+                      [class.opacity-50]="slot.isPast"
+                      [disabled]="!canSelect"
                       (click)="selectTimeSlot(slot)"
                       class="p-3 rounded-lg border transition-all hover:shadow-md disabled:hover:shadow-none">
-                      
+
                       <div class="font-semibold">{{ slot.time }}</div>
                       <div class="text-xs mt-1">Coach: {{ slot.coach }}</div>
                       <div class="text-xs mt-1">
                         @if (slot.available) {
-                          <span class="text-green-600">{{ 14 - slot.occupiedBeds }} lugares</span>
+                          <span class="text-green-600">{{ slotCapacity - slot.occupiedBeds }} lugares</span>
                         } @else if (slot.isPast) {
                           <span class="text-gray-600">Horario pasado</span>
+                        } @else if (slot.isFull) {
+                          <span class="text-amber-700 font-semibold">
+                            <i class="pi pi-clock text-[10px] mr-1"></i>Lleno · Lista de espera
+                          </span>
                         } @else {
                           <span class="text-red-600">Completo</span>
                         }
@@ -272,106 +281,217 @@
       </ng-template>
       </p-step-panel>
       
-      <!-- Step 3: Selección de Camas -->
+      <!-- Step 3: Selección de Camas o Lista de Espera -->
       <p-step-panel [value]="3">
         <ng-template #content let-activateCallback="activateCallback">
-        <div class="p-4">
-          <h3 class="text-lg font-semibold mb-4">Selecciona tu(s) cama(s)</h3>
-          
-          <div class="mb-4">
-            <div class="text-sm text-gray-600 mb-2">
-              Debes seleccionar {{ companions().length + 1 }} cama(s)
-            </div>
-            <div class="text-sm">
-              Camas seleccionadas: <strong>{{ selectedBeds().length }}</strong>
-            </div>
-          </div>
-          
-          <!-- Visualización del gimnasio -->
-          <div class="bed-selection-container">
-            <!-- Indicador del Coach -->
-            <div class="coach-area">
-              <div class="coach-box">
-                <i class="pi pi-user text-2xl"></i>
-                <div class="text-sm mt-1">COACH</div>
+
+        @if (isWaitlistMode()) {
+          <!-- ============================================================ -->
+          <!-- MODO LISTA DE ESPERA                                          -->
+          <!-- ============================================================ -->
+          <div class="p-4">
+            <div class="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-4">
+              <div class="flex items-start gap-3">
+                <i class="pi pi-clock text-2xl text-amber-600 mt-1"></i>
+                <div>
+                  <h3 class="text-lg font-semibold text-amber-900 mb-1">Lista de espera</h3>
+                  <p class="text-sm text-amber-800">
+                    Este horario está lleno. Si te inscribes, te avisaremos por notificación
+                    cuando alguien cancele y se libere un lugar para ti.
+                  </p>
+                </div>
               </div>
             </div>
-            
-            <!-- Primera fila (1-7) -->
-            <div class="bed-row">
-              <div class="row-label">Fila 1</div>
-              <div class="beds-grid">
-                @for (bed of [1,2,3,4,5,6,7]; track bed) {
-                  <button
-                    type="button"
-                    [class.bed-selected]="selectedBeds().includes(bed)"
-                    [class.bed-occupied]="occupiedBeds().includes(bed)"
-                    [class.bed-available]="!occupiedBeds().includes(bed) && !selectedBeds().includes(bed)"
-                    [disabled]="occupiedBeds().includes(bed)"
-                    (click)="toggleBed(bed)"
-                    class="bed-button">
-                    {{ bed }}
-                  </button>
+
+            <div class="bg-gray-50 rounded-lg p-4 mb-4 space-y-2">
+              <div class="flex justify-between">
+                <span class="text-gray-600">Fecha:</span>
+                <strong>{{ selectedDate() | date:'EEEE d MMMM':'':'es' }}</strong>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-gray-600">Horario:</span>
+                <strong>{{ selectedTime() }}</strong>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-gray-600">Coach:</span>
+                <strong>{{ selectedCoach() }}</strong>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-gray-600">Personas:</span>
+                <strong>{{ companions().length + 1 }}</strong>
+              </div>
+              <hr class="border-gray-200">
+              <div class="flex justify-between">
+                <span class="text-gray-600">Posición proyectada en lista:</span>
+                @if (slotAvailability()) {
+                  <strong class="text-amber-700">#{{ projectedWaitlistPosition() }}</strong>
+                } @else {
+                  <i class="pi pi-spin pi-spinner text-sm"></i>
                 }
               </div>
-            </div>
-            
-            <!-- Segunda fila (8-14) -->
-            <div class="bed-row">
-              <div class="row-label">Fila 2</div>
-              <div class="beds-grid">
-                @for (bed of [8,9,10,11,12,13,14]; track bed) {
-                  <button
-                    type="button"
-                    [class.bed-selected]="selectedBeds().includes(bed)"
-                    [class.bed-occupied]="occupiedBeds().includes(bed)"
-                    [class.bed-available]="!occupiedBeds().includes(bed) && !selectedBeds().includes(bed)"
-                    [disabled]="occupiedBeds().includes(bed)"
-                    (click)="toggleBed(bed)"
-                    class="bed-button">
-                    {{ bed }}
-                  </button>
-                }
+              <div class="flex justify-between">
+                <span class="text-gray-600">Créditos requeridos:</span>
+                <strong class="text-blue-600">{{ companions().length + 1 }}</strong>
               </div>
             </div>
-            
-            <!-- Leyenda -->
-            <div class="bed-legend">
-              <div class="legend-item">
-                <div class="legend-box bed-available"></div>
-                <span>Disponible</span>
+
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+              <p class="text-sm text-blue-900">
+                <i class="pi pi-info-circle mr-2"></i>
+                <strong>No se descontarán créditos ahora.</strong>
+                Solo si se libera un lugar y la reserva se confirma.
+              </p>
+            </div>
+
+            @if (iosNeedsPwa()) {
+              <div class="bg-orange-50 border border-orange-300 rounded-lg p-3 mb-4">
+                <div class="flex items-start gap-2">
+                  <i class="pi pi-exclamation-triangle text-orange-600 mt-0.5"></i>
+                  <div class="flex-1">
+                    <p class="text-sm text-orange-900 font-semibold mb-1">
+                      Para recibir avisos en iPhone necesitas instalar la app
+                    </p>
+                    <p class="text-xs text-orange-800 mb-2">
+                      Sin la app instalada en tu pantalla de inicio, iOS no entrega
+                      notificaciones push. Igual puedes inscribirte; tu reserva se
+                      creará automáticamente y la verás al abrir la app.
+                    </p>
+                    <p-button
+                      label="Cómo instalar"
+                      icon="pi pi-mobile"
+                      size="small"
+                      severity="warn"
+                      [outlined]="true"
+                      (onClick)="openPwaInstall()">
+                    </p-button>
+                  </div>
+                </div>
               </div>
-              <div class="legend-item">
-                <div class="legend-box bed-selected"></div>
-                <span>Seleccionada</span>
+            }
+          </div>
+
+          <div class="flex justify-between gap-2 mt-4 pt-4 border-t">
+            <p-button
+              label="Anterior"
+              icon="pi pi-arrow-left"
+              variant="outlined"
+              severity="contrast"
+              [disabled]="isEnrollingWaitlist()"
+              (onClick)="prevStep()">
+            </p-button>
+            <p-button
+              [label]="isEnrollingWaitlist() ? 'Inscribiendo...' : 'Unirme a lista de espera'"
+              [icon]="isEnrollingWaitlist() ? 'pi pi-spin pi-spinner' : 'pi pi-clock'"
+              iconPos="right"
+              variant="outlined"
+              severity="warn"
+              [disabled]="isEnrollingWaitlist()"
+              [loading]="isEnrollingWaitlist()"
+              (onClick)="enrollInWaitlist()">
+            </p-button>
+          </div>
+        } @else {
+          <!-- ============================================================ -->
+          <!-- MODO NORMAL: SELECCIÓN DE CAMAS                               -->
+          <!-- ============================================================ -->
+          <div class="p-4">
+            <h3 class="text-lg font-semibold mb-4">Selecciona tu(s) cama(s)</h3>
+
+            <div class="mb-4">
+              <div class="text-sm text-gray-600 mb-2">
+                Debes seleccionar {{ companions().length + 1 }} cama(s)
               </div>
-              <div class="legend-item">
-                <div class="legend-box bed-occupied"></div>
-                <span>Ocupada</span>
+              <div class="text-sm">
+                Camas seleccionadas: <strong>{{ selectedBeds().length }}</strong>
+              </div>
+            </div>
+
+            <!-- Visualización del gimnasio -->
+            <div class="bed-selection-container">
+              <!-- Indicador del Coach -->
+              <div class="coach-area">
+                <div class="coach-box">
+                  <i class="pi pi-user text-2xl"></i>
+                  <div class="text-sm mt-1">COACH</div>
+                </div>
+              </div>
+
+              <!-- Primera fila (1-7) -->
+              <div class="bed-row">
+                <div class="row-label">Fila 1</div>
+                <div class="beds-grid">
+                  @for (bed of [1,2,3,4,5,6,7]; track bed) {
+                    <button
+                      type="button"
+                      [class.bed-selected]="selectedBeds().includes(bed)"
+                      [class.bed-occupied]="occupiedBeds().includes(bed)"
+                      [class.bed-available]="!occupiedBeds().includes(bed) && !selectedBeds().includes(bed)"
+                      [disabled]="occupiedBeds().includes(bed)"
+                      (click)="toggleBed(bed)"
+                      class="bed-button">
+                      {{ bed }}
+                    </button>
+                  }
+                </div>
+              </div>
+
+              <!-- Segunda fila (8-14) -->
+              <div class="bed-row">
+                <div class="row-label">Fila 2</div>
+                <div class="beds-grid">
+                  @for (bed of [8,9,10,11,12,13,14]; track bed) {
+                    <button
+                      type="button"
+                      [class.bed-selected]="selectedBeds().includes(bed)"
+                      [class.bed-occupied]="occupiedBeds().includes(bed)"
+                      [class.bed-available]="!occupiedBeds().includes(bed) && !selectedBeds().includes(bed)"
+                      [disabled]="occupiedBeds().includes(bed)"
+                      (click)="toggleBed(bed)"
+                      class="bed-button">
+                      {{ bed }}
+                    </button>
+                  }
+                </div>
+              </div>
+
+              <!-- Leyenda -->
+              <div class="bed-legend">
+                <div class="legend-item">
+                  <div class="legend-box bed-available"></div>
+                  <span>Disponible</span>
+                </div>
+                <div class="legend-item">
+                  <div class="legend-box bed-selected"></div>
+                  <span>Seleccionada</span>
+                </div>
+                <div class="legend-item">
+                  <div class="legend-box bed-occupied"></div>
+                  <span>Ocupada</span>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-        
-        <div class="flex justify-between gap-2 mt-4 pt-4 border-t">
-          <p-button 
-            label="Anterior" 
-            icon="pi pi-arrow-left"
-            variant="outlined" 
-            severity="contrast"
-            (onClick)="prevStep()">
-          </p-button>
-          <p-button 
-            [label]="isBooking() ? 'Procesando...' : 'Confirmar Reserva'"
-            [icon]="isBooking() ? 'pi pi-spin pi-spinner' : 'pi pi-check'"
-            iconPos="right"
-            variant="outlined" 
-            severity="contrast"
-            [disabled]="selectedBeds().length !== (companions().length + 1) || isBooking()"
-            [loading]="isBooking()"
-            (onClick)="confirmBooking()">
-          </p-button>
-        </div>
+
+          <div class="flex justify-between gap-2 mt-4 pt-4 border-t">
+            <p-button
+              label="Anterior"
+              icon="pi pi-arrow-left"
+              variant="outlined"
+              severity="contrast"
+              (onClick)="prevStep()">
+            </p-button>
+            <p-button
+              [label]="isBooking() ? 'Procesando...' : 'Confirmar Reserva'"
+              [icon]="isBooking() ? 'pi pi-spin pi-spinner' : 'pi pi-check'"
+              iconPos="right"
+              variant="outlined"
+              severity="contrast"
+              [disabled]="selectedBeds().length !== (companions().length + 1) || isBooking()"
+              [loading]="isBooking()"
+              (onClick)="confirmBooking()">
+            </p-button>
+          </div>
+        }
       </ng-template>
       </p-step-panel>
     </p-step-panels>

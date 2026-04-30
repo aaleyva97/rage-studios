@@ -49,6 +49,11 @@ export class AccountLayout {
       routerLink: '/mi-cuenta/reservas'
     },
     {
+      label: 'Lista de Espera',
+      icon: 'pi pi-clock',
+      routerLink: '/mi-cuenta/lista-espera'
+    },
+    {
       label: 'Gestión de Créditos',
       icon: 'pi pi-credit-card',
       routerLink: '/mi-cuenta/gestion-creditos'

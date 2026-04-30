@@ -1,0 +1,190 @@
+<p-toast />
+<p-confirm-dialog />
+
+<div class="my-waitlist-container">
+  <div class="flex items-center justify-between mb-4">
+    <h2 class="text-2xl font-bold">Mi Lista de Espera</h2>
+    <a routerLink="/mi-cuenta/reservas" class="text-sm text-blue-600 hover:underline">
+      <i class="pi pi-calendar mr-1"></i>Ver mis reservas
+    </a>
+  </div>
+
+  <p class="text-sm text-gray-600 mb-4">
+    Cuando alguien cancela una reserva en un horario lleno, promovemos automáticamente al primero de la lista
+    siempre que tenga créditos. Las inscripciones expiran 60 minutos antes del inicio de la sesión.
+  </p>
+
+  @if (!isLoading() && entries().length === 0) {
+    <div class="text-center py-12">
+      <i class="pi pi-clock text-5xl text-gray-300 mb-4"></i>
+      <p class="text-gray-500">No tienes inscripciones en lista de espera</p>
+    </div>
+  } @else {
+    <!-- Mobile Card Layout -->
+    <div class="block md:hidden">
+      @if (isLoading()) {
+        @for (item of skeletonData; track $index) {
+          <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4">
+            <p-skeleton width="60%" height="1.25rem" class="mb-2" />
+            <p-skeleton width="40%" height="1rem" />
+          </div>
+        }
+      } @else {
+        @for (entry of paginatedEntries; track entry.id) {
+          <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4">
+            <div class="flex justify-between items-start mb-3">
+              <div>
+                <h3 class="text-lg font-semibold text-gray-900">{{ entry.formattedDate }}</h3>
+                <p class="text-sm text-gray-600">{{ entry.formattedTime }} · {{ entry.coach_name }}</p>
+              </div>
+              <p-tag
+                [value]="entry.statusLabel"
+                [severity]="entry.statusSeverity"
+                [rounded]="true">
+              </p-tag>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3 mb-3">
+              <div>
+                <span class="text-xs text-gray-500 uppercase tracking-wider">Posición</span>
+                <p class="text-sm font-medium text-gray-900">
+                  @if (entry.status === 'waiting') {
+                    #{{ entry.position }}
+                  } @else {
+                    —
+                  }
+                </p>
+              </div>
+              <div>
+                <span class="text-xs text-gray-500 uppercase tracking-wider">Personas</span>
+                <p class="text-sm font-medium text-gray-900">{{ entry.total_attendees }}</p>
+              </div>
+              <div>
+                <span class="text-xs text-gray-500 uppercase tracking-wider">Créditos requeridos</span>
+                <p class="text-sm font-medium text-gray-900">{{ entry.credits_required }}</p>
+              </div>
+              <div>
+                <span class="text-xs text-gray-500 uppercase tracking-wider">Acompañantes</span>
+                <p class="text-sm font-medium text-gray-900">{{ entry.attendees.length }}</p>
+              </div>
+            </div>
+
+            @if (entry.failure_reason && entry.status === 'failed_promotion') {
+              <div class="text-xs text-red-700 bg-red-50 border border-red-200 rounded px-2 py-1 mb-3">
+                Motivo: {{ entry.failure_reason }}
+              </div>
+            }
+
+            <div class="flex justify-between items-center pt-3 border-t border-gray-100">
+              <span class="text-xs text-gray-400">#{{ entry.id.substring(0, 8) }}</span>
+              @if (entry.canCancel) {
+                <p-button
+                  icon="pi pi-times"
+                  severity="danger"
+                  [text]="true"
+                  [rounded]="true"
+                  size="small"
+                  pTooltip="Cancelar inscripción"
+                  (onClick)="confirmCancel(entry)">
+                </p-button>
+              }
+            </div>
+          </div>
+        }
+      }
+
+      @if (!isLoading() && entries().length > 10) {
+        <div class="mt-6">
+          <p-paginator
+            [rows]="mobileRowsPerPage()"
+            [totalRecords]="entries().length"
+            [rowsPerPageOptions]="[10, 20, 30]"
+            (onPageChange)="onMobilePageChange($event)">
+          </p-paginator>
+        </div>
+      }
+    </div>
+
+    <!-- Desktop Table Layout -->
+    <div class="hidden md:block">
+      <p-table
+        [value]="isLoading() ? skeletonData : entries()"
+        [rows]="10"
+        [paginator]="true"
+        [tableStyle]="{ 'min-width': '50rem' }"
+        [rowHover]="true"
+        dataKey="id"
+        currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} inscripciones"
+        [showCurrentPageReport]="true"
+        [rowsPerPageOptions]="[10, 20, 30]"
+        class="p-datatable-gridlines">
+
+        <ng-template pTemplate="header">
+          <tr>
+            <th>Fecha</th>
+            <th>Hora</th>
+            <th>Coach</th>
+            <th>Posición</th>
+            <th>Personas</th>
+            <th>Créditos</th>
+            <th>Estado</th>
+            <th class="text-center">Acciones</th>
+          </tr>
+        </ng-template>
+
+        <ng-template pTemplate="body" let-entry>
+          @if (isLoading()) {
+            <tr>
+              <td><p-skeleton width="80%" /></td>
+              <td><p-skeleton width="60%" /></td>
+              <td><p-skeleton width="70%" /></td>
+              <td><p-skeleton width="40%" /></td>
+              <td><p-skeleton width="40%" /></td>
+              <td><p-skeleton width="40%" /></td>
+              <td><p-skeleton width="60%" /></td>
+              <td class="text-center"><p-skeleton width="2.5rem" height="2.5rem" shape="circle" /></td>
+            </tr>
+          } @else {
+            <tr>
+              <td>{{ entry.formattedDate }}</td>
+              <td>{{ entry.formattedTime }}</td>
+              <td>{{ entry.coach_name }}</td>
+              <td>
+                @if (entry.status === 'waiting') {
+                  <strong>#{{ entry.position }}</strong>
+                } @else {
+                  —
+                }
+              </td>
+              <td>{{ entry.total_attendees }}</td>
+              <td>{{ entry.credits_required }}</td>
+              <td>
+                <p-tag
+                  [value]="entry.statusLabel"
+                  [severity]="entry.statusSeverity"
+                  [rounded]="true">
+                </p-tag>
+                @if (entry.failure_reason && entry.status === 'failed_promotion') {
+                  <div class="text-xs text-red-700 mt-1">{{ entry.failure_reason }}</div>
+                }
+              </td>
+              <td class="text-center">
+                @if (entry.canCancel) {
+                  <p-button
+                    icon="pi pi-times"
+                    severity="danger"
+                    [text]="true"
+                    [rounded]="true"
+                    size="small"
+                    pTooltip="Cancelar inscripción"
+                    (onClick)="confirmCancel(entry)">
+                  </p-button>
+                }
+              </td>
+            </tr>
+          }
+        </ng-template>
+      </p-table>
+    </div>
+  }
+</div>

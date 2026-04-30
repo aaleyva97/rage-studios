@@ -11,6 +11,9 @@ export interface TimeSlot {
   available: boolean;
   occupiedBeds: number;
   isPast?: boolean; // Indica si el horario ya pasó (solo para día actual)
+  capacity?: number; // Capacidad del slot (max_capacity de schedule_slots)
+  isFull?: boolean; // Slot lleno: ocupado >= capacity (no por ser pasado)
+  slot_id?: string;
 }
 
 export interface Booking {
@@ -124,8 +127,12 @@ export class BookingService {
         0
       );
 
-      // Verificar disponibilidad por capacidad
-      let isAvailable = occupiedBeds < 14;
+      // Capacidad real del slot (proviene de schedule_slots.max_capacity).
+      // Fallback a 14 solo si por algún motivo no llegó la capacidad.
+      const capacity = (slot as any).capacity ?? 14;
+
+      const isFull = occupiedBeds >= capacity;
+      let isAvailable = !isFull;
       let isPast = false;
 
       // 🚫 Si es hoy, deshabilitar horarios que ya pasaron
@@ -150,6 +157,8 @@ export class BookingService {
         available: isAvailable,
         occupiedBeds,
         isPast,
+        capacity,
+        isFull,
       };
     });
   }

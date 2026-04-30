@@ -22,6 +22,8 @@ import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { PaymentService } from '../../../../core/services/payment.service';
 import { NotificationService } from '../../../../core/services/notification.service';
 import { AppSettingsService } from '../../../../core/services/app-settings.service';
+import { WaitlistService, SessionAvailability } from '../../../../core/services/waitlist.service';
+import { PwaInstallService } from '../../../../core/services/pwa-install.service';
 import { MessageModule } from 'primeng/message';
 import { formatDateToLocalYYYYMMDD, parseLocalDate } from '../../../../core/functions/date-utils';
 
@@ -54,6 +56,8 @@ export class BookingDialog {
   private messageService = inject(MessageService);
   private notificationService = inject(NotificationService);
   private appSettingsService = inject(AppSettingsService);
+  private waitlistService = inject(WaitlistService);
+  private pwaInstallService = inject(PwaInstallService);
 
   // Estados
   currentStep = signal(1);
@@ -78,6 +82,11 @@ export class BookingDialog {
   // 🔍 VERIFICACIÓN DE ESTADO AL ABRIR DIÁLOGO
   isVerifyingBookings = signal(false);
   verifiedBookingsEnabled = signal(true); // Valor por defecto optimista
+
+  // 📝 MODO LISTA DE ESPERA
+  isWaitlistMode = signal(false);
+  slotAvailability = signal<SessionAvailability | null>(null);
+  isEnrollingWaitlist = signal(false);
 
   // Fecha mínima (hoy)
   minDate = new Date();
@@ -203,14 +212,64 @@ export class BookingDialog {
   }
 
   selectTimeSlot(slot: any) {
-    if (!slot.available) return;
+    // Bloquear solo si el slot es del pasado.
+    // Slot lleno (slot.isFull && !slot.isPast) = ofrecemos lista de espera.
+    if (slot.isPast) return;
+    if (!slot.available && !slot.isFull) return;
 
     this.selectedTime.set(slot.time);
     this.selectedCoach.set(slot.coach);
-    this.loadOccupiedBeds();
-    
-    // 🔄 INICIAR REFRESCO AUTOMÁTICO cada 10 segundos
-    this.startAutoRefresh();
+
+    if (slot.isFull) {
+      // Modo lista de espera: no cargamos camas, cargamos availability
+      this.isWaitlistMode.set(true);
+      this.stopAutoRefresh();
+      this.loadSlotAvailability();
+    } else {
+      // Modo normal
+      this.isWaitlistMode.set(false);
+      this.slotAvailability.set(null);
+      this.loadOccupiedBeds();
+      this.startAutoRefresh();
+    }
+  }
+
+  /**
+   * Carga la disponibilidad del slot (capacidad, ocupado, waitlist count).
+   * Usado en modo lista de espera para mostrar la posicion proyectada.
+   */
+  async loadSlotAvailability() {
+    const date = this.selectedDate();
+    const time = this.selectedTime();
+    if (!date || !time) return;
+
+    const dateStr = formatDateToLocalYYYYMMDD(date);
+    const result = await this.waitlistService.getSessionAvailability(dateStr, time + ':00');
+    this.slotAvailability.set(result);
+  }
+
+  /**
+   * Posicion que ocuparia el usuario si se inscribe ahora.
+   */
+  projectedWaitlistPosition(): number {
+    const av = this.slotAvailability();
+    return (av?.waitlist_count ?? 0) + 1;
+  }
+
+  /**
+   * El usuario esta en iOS Safari y NO tiene la PWA instalada.
+   * En este caso no recibira push notifications.
+   */
+  iosNeedsPwa(): boolean {
+    const state = this.pwaInstallService.installabilityState();
+    return state.platform === 'ios' && state.browser === 'safari' && !state.isInstalled;
+  }
+
+  /**
+   * Abre el dialog de instrucciones de instalacion PWA.
+   */
+  openPwaInstall() {
+    this.pwaInstallService.openInstallDialog();
   }
 
   async loadOccupiedBeds() {
@@ -330,6 +389,99 @@ export class BookingDialog {
     this.hasCompanions.set(false);
     this.companions.set([]);
     this.newCompanion = '';
+    this.isWaitlistMode.set(false);
+    this.slotAvailability.set(null);
+    this.isEnrollingWaitlist.set(false);
+  }
+
+  /**
+   * 📝 Inscribir al usuario en la lista de espera del slot seleccionado.
+   * No descuenta creditos.
+   */
+  async enrollInWaitlist() {
+    if (this.isEnrollingWaitlist()) return;
+
+    const date = this.selectedDate();
+    const time = this.selectedTime();
+    const coach = this.selectedCoach();
+    const user = this.supabaseService.getUser();
+
+    if (!date || !time || !coach || !user) return;
+
+    const totalAttendees = this.companions().length + 1;
+    const availableCredits = this.creditsService.totalCredits();
+
+    if (availableCredits < totalAttendees) {
+      this.messageService.add({
+        severity: 'error',
+        summary: 'Creditos insuficientes',
+        detail: `Necesitas al menos ${totalAttendees} credito${totalAttendees > 1 ? 's' : ''} disponible${totalAttendees > 1 ? 's' : ''} para inscribirte. No se descontaran ahora.`,
+      });
+      return;
+    }
+
+    this.isEnrollingWaitlist.set(true);
+    try {
+      // Pedir permisos de notificacion antes de inscribir (silencioso)
+      await this.ensureNotificationPermissions();
+
+      const result = await this.waitlistService.enrollInWaitlist({
+        userId: user.id,
+        sessionDate: formatDateToLocalYYYYMMDD(date),
+        sessionTime: time + ':00',
+        coachName: coach,
+        attendees: this.companions(),
+        totalAttendees,
+      });
+
+      if (result.success) {
+        this.messageService.add({
+          severity: 'success',
+          summary: 'Inscrito en lista de espera',
+          detail: `Quedaste en posicion #${result.position}. Te avisaremos si se libera un lugar.`,
+          life: 5000,
+        });
+        setTimeout(() => this.closeDialog(), 1500);
+      } else {
+        this.messageService.add({
+          severity: 'error',
+          summary: 'No se pudo inscribir',
+          detail: this.translateWaitlistError(result.error, result),
+        });
+      }
+    } catch (err: any) {
+      console.error('❌ Error en enrollInWaitlist:', err);
+      this.messageService.add({
+        severity: 'error',
+        summary: 'Error',
+        detail: err?.message || 'No se pudo inscribir a la lista de espera',
+      });
+    } finally {
+      this.isEnrollingWaitlist.set(false);
+    }
+  }
+
+  private translateWaitlistError(code: string | undefined, ctx: any): string {
+    switch (code) {
+      case 'waitlist_disabled':
+        return 'La lista de espera esta deshabilitada por el administrador.';
+      case 'session_in_past':
+        return 'La sesion ya inicio o paso.';
+      case 'session_not_full':
+        return 'El horario ya tiene lugares libres, intenta reservar normalmente.';
+      case 'user_already_booked':
+        return 'Ya tienes una reserva activa para este horario.';
+      case 'already_in_waitlist':
+        return 'Ya estas inscrito en la lista de espera de este horario.';
+      case 'insufficient_credits':
+        return `Necesitas ${ctx?.required ?? '?'} creditos pero solo tienes ${ctx?.available ?? 0}.`;
+      case 'waitlist_full':
+        return `La lista de espera de este horario llego al maximo (${ctx?.max ?? '?'}).`;
+      case 'slot_not_found':
+        return 'Este horario no existe o esta inactivo.';
+      default:
+        return code || 'Error desconocido';
+    }
   }
 
   async confirmBooking() {

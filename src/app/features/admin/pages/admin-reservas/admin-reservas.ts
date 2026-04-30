@@ -14,16 +14,28 @@ import { TooltipModule } from 'primeng/tooltip';
 import { IconFieldModule } from 'primeng/iconfield';
 import { InputIconModule } from 'primeng/inputicon';
 import { InputTextModule } from 'primeng/inputtext';
+import { TabsModule } from 'primeng/tabs';
 import { MessageService, ConfirmationService } from 'primeng/api';
 import { BookingService } from '../../../../core/services/booking.service';
 import { SupabaseService } from '../../../../core/services/supabase-service';
 import { formatDateForDisplay, formatDateToLocalYYYYMMDD } from '../../../../core/functions/date-utils';
 import { NotificationService } from '../../../../core/services/notification.service';
 import { MembershipService } from '../../../../core/services/membership.service';
+import { WaitlistService, WaitlistEntry, WaitlistStatus } from '../../../../core/services/waitlist.service';
 
 interface StatusOption {
   label: string;
   value: string;
+}
+
+interface DisplayWaitlistEntry extends WaitlistEntry {
+  formattedDate: string;
+  formattedTime: string;
+  statusLabel: string;
+  statusSeverity: 'success' | 'info' | 'warn' | 'danger' | 'secondary' | 'contrast';
+  userDisplayName: string;
+  canCancel: boolean;
+  canPromote: boolean;
 }
 
 @Component({
@@ -43,7 +55,8 @@ interface StatusOption {
     TooltipModule,
     IconFieldModule,
     InputIconModule,
-    InputTextModule
+    InputTextModule,
+    TabsModule
   ],
   providers: [ConfirmationService],
   templateUrl: './admin-reservas.html',
@@ -56,11 +69,26 @@ export class AdminReservas implements OnInit {
   private confirmationService = inject(ConfirmationService);
   private notificationService = inject(NotificationService);
   private membershipService = inject(MembershipService);
+  private waitlistService = inject(WaitlistService);
 
   bookings = signal<any[]>([]);
   membershipReservations = signal<any[]>([]);
+  waitlistEntries = signal<DisplayWaitlistEntry[]>([]);
   isLoading = signal(true);
+  isLoadingWaitlist = signal(false);
   skeletonData = Array(8).fill({});
+
+  // Tab activa: '0' = Reservas, '1' = Lista de espera
+  activeTab = signal<string>('0');
+  waitlistStatusFilter = signal<'all' | WaitlistStatus>('waiting');
+  waitlistStatusOptions = [
+    { label: 'En espera', value: 'waiting' },
+    { label: 'Promovidas', value: 'promoted' },
+    { label: 'Falló promoción', value: 'failed_promotion' },
+    { label: 'Expiradas', value: 'expired' },
+    { label: 'Canceladas', value: 'cancelled' },
+    { label: 'Todas', value: 'all' },
+  ];
   
   // Filters
   dateRange = signal<Date[] | null>(null);
@@ -125,6 +153,9 @@ export class AdminReservas implements OnInit {
 
       // Load membership reservations for the same date range
       await this.loadMembershipReservations(dateRange[0], dateRange[1]);
+
+      // Load waitlist entries for the same date range
+      await this.loadWaitlistEntries(dateRange[0], dateRange[1]);
 
       // Load available times based on selected date range
       await this.loadAvailableTimes();
@@ -460,6 +491,181 @@ export class AdminReservas implements OnInit {
   }
 
   formatDateForDisplay = formatDateForDisplay;
+
+  // ============================================================
+  // WAITLIST (admin)
+  // ============================================================
+
+  async loadWaitlistEntries(startDate: Date, endDate: Date) {
+    this.isLoadingWaitlist.set(true);
+    try {
+      const startStr = formatDateToLocalYYYYMMDD(startDate);
+      const endStr = formatDateToLocalYYYYMMDD(endDate);
+      const filter = this.waitlistStatusFilter();
+
+      const entries = await this.waitlistService.getEntriesForDateRange(
+        startStr,
+        endStr,
+        filter
+      );
+
+      // Hidratar nombres de usuario en una sola query
+      const userIds = Array.from(new Set(entries.map((e) => e.user_id)));
+      let nameByUser: Record<string, string> = {};
+      if (userIds.length > 0) {
+        const { data: profiles } = await this.supabaseService.client
+          .from('profiles')
+          .select('id, full_name, phone')
+          .in('id', userIds);
+        (profiles || []).forEach((p: any) => {
+          nameByUser[p.id] =
+            p.full_name || p.phone || p.id.substring(0, 8);
+        });
+      }
+
+      const display: DisplayWaitlistEntry[] = entries.map((e) =>
+        this.toDisplayWaitlist(e, nameByUser[e.user_id] || 'Usuario')
+      );
+
+      this.waitlistEntries.set(display);
+    } catch (error) {
+      console.error('Error loading waitlist entries:', error);
+      this.waitlistEntries.set([]);
+    } finally {
+      this.isLoadingWaitlist.set(false);
+    }
+  }
+
+  private toDisplayWaitlist(
+    entry: WaitlistEntry,
+    userDisplayName: string
+  ): DisplayWaitlistEntry {
+    const map: Record<
+      WaitlistStatus,
+      { label: string; severity: DisplayWaitlistEntry['statusSeverity'] }
+    > = {
+      waiting: { label: 'En espera', severity: 'warn' },
+      promoted: { label: 'Promovida', severity: 'success' },
+      expired: { label: 'Expirada', severity: 'secondary' },
+      cancelled: { label: 'Cancelada', severity: 'danger' },
+      failed_promotion: { label: 'Falló', severity: 'danger' },
+    };
+    const info = map[entry.status];
+    return {
+      ...entry,
+      formattedDate: formatDateForDisplay(entry.session_date),
+      formattedTime: entry.session_time.substring(0, 5),
+      statusLabel: info.label,
+      statusSeverity: info.severity,
+      userDisplayName,
+      canCancel: entry.status === 'waiting',
+      canPromote: entry.status === 'waiting',
+    };
+  }
+
+  onWaitlistStatusChange() {
+    const range = this.dateRange();
+    if (range && range.length === 2 && range[0] && range[1]) {
+      this.loadWaitlistEntries(range[0], range[1]);
+    }
+  }
+
+  confirmCancelWaitlistEntry(entry: DisplayWaitlistEntry) {
+    this.confirmationService.confirm({
+      message: `¿Cancelar la inscripción de ${entry.userDisplayName} del ${entry.formattedDate} a las ${entry.formattedTime}?`,
+      header: 'Confirmar Cancelación',
+      icon: 'pi pi-exclamation-triangle',
+      acceptLabel: 'Sí, cancelar',
+      rejectLabel: 'No',
+      accept: () => this.cancelWaitlistEntry(entry),
+    });
+  }
+
+  async cancelWaitlistEntry(entry: DisplayWaitlistEntry) {
+    const result = await this.waitlistService.cancelWaitlistEntry(entry.id);
+    if (result.success) {
+      this.messageService.add({
+        severity: 'success',
+        summary: 'Inscripción cancelada',
+        detail: `Inscripción de ${entry.userDisplayName} cancelada.`,
+      });
+      const range = this.dateRange();
+      if (range && range[0] && range[1]) {
+        await this.loadWaitlistEntries(range[0], range[1]);
+      }
+    } else {
+      this.messageService.add({
+        severity: 'error',
+        summary: 'Error',
+        detail: result.error || 'No se pudo cancelar la inscripción.',
+      });
+    }
+  }
+
+  confirmPromoteWaitlistSlot(entry: DisplayWaitlistEntry) {
+    this.confirmationService.confirm({
+      message: `Forzar la promoción del waitlist para ${entry.formattedDate} a las ${entry.formattedTime}? Se intentará promover en orden FIFO a quienes quepan en la capacidad libre.`,
+      header: 'Forzar promoción',
+      icon: 'pi pi-bolt',
+      acceptLabel: 'Sí, promover',
+      rejectLabel: 'No',
+      accept: () => this.promoteWaitlistSlot(entry),
+    });
+  }
+
+  async promoteWaitlistSlot(entry: DisplayWaitlistEntry) {
+    try {
+      const { data, error } = await this.supabaseService.client.rpc(
+        'promote_waitlist_for_session',
+        {
+          p_session_date: entry.session_date,
+          p_session_time: entry.session_time,
+        }
+      );
+
+      if (error) {
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Error',
+          detail: error.message || 'Error al promover',
+        });
+        return;
+      }
+
+      const result: any = data;
+      if (result?.success) {
+        this.messageService.add({
+          severity: 'success',
+          summary: 'Promoción ejecutada',
+          detail: `Promovidas: ${result.promoted_count}, falladas: ${result.failed_count}, omitidas: ${result.skipped_count}.`,
+          life: 6000,
+        });
+        const range = this.dateRange();
+        if (range && range[0] && range[1]) {
+          await this.loadBookings();
+        }
+      } else {
+        this.messageService.add({
+          severity: 'warn',
+          summary: 'Sin promoción',
+          detail: result?.error || 'No se promovieron entradas.',
+        });
+      }
+    } catch (err: any) {
+      this.messageService.add({
+        severity: 'error',
+        summary: 'Error',
+        detail: err?.message || 'Error inesperado al promover',
+      });
+    }
+  }
+
+  // Conteos para summary cards de waitlist
+  getWaitlistCount(status: WaitlistStatus | 'all'): number {
+    const entries = this.waitlistEntries();
+    if (status === 'all') return entries.length;
+    return entries.filter((e) => e.status === status).length;
+  }
 
   private async buildAdminCancellationPayload(bookingData: any): Promise<any> {
     try {
