@@ -4,6 +4,7 @@ import {
   signal,
   inject,
   effect,
+  computed,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -13,6 +14,7 @@ import { DatePickerModule } from 'primeng/datepicker';
 import { ButtonModule } from 'primeng/button';
 import { ToggleSwitchModule } from 'primeng/toggleswitch';
 import { InputTextModule } from 'primeng/inputtext';
+import { CheckboxModule } from 'primeng/checkbox';
 import { BookingService } from '../../../../core/services/booking.service';
 import { CreditsService } from '../../../../core/services/credits.service';
 import { SupabaseService } from '../../../../core/services/supabase-service';
@@ -38,6 +40,7 @@ import { formatDateToLocalYYYYMMDD, parseLocalDate } from '../../../../core/func
     ButtonModule,
     ToggleSwitchModule,
     InputTextModule,
+    CheckboxModule,
     ToastModule,
     MessageModule,
     ProgressSpinnerModule,
@@ -87,6 +90,46 @@ export class BookingDialog {
   isWaitlistMode = signal(false);
   slotAvailability = signal<SessionAvailability | null>(null);
   isEnrollingWaitlist = signal(false);
+  acknowledgedRisk = signal(false);
+  isRequestingPermission = signal(false);
+  // Tick para que los computed re-evalúen cuando cambian permisos/token
+  private channelTick = signal(0);
+
+  /**
+   * Estado del canal de notificación push para el usuario actual.
+   * - 'push_ready': granted + token activo (recibirá push)
+   * - 'permission_default': aún no se le ha preguntado
+   * - 'permission_denied': bloqueó las notificaciones
+   * - 'ios_needs_pwa': iPhone Safari sin PWA instalada (limitación de iOS)
+   * - 'unsupported': navegador no soporta notificaciones
+   * - 'no_token': permisos OK pero falta token (estado transitorio)
+   */
+  notificationChannelStatus = computed<
+    'push_ready' | 'permission_default' | 'permission_denied' | 'ios_needs_pwa' | 'unsupported' | 'no_token'
+  >(() => {
+    this.channelTick();
+    const pwa = this.pwaInstallService.installabilityState();
+    if (pwa.platform === 'ios' && pwa.browser === 'safari' && !pwa.isInstalled) {
+      return 'ios_needs_pwa';
+    }
+    if (!this.notificationService.isNotificationSupported()) {
+      return 'unsupported';
+    }
+    const status = this.notificationService.getStatus();
+    if (status.permission === 'denied') return 'permission_denied';
+    if (status.permission === 'default') return 'permission_default';
+    if (status.permission === 'granted' && status.hasToken) return 'push_ready';
+    return 'no_token';
+  });
+
+  /**
+   * Solo se permite enviar el waitlist si: el canal está listo, O el usuario
+   * acepta explícitamente el riesgo de no recibir aviso.
+   */
+  canSubmitWaitlist = computed(() => {
+    if (this.isEnrollingWaitlist()) return false;
+    return this.notificationChannelStatus() === 'push_ready' || this.acknowledgedRisk();
+  });
 
   // Fecha mínima (hoy)
   minDate = new Date();
@@ -261,8 +304,7 @@ export class BookingDialog {
    * En este caso no recibira push notifications.
    */
   iosNeedsPwa(): boolean {
-    const state = this.pwaInstallService.installabilityState();
-    return state.platform === 'ios' && state.browser === 'safari' && !state.isInstalled;
+    return this.notificationChannelStatus() === 'ios_needs_pwa';
   }
 
   /**
@@ -270,6 +312,24 @@ export class BookingDialog {
    */
   openPwaInstall() {
     this.pwaInstallService.openInstallDialog();
+  }
+
+  /**
+   * Solicita permisos de notificacion desde el dialog (Capa 1).
+   * Tras la solicitud, refresca el estado del canal.
+   */
+  async activateNotifications() {
+    if (this.isRequestingPermission()) return;
+    this.isRequestingPermission.set(true);
+    try {
+      await this.notificationService.requestPermissions();
+    } catch (err) {
+      console.warn('Permission request failed:', err);
+    } finally {
+      this.isRequestingPermission.set(false);
+      // Forzar re-evaluación de los computed
+      this.channelTick.update((v) => v + 1);
+    }
   }
 
   async loadOccupiedBeds() {
@@ -392,6 +452,7 @@ export class BookingDialog {
     this.isWaitlistMode.set(false);
     this.slotAvailability.set(null);
     this.isEnrollingWaitlist.set(false);
+    this.acknowledgedRisk.set(false);
   }
 
   /**

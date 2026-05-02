@@ -343,29 +343,130 @@
               </p>
             </div>
 
-            @if (iosNeedsPwa()) {
-              <div class="bg-orange-50 border border-orange-300 rounded-lg p-3 mb-4">
-                <div class="flex items-start gap-2">
-                  <i class="pi pi-exclamation-triangle text-orange-600 mt-0.5"></i>
-                  <div class="flex-1">
-                    <p class="text-sm text-orange-900 font-semibold mb-1">
-                      Para recibir avisos en iPhone necesitas instalar la app
+            <!-- Aviso escalonado del canal de notificación -->
+            @switch (notificationChannelStatus()) {
+              @case ('push_ready') {
+                <div class="bg-green-50 border border-green-200 rounded-lg p-3 mb-4">
+                  <div class="flex items-start gap-2">
+                    <i class="pi pi-check-circle text-green-600 mt-0.5"></i>
+                    <p class="text-sm text-green-900">
+                      <strong>Te avisaremos por notificación push</strong> apenas se libere un lugar.
                     </p>
-                    <p class="text-xs text-orange-800 mb-2">
-                      Sin la app instalada en tu pantalla de inicio, iOS no entrega
-                      notificaciones push. Igual puedes inscribirte; tu reserva se
-                      creará automáticamente y la verás al abrir la app.
-                    </p>
-                    <p-button
-                      label="Cómo instalar"
-                      icon="pi pi-mobile"
-                      size="small"
-                      severity="warn"
-                      [outlined]="true"
-                      (onClick)="openPwaInstall()">
-                    </p-button>
                   </div>
                 </div>
+              }
+
+              @case ('permission_default') {
+                <div class="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+                  <div class="flex items-start gap-2">
+                    <i class="pi pi-bell text-blue-600 mt-0.5"></i>
+                    <div class="flex-1">
+                      <p class="text-sm text-blue-900 font-semibold mb-1">
+                        Activa las notificaciones para enterarte al instante
+                      </p>
+                      <p class="text-xs text-blue-800 mb-2">
+                        Con notificaciones, te avisaremos en cuanto se libere tu lugar.
+                        Si no las activas, tendrás que abrir la app para enterarte.
+                      </p>
+                      <p-button
+                        [label]="isRequestingPermission() ? 'Esperando...' : 'Activar notificaciones'"
+                        [icon]="isRequestingPermission() ? 'pi pi-spin pi-spinner' : 'pi pi-bell'"
+                        size="small"
+                        severity="info"
+                        [outlined]="true"
+                        [disabled]="isRequestingPermission()"
+                        (onClick)="activateNotifications()">
+                      </p-button>
+                    </div>
+                  </div>
+                </div>
+              }
+
+              @case ('permission_denied') {
+                <div class="bg-orange-50 border border-orange-300 rounded-lg p-3 mb-4">
+                  <div class="flex items-start gap-2">
+                    <i class="pi pi-exclamation-triangle text-orange-600 mt-0.5"></i>
+                    <div class="flex-1">
+                      <p class="text-sm text-orange-900 font-semibold mb-1">
+                        Tienes las notificaciones bloqueadas
+                      </p>
+                      <p class="text-xs text-orange-800">
+                        Si se libera un lugar <strong>no recibirás aviso</strong>.
+                        Solo verás tu reserva si abres la app cerca del horario.
+                        Para activarlas: ve a la configuración del navegador →
+                        Notificaciones → Permitir para este sitio.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              }
+
+              @case ('ios_needs_pwa') {
+                <div class="bg-orange-50 border border-orange-300 rounded-lg p-3 mb-4">
+                  <div class="flex items-start gap-2">
+                    <i class="pi pi-exclamation-triangle text-orange-600 mt-0.5"></i>
+                    <div class="flex-1">
+                      <p class="text-sm text-orange-900 font-semibold mb-1">
+                        Para recibir avisos en iPhone necesitas instalar la app
+                      </p>
+                      <p class="text-xs text-orange-800 mb-2">
+                        Sin la app en tu pantalla de inicio, iOS <strong>no entrega
+                        notificaciones</strong>. Tendrás que abrir la app para enterarte
+                        si se libera tu lugar.
+                      </p>
+                      <p-button
+                        label="Cómo instalar"
+                        icon="pi pi-mobile"
+                        size="small"
+                        severity="warn"
+                        [outlined]="true"
+                        (onClick)="openPwaInstall()">
+                      </p-button>
+                    </div>
+                  </div>
+                </div>
+              }
+
+              @case ('unsupported') {
+                <div class="bg-orange-50 border border-orange-300 rounded-lg p-3 mb-4">
+                  <div class="flex items-start gap-2">
+                    <i class="pi pi-exclamation-triangle text-orange-600 mt-0.5"></i>
+                    <p class="text-sm text-orange-900">
+                      Tu navegador no soporta notificaciones push. <strong>No recibirás aviso</strong>;
+                      tendrás que abrir la app para ver si se libera tu lugar.
+                    </p>
+                  </div>
+                </div>
+              }
+
+              @case ('no_token') {
+                <div class="bg-orange-50 border border-orange-300 rounded-lg p-3 mb-4">
+                  <div class="flex items-start gap-2">
+                    <i class="pi pi-exclamation-triangle text-orange-600 mt-0.5"></i>
+                    <p class="text-sm text-orange-900">
+                      Tienes los permisos pero aún no se registró tu dispositivo.
+                      <strong>No recibirás aviso</strong> hasta que vuelvas a entrar a la app.
+                    </p>
+                  </div>
+                </div>
+              }
+            }
+
+            <!-- Checkbox de aceptación del riesgo (solo si no hay canal listo) -->
+            @if (notificationChannelStatus() !== 'push_ready') {
+              <div class="bg-gray-50 border border-gray-300 rounded-lg p-3 mb-4">
+                <label class="flex items-start gap-3 cursor-pointer">
+                  <p-checkbox
+                    [(ngModel)]="acknowledgedRisk"
+                    [binary]="true"
+                    inputId="risk-ack">
+                  </p-checkbox>
+                  <span class="text-sm text-gray-800">
+                    <strong>Entiendo el riesgo:</strong> si se libera un lugar, mi reserva
+                    se creará automáticamente y se descontarán mis créditos. Como no recibiré
+                    aviso, debo revisar la app cerca del horario para no perder mi clase.
+                  </span>
+                </label>
               </div>
             }
           </div>
@@ -385,7 +486,7 @@
               iconPos="right"
               variant="outlined"
               severity="warn"
-              [disabled]="isEnrollingWaitlist()"
+              [disabled]="!canSubmitWaitlist()"
               [loading]="isEnrollingWaitlist()"
               (onClick)="enrollInWaitlist()">
             </p-button>
