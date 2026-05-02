@@ -42,6 +42,11 @@ export class AdminLayout {
       routerLink: '/admin/reservas'
     },
     {
+      label: 'Lista de Espera',
+      icon: 'pi pi-clock',
+      routerLink: '/admin/lista-espera'
+    },
+    {
       label: 'Créditos',
       icon: 'pi pi-wallet',
       routerLink: '/admin/credits',

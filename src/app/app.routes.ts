@@ -76,6 +76,10 @@ export const routes: Routes = [
         loadComponent: () => import('./features/admin/pages/admin-reservas/admin-reservas').then(m => m.AdminReservas)
       },
       {
+        path: 'lista-espera',
+        loadComponent: () => import('./features/admin/pages/admin-waitlist/admin-waitlist').then(m => m.AdminWaitlist)
+      },
+      {
         path: 'coaches',
         loadComponent: () => import('./features/admin/pages/admin-coaches/admin-coaches').then(m => m.AdminCoaches)
       },
