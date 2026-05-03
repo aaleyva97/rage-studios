@@ -24,6 +24,7 @@ export class PwaInstallService {
   
   // Core state signals
   showInstallDialog = signal(false);
+  showInstructionsDialog = signal(false);
   installPromptEvent = signal<BeforeInstallPromptEvent | null>(null);
   installabilityState = signal<InstallabilityState>({
     canInstall: false,
@@ -214,6 +215,19 @@ export class PwaInstallService {
 
   closeInstallDialog(): void {
     this.showInstallDialog.set(false);
+  }
+
+  /**
+   * Abre el dialog dedicado de instrucciones paso a paso (NO confundir con
+   * el prompt promocional `openInstallDialog`). Se usa cuando el usuario
+   * pide explicitamente "Cómo instalar".
+   */
+  openInstructionsDialog(): void {
+    this.showInstructionsDialog.set(true);
+  }
+
+  closeInstructionsDialog(): void {
+    this.showInstructionsDialog.set(false);
   }
 
   async promptInstall(): Promise<boolean> {

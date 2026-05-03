@@ -308,10 +308,11 @@ export class BookingDialog {
   }
 
   /**
-   * Abre el dialog de instrucciones de instalacion PWA.
+   * Abre el dialog dedicado de instrucciones paso a paso para instalar la PWA.
+   * NO abre el prompt promocional general (ese es para "primera visita").
    */
   openPwaInstall() {
-    this.pwaInstallService.openInstallDialog();
+    this.pwaInstallService.openInstructionsDialog();
   }
 
   /**
