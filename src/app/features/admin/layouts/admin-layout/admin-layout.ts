@@ -85,6 +85,11 @@ export class AdminLayout {
       label: 'Excepciones',
       icon: 'pi pi-exclamation-circle',
       routerLink: '/admin/excepciones',
+    },
+    {
+      label: 'Black List',
+      icon: 'pi pi-ban',
+      routerLink: '/admin/blacklist',
     }
   ];
   

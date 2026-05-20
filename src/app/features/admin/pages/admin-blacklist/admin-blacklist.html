@@ -1,0 +1,294 @@
+<p-toast />
+
+<div class="admin-blacklist-container">
+  <div class="header-section mb-6">
+    <h2 class="text-2xl font-bold text-gray-900 mb-2">Lista Negra</h2>
+    <p class="text-gray-600">Gestiona las restricciones de acceso de usuarios</p>
+  </div>
+
+  <!-- Búsqueda y acción -->
+  <p-card class="mb-6">
+    <ng-template pTemplate="header">
+      <div class="flex items-center gap-2 p-4 pb-0">
+        <i class="pi pi-search text-red-500 text-xl"></i>
+        <h3 class="text-lg font-semibold">Agregar usuario a la lista negra</h3>
+      </div>
+    </ng-template>
+
+    <div class="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+      <div class="flex-1 w-full">
+        <p-autoComplete
+          [(ngModel)]="selectedUser"
+          [suggestions]="filteredUsers()"
+          (completeMethod)="searchUsers($event)"
+          (onSelect)="onUserSelect($event)"
+          (onBlur)="onUserBlur()"
+          optionLabel="full_name"
+          placeholder="Buscar por nombre o teléfono..."
+          [minLength]="2"
+          [dropdown]="false"
+          class="w-full"
+          styleClass="w-full"
+          [inputStyleClass]="'w-full'">
+
+          <ng-template let-user pTemplate="item">
+            <div class="flex items-center gap-3 p-2">
+              <div class="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center flex-shrink-0">
+                <i class="pi pi-user text-gray-500 text-sm"></i>
+              </div>
+              <div class="flex-1">
+                <div class="font-medium text-gray-900">{{ user.full_name }}</div>
+                @if (user.phone) {
+                  <div class="text-sm text-gray-500">{{ user.phone }}</div>
+                }
+              </div>
+            </div>
+          </ng-template>
+
+          <ng-template let-user pTemplate="selectedItem">
+            <div class="flex items-center gap-2">
+              <i class="pi pi-user text-gray-500"></i>
+              <span>{{ user.full_name }}</span>
+              @if (user.phone) {
+                <span class="text-gray-400">({{ user.phone }})</span>
+              }
+            </div>
+          </ng-template>
+        </p-autoComplete>
+        <small class="text-gray-400 block mt-1">Escribe al menos 2 caracteres para buscar</small>
+      </div>
+
+      <p-button
+        label="+ Agregar a Black List"
+        icon="pi pi-ban"
+        severity="danger"
+        [disabled]="!selectedUser()"
+        (onClick)="openAddDialog()"
+        styleClass="whitespace-nowrap">
+      </p-button>
+    </div>
+  </p-card>
+
+  <!-- Lista de usuarios en blacklist -->
+  <p-card>
+    <ng-template pTemplate="header">
+      <div class="flex items-center justify-between p-4 pb-0">
+        <div class="flex items-center gap-2">
+          <i class="pi pi-ban text-red-500 text-xl"></i>
+          <h3 class="text-lg font-semibold">Usuarios con restricción</h3>
+        </div>
+        <p-tag
+          [value]="blacklist().length + ' ' + (blacklist().length === 1 ? 'usuario' : 'usuarios')"
+          severity="danger"
+          [rounded]="true">
+        </p-tag>
+      </div>
+    </ng-template>
+
+    @if (isLoadingList()) {
+      <div class="flex justify-center py-10">
+        <i class="pi pi-spin pi-spinner text-3xl text-gray-400"></i>
+      </div>
+    } @else if (blacklist().length === 0) {
+      <div class="flex flex-col items-center justify-center py-12 text-center">
+        <div class="w-16 h-16 bg-green-50 rounded-full flex items-center justify-center mb-4">
+          <i class="pi pi-check-circle text-3xl text-green-400"></i>
+        </div>
+        <p class="text-gray-500 font-medium">Sin restricciones activas</p>
+        <p class="text-gray-400 text-sm mt-1">No hay usuarios en la lista negra</p>
+      </div>
+    } @else {
+      <div class="blacklist-table">
+        <!-- Header -->
+        <div class="blacklist-row blacklist-header hidden md:grid">
+          <span>Usuario</span>
+          <span>Teléfono</span>
+          <span>Motivo</span>
+          <span>Fecha</span>
+          <span></span>
+        </div>
+
+        @for (entry of blacklist(); track entry.id) {
+          <div class="blacklist-row blacklist-item">
+            <!-- Usuario -->
+            <div class="flex items-center gap-3">
+              <div class="w-9 h-9 bg-red-50 rounded-full flex items-center justify-center flex-shrink-0">
+                <i class="pi pi-user text-red-400"></i>
+              </div>
+              <div>
+                <div class="font-medium text-gray-900">{{ entry.profiles.full_name }}</div>
+                <div class="text-xs text-gray-400 md:hidden">{{ entry.profiles.phone || 'Sin teléfono' }}</div>
+              </div>
+            </div>
+
+            <!-- Teléfono (solo desktop) -->
+            <div class="hidden md:flex items-center text-gray-600 text-sm">
+              {{ entry.profiles.phone || '—' }}
+            </div>
+
+            <!-- Motivo -->
+            <div class="col-span-1">
+              <p class="text-sm text-gray-700 line-clamp-2">{{ entry.reason }}</p>
+            </div>
+
+            <!-- Fecha -->
+            <div class="hidden md:flex items-center text-gray-500 text-xs">
+              {{ formatDate(entry.created_at) }}
+            </div>
+
+            <!-- Acción -->
+            <div class="flex items-center justify-end">
+              <p-button
+                label="Quitar"
+                icon="pi pi-trash"
+                severity="secondary"
+                size="small"
+                (onClick)="openRemoveDialog(entry)">
+              </p-button>
+            </div>
+          </div>
+        }
+      </div>
+    }
+  </p-card>
+</div>
+
+<!-- Dialog: Confirmar Agregar -->
+<p-dialog
+  [visible]="showAddDialog()"
+  (visibleChange)="showAddDialog.set($event)"
+  [modal]="true"
+  [closable]="!isProcessing()"
+  header="Confirmar restricción de acceso"
+  [style]="{ width: '480px', maxWidth: '95vw' }">
+
+  <div class="flex flex-col gap-4">
+    <!-- Warning banner -->
+    <div class="flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-lg">
+      <i class="pi pi-exclamation-triangle text-red-500 text-xl flex-shrink-0 mt-0.5"></i>
+      <div>
+        <p class="font-semibold text-red-800 mb-1">Implicaciones de esta acción</p>
+        <ul class="text-sm text-red-700 space-y-1 list-disc list-inside">
+          <li>El usuario <strong>no podrá comprar</strong> nuevos paquetes</li>
+          <li>El usuario <strong>no podrá agendar</strong> nuevas clases</li>
+          <li>Podrá <strong>usar créditos vigentes</strong> ya adquiridos</li>
+          <li>Podrá <strong>asistir</strong> a clases ya reservadas</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Usuario seleccionado -->
+    @if (selectedUser()) {
+      <div class="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+        <div class="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center">
+          <i class="pi pi-user text-gray-600"></i>
+        </div>
+        <div>
+          <p class="font-medium text-gray-900">{{ selectedUser()!.full_name }}</p>
+          @if (selectedUser()!.phone) {
+            <p class="text-sm text-gray-500">{{ selectedUser()!.phone }}</p>
+          }
+        </div>
+      </div>
+    }
+
+    <!-- Motivo -->
+    <div class="flex flex-col gap-1">
+      <label class="text-sm font-medium text-gray-700">
+        Motivo de la restricción <span class="text-red-500">*</span>
+      </label>
+      <textarea
+        pTextarea
+        [(ngModel)]="addReason"
+        placeholder="Describe brevemente el motivo de esta restricción..."
+        [rows]="3"
+        [autoResize]="false"
+        class="w-full resize-none">
+      </textarea>
+      <small class="text-gray-400">Este motivo quedará registrado para estadísticas internas.</small>
+    </div>
+  </div>
+
+  <ng-template pTemplate="footer">
+    <div class="flex gap-3 justify-end">
+      <p-button
+        label="Cancelar"
+        severity="secondary"
+        (onClick)="closeAddDialog()"
+        [disabled]="isProcessing()">
+      </p-button>
+      <p-button
+        label="Confirmar restricción"
+        icon="pi pi-ban"
+        severity="danger"
+        [loading]="isProcessing()"
+        [disabled]="!addReason().trim()"
+        (onClick)="confirmAdd()">
+      </p-button>
+    </div>
+  </ng-template>
+</p-dialog>
+
+<!-- Dialog: Confirmar Quitar -->
+<p-dialog
+  [visible]="showRemoveDialog()"
+  (visibleChange)="showRemoveDialog.set($event)"
+  [modal]="true"
+  [closable]="!isProcessing()"
+  header="Revertir restricción de acceso"
+  [style]="{ width: '480px', maxWidth: '95vw' }">
+
+  <div class="flex flex-col gap-4">
+    <!-- Info banner -->
+    <div class="flex items-start gap-3 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+      <i class="pi pi-info-circle text-blue-500 text-xl flex-shrink-0 mt-0.5"></i>
+      <div>
+        <p class="font-semibold text-blue-800 mb-1">Al remover esta restricción</p>
+        <ul class="text-sm text-blue-700 space-y-1 list-disc list-inside">
+          <li>El usuario podrá <strong>comprar nuevos paquetes</strong></li>
+          <li>El usuario podrá <strong>agendar clases</strong> nuevamente</li>
+          <li>El acceso se restaura de forma inmediata</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Usuario -->
+    @if (userToRemove()) {
+      <div class="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+        <div class="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center">
+          <i class="pi pi-user text-gray-600"></i>
+        </div>
+        <div>
+          <p class="font-medium text-gray-900">{{ userToRemove()!.profiles.full_name }}</p>
+          @if (userToRemove()!.profiles.phone) {
+            <p class="text-sm text-gray-500">{{ userToRemove()!.profiles.phone }}</p>
+          }
+          <p class="text-xs text-gray-400 mt-0.5">Bloqueado el {{ formatDate(userToRemove()!.created_at) }}</p>
+        </div>
+      </div>
+
+      <div class="p-3 bg-gray-50 rounded-lg">
+        <p class="text-xs text-gray-500 font-medium mb-1">Motivo original del bloqueo:</p>
+        <p class="text-sm text-gray-700">{{ userToRemove()!.reason }}</p>
+      </div>
+    }
+  </div>
+
+  <ng-template pTemplate="footer">
+    <div class="flex gap-3 justify-end">
+      <p-button
+        label="Cancelar"
+        severity="secondary"
+        (onClick)="closeRemoveDialog()"
+        [disabled]="isProcessing()">
+      </p-button>
+      <p-button
+        label="Remover restricción"
+        icon="pi pi-check"
+        severity="success"
+        [loading]="isProcessing()"
+        (onClick)="confirmRemove()">
+      </p-button>
+    </div>
+  </ng-template>
+</p-dialog>

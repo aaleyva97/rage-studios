@@ -136,6 +136,10 @@ export const routes: Routes = [
       {
         path: 'excepciones',
         loadComponent: () => import('./features/admin/pages/admin-exceptions/admin-exceptions').then(m => m.AdminExceptions)
+      },
+      {
+        path: 'blacklist',
+        loadComponent: () => import('./features/admin/pages/admin-blacklist/admin-blacklist').then(m => m.AdminBlacklist)
       }
     ]
   },

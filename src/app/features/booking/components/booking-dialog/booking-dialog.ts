@@ -26,6 +26,7 @@ import { NotificationService } from '../../../../core/services/notification.serv
 import { AppSettingsService } from '../../../../core/services/app-settings.service';
 import { WaitlistService, SessionAvailability } from '../../../../core/services/waitlist.service';
 import { PwaInstallService } from '../../../../core/services/pwa-install.service';
+import { BlacklistService } from '../../../../core/services/blacklist.service';
 import { MessageModule } from 'primeng/message';
 import { formatDateToLocalYYYYMMDD, parseLocalDate } from '../../../../core/functions/date-utils';
 
@@ -61,6 +62,7 @@ export class BookingDialog {
   private appSettingsService = inject(AppSettingsService);
   private waitlistService = inject(WaitlistService);
   private pwaInstallService = inject(PwaInstallService);
+  private blacklistService = inject(BlacklistService);
 
   // Estados
   currentStep = signal(1);
@@ -140,6 +142,7 @@ export class BookingDialog {
     // 🔍 EFECTO: Verificar estado cuando se abre el diálogo
     effect(() => {
       if (this.visible()) {
+        this.checkBlacklistOnOpen();
         this.verifyBookingsOnOpen();
         // 🔄 Actualizar créditos al abrir el diálogo
         this.refreshCreditsOnOpen();
@@ -152,6 +155,25 @@ export class BookingDialog {
   // 🎛️ GETTER PÚBLICO para acceder al estado verificado de reservas
   get bookingsEnabled() {
     return this.verifiedBookingsEnabled();
+  }
+
+  /**
+   * 🚫 Verificar si el usuario está en la lista negra al abrir el diálogo
+   */
+  private async checkBlacklistOnOpen(): Promise<void> {
+    const user = this.supabaseService.getUser();
+    if (!user) return;
+
+    const isBlacklisted = await this.blacklistService.checkBlacklistStatus(user.id);
+    if (isBlacklisted) {
+      this.visible.set(false);
+      this.messageService.add({
+        severity: 'warn',
+        summary: 'Acceso restringido',
+        detail: 'Para más información sobre el estado de tu cuenta, comunícate con el personal de Rage Studios.',
+        life: 7000
+      });
+    }
   }
 
   /**
