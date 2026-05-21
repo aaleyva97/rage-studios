@@ -90,6 +90,11 @@ export class AdminLayout {
       label: 'Black List',
       icon: 'pi pi-ban',
       routerLink: '/admin/blacklist',
+    },
+    {
+      label: 'Footer',
+      icon: 'pi pi-layout',
+      routerLink: '/admin/footer',
     }
   ];
   

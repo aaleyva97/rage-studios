@@ -140,6 +140,10 @@ export const routes: Routes = [
       {
         path: 'blacklist',
         loadComponent: () => import('./features/admin/pages/admin-blacklist/admin-blacklist').then(m => m.AdminBlacklist)
+      },
+      {
+        path: 'footer',
+        loadComponent: () => import('./features/admin/pages/admin-footer/admin-footer').then(m => m.AdminFooter)
       }
     ]
   },

@@ -1,5 +1,6 @@
-import { Component, signal, OnInit } from '@angular/core';
+import { Component, signal, inject, OnInit } from '@angular/core';
 import { SkeletonModule } from 'primeng/skeleton';
+import { FooterService, FooterImage } from '../../services/footer.service';
 
 @Component({
   selector: 'app-brand-banner',
@@ -8,35 +9,19 @@ import { SkeletonModule } from 'primeng/skeleton';
   styleUrl: './brand-banner.scss'
 })
 export class BrandBanner implements OnInit {
+  private footerService = inject(FooterService);
+
   isLoading = signal(true);
-  
-  // Actualiza estas URLs después de subir las imágenes a Supabase
-  brandImages = [
-    {
-      letter: 'R',
-      url: 'https://qixgxmlpmploaataidnv.supabase.co/storage/v1/object/public/Branding/R.png',
-      alt: 'RAGE - R'
-    },
-    {
-      letter: 'A',
-      url: 'https://qixgxmlpmploaataidnv.supabase.co/storage/v1/object/public/Branding/A.png',
-      alt: 'RAGE - A'
-    },
-    {
-      letter: 'G',
-      url: 'https://qixgxmlpmploaataidnv.supabase.co/storage/v1/object/public/Branding/G.png',
-      alt: 'RAGE - G'
-    },
-    {
-      letter: 'E',
-      url: 'https://qixgxmlpmploaataidnv.supabase.co/storage/v1/object/public/Branding/E.png',
-      alt: 'RAGE - E'
-    }
-  ];
-  
-  ngOnInit() {
-    setTimeout(() => {
+  brandImages = signal<FooterImage[]>([]);
+
+  async ngOnInit() {
+    try {
+      const images = await this.footerService.getFooterImages();
+      this.brandImages.set(images);
+    } catch {
+      // fallback silencioso — las imágenes quedan vacías pero no rompe la página
+    } finally {
       this.isLoading.set(false);
-    }, 100);
+    }
   }
 }

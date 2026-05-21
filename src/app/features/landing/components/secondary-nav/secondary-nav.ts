@@ -4,6 +4,7 @@ import { RouterModule } from '@angular/router';
 import { NavigationService } from '../../../../core/services/navigation.service';
 import { SupabaseService } from '../../../../core/services/supabase-service';
 import { BookingUiService } from '../../../../core/services/booking-ui.service';
+import { FooterService } from '../../services/footer.service';
 
 interface NavigationItem {
   label: string;
@@ -22,9 +23,11 @@ export class SecondaryNav implements OnInit, OnDestroy {
   private navigationService = inject(NavigationService);
   private supabaseService = inject(SupabaseService);
   private bookingUiService = inject(BookingUiService);
-  
+  private footerService = inject(FooterService);
+
   private isLoggedIn = signal(false);
   private authSubscription?: Subscription;
+  footerTitle = signal("I'M THE FINAL BOSS");
   
   navigationItems = computed<NavigationItem[]>(() => {
     const baseItems: NavigationItem[] = [
@@ -41,10 +44,16 @@ export class SecondaryNav implements OnInit, OnDestroy {
     return baseItems;
   });
   
-  ngOnInit() {
+  async ngOnInit() {
     this.authSubscription = this.supabaseService.currentUser$.subscribe(user => {
       this.isLoggedIn.set(!!user);
     });
+    try {
+      const title = await this.footerService.getFooterTitle();
+      this.footerTitle.set(title);
+    } catch {
+      // mantiene el valor por defecto
+    }
   }
   
   ngOnDestroy() {

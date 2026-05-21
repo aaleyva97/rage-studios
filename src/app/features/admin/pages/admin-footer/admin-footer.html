@@ -1,0 +1,98 @@
+<p-toast />
+
+<div class="admin-footer-container">
+  <div class="header-section mb-6">
+    <h2 class="text-2xl font-bold text-gray-900 mb-2">Gestionar Footer</h2>
+    <p class="text-gray-600">Edita el título y las imágenes de la sección final del sitio</p>
+  </div>
+
+  <!-- Título -->
+  <p-card class="mb-6">
+    <ng-template pTemplate="header">
+      <div class="flex items-center gap-2 p-4 pb-0">
+        <i class="pi pi-pencil text-blue-500 text-xl"></i>
+        <h3 class="text-lg font-semibold">Título de la sección</h3>
+      </div>
+    </ng-template>
+
+    @if (isLoadingTitle()) {
+      <p-skeleton width="100%" height="42px" />
+    } @else {
+      <div class="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+        <input
+          pInputText
+          [(ngModel)]="footerTitle"
+          placeholder="Título del footer"
+          class="flex-1 w-full font-bold text-lg uppercase tracking-wide" />
+        <p-button
+          label="Guardar"
+          icon="pi pi-check"
+          [loading]="isSavingTitle()"
+          [disabled]="!footerTitle().trim()"
+          (onClick)="saveTitle()">
+        </p-button>
+      </div>
+      <small class="text-gray-400 block mt-2">Se mostrará en mayúsculas tal como lo escribas.</small>
+    }
+  </p-card>
+
+  <!-- Imágenes -->
+  <p-card>
+    <ng-template pTemplate="header">
+      <div class="flex items-center gap-2 p-4 pb-0">
+        <i class="pi pi-images text-blue-500 text-xl"></i>
+        <h3 class="text-lg font-semibold">Imágenes del grid (R · A · G · E)</h3>
+      </div>
+    </ng-template>
+
+    <p class="text-gray-500 text-sm mb-6">
+      El grid siempre muestra 4 imágenes en el mismo orden. Haz clic en <strong>Cambiar imagen</strong> para reemplazar cualquiera.
+    </p>
+
+    @if (isLoadingImages()) {
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        @for (item of [1,2,3,4]; track item) {
+          <div class="flex flex-col gap-2">
+            <p-skeleton width="100%" height="200px" borderRadius="8px" />
+            <p-skeleton width="60%" height="16px" />
+          </div>
+        }
+      </div>
+    } @else {
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        @for (image of images(); track image.id; let i = $index) {
+          <div class="image-slot">
+            <!-- Badge de letra -->
+            <div class="slot-badge">{{ getSlotLabel(i) }}</div>
+
+            <!-- Preview -->
+            <div class="image-preview">
+              @if (uploadingIndex() === i) {
+                <div class="upload-overlay">
+                  <i class="pi pi-spin pi-spinner text-white text-2xl"></i>
+                </div>
+              }
+              <img
+                [src]="image.image_url"
+                [alt]="image.alt_text"
+                class="w-full h-full object-cover" />
+            </div>
+
+            <!-- Upload -->
+            <p-fileUpload
+              mode="basic"
+              accept="image/*"
+              [maxFileSize]="5000000"
+              chooseLabel="Cambiar imagen"
+              chooseIcon="pi pi-upload"
+              [auto]="true"
+              (onSelect)="onImageSelect($event, image, i)"
+              [disabled]="uploadingIndex() !== null"
+              styleClass="w-full p-button-outlined p-button-sm">
+            </p-fileUpload>
+          </div>
+        }
+      </div>
+    }
+  </p-card>
+</div>
