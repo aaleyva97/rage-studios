@@ -60,14 +60,18 @@ export class MyBookings implements OnInit {
       const userBookings = await this.bookingService.getUserBookings(user.id);
       
       // Agregar información de si se puede cancelar y formatear datos
-      const bookingsWithCancelInfo = userBookings.map(booking => ({
-        ...booking,
-        canCancel: booking.status === 'active' ? this.bookingService.canCancelBooking(booking.session_date, booking.session_time) : false,
-        formattedDate: formatDateForDisplay(booking.session_date),
-        formattedTime: booking.session_time.substring(0, 5),
-        statusLabel: booking.status === 'active' ? 'Activa' : 'Cancelada',
-        statusSeverity: booking.status === 'active' ? 'success' : 'danger'
-      }));
+      const bookingsWithCancelInfo = userBookings.map(booking => {
+        const isPast = this.isBookingPast(booking.session_date, booking.session_time);
+        const isClosed = booking.status === 'closed' || (booking.status === 'active' && isPast);
+        return {
+          ...booking,
+          canCancel: booking.status === 'active' ? this.bookingService.canCancelBooking(booking.session_date, booking.session_time) : false,
+          formattedDate: formatDateForDisplay(booking.session_date),
+          formattedTime: booking.session_time.substring(0, 5),
+          statusLabel: isClosed ? 'Cerrada' : (booking.status === 'active' ? 'Activa' : 'Cancelada'),
+          statusSeverity: isClosed ? 'warn' : (booking.status === 'active' ? 'success' : 'danger')
+        };
+      });
       
       this.bookings.set(bookingsWithCancelInfo);
     }
@@ -193,6 +197,13 @@ export class MyBookings implements OnInit {
   }
 
   formatDateForDisplay = formatDateForDisplay;
+
+  private isBookingPast(bookingDate: string, bookingTime: string): boolean {
+    const [year, month, day] = bookingDate.split('-').map(Number);
+    const [hours, minutes, seconds] = bookingTime.split(':').map(Number);
+    const bookingDateTime = new Date(year, month - 1, day, hours, minutes, seconds || 0);
+    return bookingDateTime < new Date();
+  }
 
   private async buildCancellationPayload(bookingData: any): Promise<any> {
     try {
