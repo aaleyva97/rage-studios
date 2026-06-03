@@ -144,20 +144,39 @@ export class SupabaseService {
       email,
       password,
       options: {
+        // Página a la que llega el usuario tras hacer clic en el correo de confirmación
+        emailRedirectTo: 'https://ragestudios.mx/email-confirmado',
         data: {
           full_name: fullName,
-          phone: phone // Respaldo en metadata
+          phone: phone // El trigger handle_new_user lee estos metadatos para crear el perfil
         }
       }
     });
-    
+
     if (error) throw error;
-    
-    if (data.user) {
-      // Intentar actualizar perfil con retry logic
+
+    // Si Supabase devuelve sesión, la confirmación de email está desactivada y el
+    // usuario quedó logueado: mantenemos el guardado de perfil por compatibilidad.
+    // Si NO hay sesión, la confirmación está activa: el perfil (incluido el teléfono)
+    // lo crea el trigger en la base de datos a partir de la metadata.
+    if (data.session && data.user) {
       await this.updateProfileWithRetry(data.user.id, { full_name: fullName, phone });
     }
-    
+
+    return data;
+  }
+
+  // Reenvía el correo de confirmación para usuarios que aún no han verificado su email
+  async resendConfirmationEmail(email: string) {
+    const { data, error } = await this.supabaseClient.auth.resend({
+      type: 'signup',
+      email,
+      options: {
+        emailRedirectTo: 'https://ragestudios.mx/email-confirmado'
+      }
+    });
+
+    if (error) throw error;
     return data;
   }
 

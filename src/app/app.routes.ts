@@ -26,6 +26,10 @@ export const routes: Routes = [
     ]
   },
   {
+    path: 'email-confirmado',
+    loadComponent: () => import('./features/account/pages/email-confirmed/email-confirmed').then(m => m.EmailConfirmed)
+  },
+  {
     path: 'mi-cuenta',
     loadComponent: () => import('./features/account/layouts/account-layout/account-layout').then(m => m.AccountLayout),
     canActivate: [authGuard],
