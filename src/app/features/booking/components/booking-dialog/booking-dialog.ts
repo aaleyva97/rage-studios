@@ -8,6 +8,7 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
 import { DialogModule } from 'primeng/dialog';
 import { StepperModule } from 'primeng/stepper';
 import { DatePickerModule } from 'primeng/datepicker';
@@ -63,6 +64,7 @@ export class BookingDialog {
   private waitlistService = inject(WaitlistService);
   private pwaInstallService = inject(PwaInstallService);
   private blacklistService = inject(BlacklistService);
+  private router = inject(Router);
 
   // Estados
   currentStep = signal(1);
@@ -441,9 +443,19 @@ export class BookingDialog {
   closeDialog() {
     // 🛑 PARAR REFRESCO AUTOMÁTICO
     this.stopAutoRefresh();
-    
+
     this.visible.set(false);
     this.resetForm();
+  }
+
+  /**
+   * Cierra el diálogo y lleva al usuario a la gestión de su lista de espera.
+   * Se invoca desde el toast accionable tras inscribirse correctamente.
+   */
+  goToWaitlist() {
+    this.messageService.clear('waitlist-success');
+    this.closeDialog();
+    this.router.navigate(['/mi-cuenta/lista-espera']);
   }
 
   // Navegación del Stepper
@@ -520,10 +532,11 @@ export class BookingDialog {
 
       if (result.success) {
         this.messageService.add({
+          key: 'waitlist-success',
           severity: 'success',
           summary: 'Inscrito en lista de espera',
           detail: `Quedaste en posicion #${result.position}. Te avisaremos si se libera un lugar.`,
-          life: 5000,
+          life: 8000,
         });
         setTimeout(() => this.closeDialog(), 1500);
       } else {

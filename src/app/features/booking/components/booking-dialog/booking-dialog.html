@@ -1,5 +1,27 @@
 <p-toast />
-<p-dialog 
+
+<!-- Toast accionable: tras inscribirse en lista de espera, ofrece gestionar la anotacion -->
+<p-toast key="waitlist-success" position="top-right">
+  <ng-template let-message #message>
+    <section class="flex flex-col gap-3 w-full" aria-live="polite">
+      <div class="flex items-start gap-3">
+        <i class="pi pi-check-circle text-green-500 text-xl mt-0.5" aria-hidden="true"></i>
+        <div class="flex flex-col gap-1">
+          <span class="font-semibold text-sm">{{ message.summary }}</span>
+          <span class="text-sm text-gray-600">{{ message.detail }}</span>
+        </div>
+      </div>
+      <p-button
+        label="Ver mi lista de espera"
+        icon="pi pi-clock"
+        size="small"
+        styleClass="w-full justify-center"
+        (onClick)="goToWaitlist()" />
+    </section>
+  </ng-template>
+</p-toast>
+
+<p-dialog
   [(visible)]="visible" 
   [modal]="true"
   [maximizable]="true"
