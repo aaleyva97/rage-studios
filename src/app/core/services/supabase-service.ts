@@ -1,5 +1,6 @@
 import { Injectable, signal, PLATFORM_ID, Inject } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
+import { Router } from '@angular/router';
 import { createClient, SupabaseClient, User } from '@supabase/supabase-js';
 import { environment } from '../../../environments/environment';
 import { BehaviorSubject, Observable, debounceTime, distinctUntilChanged } from 'rxjs';
@@ -46,7 +47,7 @@ export class SupabaseService {
   // 🔄 SSR OPTIMIZATION: Prevent duplicate initialization during hydration
   private userLoadAttempted = false;
   
-  constructor(@Inject(PLATFORM_ID) private platformId: Object) {
+  constructor(@Inject(PLATFORM_ID) private platformId: Object, private router: Router) {
     this.isBrowser = isPlatformBrowser(platformId);
     this.tokenManager = new AuthTokenManagerService(platformId);
     
@@ -83,7 +84,16 @@ export class SupabaseService {
           // No emitir cambios solo por refresh de token para reducir rate limiting
           return;
         }
-        
+
+        // El usuario llegó desde un enlace de recuperación de contraseña: Supabase crea
+        // una sesión temporal. Lo emitimos y lo llevamos directo a "Cambiar contraseña"
+        // una vez que la sesión ya está lista, evitando que el authGuard lo rebote a la home.
+        if (event === 'PASSWORD_RECOVERY') {
+          this.currentUser.next(session?.user ?? null);
+          this.router.navigate(['/mi-cuenta/cambiar-contrasena']);
+          return;
+        }
+
         if (event === 'SIGNED_OUT') {
           this.tokenManager.reset();
         }
