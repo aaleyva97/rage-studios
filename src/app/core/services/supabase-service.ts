@@ -73,11 +73,10 @@ export class SupabaseService {
     if (this.isBrowser && !this.userLoadAttempted) {
       this.userLoadAttempted = true;
       
-      try {
-        const { data: { user } } = await this.supabaseClient.auth.getUser();
-        this.currentUser.next(user);
-      
-      // Solo registrar un listener de estado de auth, con manejo de rate limiting
+      // Registramos el listener de auth ANTES de cualquier await: detectSessionInUrl
+      // procesa el enlace de recuperación al cargar la página y dispara PASSWORD_RECOVERY
+      // muy temprano. Si el listener se registrara después del await getUser(), perderíamos
+      // ese evento y el usuario se quedaría en la home en vez de ir a cambiar la contraseña.
       this.supabaseClient.auth.onAuthStateChange((event, session) => {
         if (event === 'TOKEN_REFRESHED') {
           console.log('🔄 Token refreshed successfully');
@@ -97,7 +96,7 @@ export class SupabaseService {
         if (event === 'SIGNED_OUT') {
           this.tokenManager.reset();
         }
-        
+
         // Para eventos importantes (SIGNED_IN, SIGNED_OUT), siempre emitir
         // Para otros eventos, solo emitir si hay cambio real en el usuario
         if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'USER_UPDATED') {
@@ -111,6 +110,10 @@ export class SupabaseService {
           }
         }
       });
+
+      try {
+        const { data: { user } } = await this.supabaseClient.auth.getUser();
+        this.currentUser.next(user);
       } catch (error) {
         console.warn('Error loading user:', error);
         this.currentUser.next(null);
