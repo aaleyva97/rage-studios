@@ -14,6 +14,8 @@ import { BookingsDialog } from '../../../../shared/components/bookings-dialog/bo
 import { PackagesModal } from '../../../../shared/components/packages-modal/packages-modal';
 import { GiftcardRedeemDialog } from '../../../landing/components/giftcard-redeem-dialog/giftcard-redeem-dialog';
 import { PwaInstallDialogComponent } from '../../../../shared/components/pwa-install-dialog/pwa-install-dialog';
+import { WaitlistDialog } from '../../../../shared/components/waitlist-dialog/waitlist-dialog';
+import { WaitlistUiService } from '../../../../core/services/waitlist-ui.service';
 import { MessageService } from 'primeng/api';
 import { ToastModule } from 'primeng/toast';
 import { DrawerModule } from 'primeng/drawer';
@@ -38,6 +40,7 @@ interface NavItem {
     PackagesModal, 
     GiftcardRedeemDialog, 
     PwaInstallDialogComponent, 
+    WaitlistDialog,
     ToastModule,
     DrawerModule,
     AvatarModule,
@@ -55,6 +58,7 @@ export class DashboardLayout implements OnInit, OnDestroy {
   protected packagesUiService = inject(PackagesUiService);
   protected bookingsUiService = inject(BookingsUiService);
   protected giftcardUiService = inject(GiftcardUiService);
+  protected waitlistUiService = inject(WaitlistUiService);
   protected pwaService = inject(PwaInstallService);
   protected notificationService = inject(NotificationService);
   protected bookingService = inject(BookingService);

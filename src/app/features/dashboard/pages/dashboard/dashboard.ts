@@ -16,6 +16,7 @@ import { getTodayLocalYYYYMMDD, formatDateToLocalYYYYMMDD } from '../../../../co
 import { Subscription } from 'rxjs';
 import { ToastModule } from 'primeng/toast';
 import { MessageService } from 'primeng/api';
+import { WaitlistUiService } from '../../../../core/services/waitlist-ui.service';
 
 interface DaySlot {
   date: Date;
@@ -58,6 +59,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   private paymentService = inject(PaymentService);
   private notificationService = inject(NotificationService);
   private messageService = inject(MessageService);
+  private waitlistUiService = inject(WaitlistUiService);
 
   private authSub?: Subscription;
   private bookingSub?: Subscription;
@@ -368,10 +370,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
   openBookingDialog() { this.bookingUiService.openBookingDialog(); }
   openPackagesModal() { this.packagesUiService.openPackagesModal(); }
   openGiftcardDialog() { this.giftcardUiService.openGiftcardDialog(); }
+  openWaitlistDialog() { this.waitlistUiService.openWaitlistDialog(); }
 
   onActionClick(action: any) {
     if (action.id === 'reservar') { this.openBookingDialog(); return; }
     if (action.id === 'comprar') { this.openPackagesModal(); return; }
+    if (action.id === 'espera') { this.openWaitlistDialog(); return; }
     if (action.route) this.router.navigate([action.route]);
   }
 

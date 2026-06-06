@@ -1,0 +1,141 @@
+<p-toast />
+<p-confirm-dialog />
+
+<p-dialog
+  [(visible)]="visible"
+  [modal]="true"
+  [maximizable]="true"
+  [style]="{width: '90vw', maxWidth: '700px'}"
+  [breakpoints]="{'960px': '95vw', '640px': '100vw'}"
+  header="Mi Lista de Espera"
+  (onHide)="closeDialog()">
+
+  <div class="flex flex-col p-4">
+    <!-- Explicación breve de la lista de espera -->
+    <p class="text-sm text-gray-500 mb-6 leading-relaxed">
+      Si una clase está llena, puedes anotarte en la lista de espera. Si alguien cancela su reserva, el sistema promoverá automáticamente al primer miembro disponible que cuente con créditos suficientes. Las inscripciones expiran 60 minutos antes del inicio de la clase.
+    </p>
+
+    <!-- Indicador de carga -->
+    @if (isLoading()) {
+      <div class="space-y-4">
+        @for (item of skeletonData; track $index) {
+          <div class="bg-gray-50 rounded-xl border border-gray-100 p-4">
+            <div class="flex justify-between items-start mb-3">
+              <div class="flex-1">
+                <p-skeleton width="60%" height="1.25rem" class="mb-2" />
+                <p-skeleton width="40%" height="1rem" />
+              </div>
+              <p-skeleton width="4.5rem" height="1.5rem" shape="rounded" />
+            </div>
+            <div class="grid grid-cols-3 gap-3">
+              <div>
+                <p-skeleton width="30%" height="0.75rem" class="mb-1" />
+                <p-skeleton width="50%" height="1rem" />
+              </div>
+              <div>
+                <p-skeleton width="30%" height="0.75rem" class="mb-1" />
+                <p-skeleton width="50%" height="1rem" />
+              </div>
+              <div>
+                <p-skeleton width="30%" height="0.75rem" class="mb-1" />
+                <p-skeleton width="50%" height="1rem" />
+              </div>
+            </div>
+          </div>
+        }
+      </div>
+    } @else if (entries().length === 0) {
+      <!-- Estado vacío -->
+      <div class="text-center py-12 flex flex-col items-center justify-center">
+        <div class="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mb-4 text-gray-400">
+          <i class="pi pi-clock text-3xl"></i>
+        </div>
+        <h4 class="text-base font-semibold text-gray-900 mb-1">Sin inscripciones activas</h4>
+        <p class="text-sm text-gray-500 max-w-xs">No te has inscrito en ninguna lista de espera por el momento.</p>
+      </div>
+    } @else {
+      <!-- Lista de entradas de Waitlist -->
+      <div class="space-y-4 max-h-[450px] overflow-y-auto pr-1">
+        @for (entry of entries(); track entry.id) {
+          <div 
+            class="bg-white rounded-xl border p-4 transition-all duration-200 hover:shadow-sm"
+            [ngClass]="{
+              'border-amber-200 bg-amber-50/20': entry.status === 'waiting',
+              'border-gray-200': entry.status !== 'waiting'
+            }">
+            
+            <!-- Encabezado: Fecha, Hora y Status -->
+            <div class="flex justify-between items-start mb-3">
+              <div>
+                <h4 class="text-base font-bold text-gray-900">{{ entry.formattedDate }}</h4>
+                <p class="text-xs text-gray-500 font-mono mt-0.5">
+                  <i class="pi pi-clock text-[10px] mr-1"></i>{{ entry.formattedTime }} · Coach: {{ entry.coach_name }}
+                </p>
+              </div>
+              
+              <div class="flex items-center gap-2">
+                <p-tag
+                  [value]="entry.statusLabel"
+                  [severity]="entry.statusSeverity"
+                  [rounded]="true">
+                </p-tag>
+              </div>
+            </div>
+
+            <!-- Detalles de Posición, Cupos y Créditos -->
+            <div class="grid grid-cols-3 gap-3 bg-gray-50/50 rounded-lg p-3 border border-gray-100/50 mb-3">
+              <div>
+                <span class="text-[10px] text-gray-400 uppercase tracking-wider block font-semibold">Tu Posición</span>
+                <p class="text-sm font-bold text-gray-800">
+                  @if (entry.status === 'waiting') {
+                    <span class="text-amber-600">#{{ entry.position }}</span>
+                  } @else {
+                    —
+                  }
+                </p>
+              </div>
+              <div>
+                <span class="text-[10px] text-gray-400 uppercase tracking-wider block font-semibold">Total en espera</span>
+                <p class="text-sm font-semibold text-gray-700">{{ entry.total_attendees }}</p>
+              </div>
+              <div>
+                <span class="text-[10px] text-gray-400 uppercase tracking-wider block font-semibold">Créditos req.</span>
+                <p class="text-sm font-semibold text-gray-700">{{ entry.credits_required }}</p>
+              </div>
+            </div>
+
+            <!-- Motivo de fallo si existe -->
+            @if (entry.failure_reason && entry.status === 'failed_promotion') {
+              <div class="text-xs text-red-700 bg-red-50 border border-red-100 rounded-lg p-2.5 mb-3 flex items-start gap-2">
+                <i class="pi pi-exclamation-circle mt-0.5 text-red-500"></i>
+                <span><strong>No se pudo promover:</strong> {{ entry.failure_reason }}</span>
+              </div>
+            }
+
+            <!-- Acciones al pie -->
+            <div class="flex justify-between items-center pt-2.5 border-t border-gray-100">
+              <span class="text-[10px] text-gray-400 font-mono">ID: {{ entry.id.substring(0, 8) }}</span>
+              
+              @if (entry.canCancel) {
+                <p-button
+                  [icon]="isCancelling() ? 'pi pi-spin pi-spinner' : 'pi pi-times-circle'"
+                  label="Cancelar Lista de Espera"
+                  severity="danger"
+                  [text]="true"
+                  size="small"
+                  [disabled]="isCancelling()"
+                  (onClick)="confirmCancel(entry)">
+                </p-button>
+              } @else {
+                <span class="text-xs text-gray-400 font-medium">Inscripción finalizada</span>
+              }
+            </div>
+
+          </div>
+        }
+      </div>
+    }
+  </div>
+
+</p-dialog>

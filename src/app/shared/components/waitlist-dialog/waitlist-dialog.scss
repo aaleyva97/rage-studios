@@ -1,0 +1,33 @@
+:host ::ng-deep {
+  .max-h-\[450px\] {
+    scrollbar-width: thin;
+    scrollbar-color: var(--p-surface-300) transparent;
+    
+    &::-webkit-scrollbar {
+      width: 6px;
+    }
+    
+    &::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    
+    &::-webkit-scrollbar-thumb {
+      background-color: var(--p-surface-300);
+      border-radius: 3px;
+    }
+    
+    &::-webkit-scrollbar-thumb:hover {
+      background-color: var(--p-surface-450);
+    }
+  }
+
+  // Estilos de dialog premium adaptados al tema
+  .p-dialog-header {
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    padding: 1.25rem 1.5rem;
+  }
+
+  .p-dialog-content {
+    padding: 0;
+  }
+}
