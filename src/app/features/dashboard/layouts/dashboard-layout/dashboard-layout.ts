@@ -132,7 +132,11 @@ export class DashboardLayout implements OnInit, OnDestroy {
   }
 
   toggleNotifications() {
-    this.showNotifications.set(!this.showNotifications());
+    const isOpening = !this.showNotifications();
+    this.showNotifications.set(isOpening);
+    if (isOpening) {
+      this.notificationService.markAllAsRead();
+    }
   }
 
   reload() {

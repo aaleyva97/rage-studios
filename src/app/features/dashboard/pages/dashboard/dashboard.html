@@ -238,7 +238,16 @@
         </div>
         <div class="flex gap-3 overflow-x-auto px-4 pb-2 snap-x scrollbar-hide">
           @for (n of news(); track n.id) {
-            <div class="snap-start w-[256px] min-w-[256px] max-w-[256px] rounded-2xl border border-black/10 bg-white shadow-[0_4px_20px_-4px_rgba(0,0,0,0.10)] flex-shrink-0 cursor-pointer hover:shadow-[0_8px_28px_-4px_rgba(0,0,0,0.15)] transition-all overflow-hidden">
+            <div (click)="openNewsDetail(n)"
+                 class="snap-start w-[256px] min-w-[256px] max-w-[256px] rounded-2xl border border-black/10 bg-white shadow-[0_4px_20px_-4px_rgba(0,0,0,0.10)] flex-shrink-0 cursor-pointer hover:shadow-[0_8px_28px_-4px_rgba(0,0,0,0.15)] transition-all overflow-hidden relative">
+              
+              <!-- Unread Badge -->
+              @if (!readNewsIds().has(n.id)) {
+                <div class="absolute top-3 right-3 bg-red-500 text-white text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full z-10 shadow-[0_2px_8px_rgba(239,68,68,0.4)]">
+                  Nuevo
+                </div>
+              }
+
               @if (n.image_url) {
                 <img [src]="n.image_url" [alt]="n.title" class="w-full h-28 object-cover" />
               }
@@ -250,11 +259,10 @@
                 }
                 <div class="text-[14px] font-bold text-[#0a0a0a] leading-snug pr-2">{{ n.title }}</div>
                 <div class="text-[12px] text-black/40 mt-1 line-clamp-2 leading-snug">{{ n.body }}</div>
-                @if (n.link_url && n.link_label) {
-                  <a [href]="n.link_url" [routerLink]="n.link_url.startsWith('/') ? n.link_url : null" [attr.target]="n.link_url.startsWith('http') ? '_blank' : null" class="mt-3 flex items-center gap-1 text-[11px] font-black text-red-500 uppercase tracking-wide cursor-pointer">
-                    {{ n.link_label }} <i class="pi pi-chevron-right text-[9px]"></i>
-                  </a>
-                }
+                
+                <div class="mt-3 flex items-center gap-1 text-[11px] font-black text-red-500 uppercase tracking-wide">
+                  Leer más <i class="pi pi-chevron-right text-[9px]"></i>
+                </div>
               </div>
             </div>
           }
@@ -496,3 +504,69 @@
 
   </div>
 </div>
+
+<!-- News Detail Dialog -->
+<p-dialog 
+  [(visible)]="showNewsDialog" 
+  [modal]="true" 
+  [dismissableMask]="true"
+  [showHeader]="false"
+  styleClass="news-dialog-modal font-mono"
+  contentStyleClass="news-dialog-content">
+  
+  @if (selectedNews()) {
+    <div class="news-detail">
+      
+      <!-- Close button overlay -->
+      <button (click)="showNewsDialog.set(false)" class="news-detail__close-btn">
+        <i class="pi pi-times"></i>
+      </button>
+
+      <!-- Image header -->
+      @if (selectedNews()?.image_url) {
+        <div class="news-detail__img-wrapper">
+          <img [src]="selectedNews()?.image_url" [alt]="selectedNews()?.title" class="news-detail__img" />
+          <div class="news-detail__img-gradient"></div>
+        </div>
+      }
+
+      <div class="news-detail__body-container" [class.news-detail__body-container--no-img]="!selectedNews()?.image_url">
+        <!-- Tag -->
+        @if (selectedNews()?.tag) {
+          <span class="news-detail__tag">{{ selectedNews()?.tag }}</span>
+        }
+
+        <!-- Title -->
+        <h2 class="news-detail__title">{{ selectedNews()?.title }}</h2>
+
+        <!-- Date -->
+        @if (selectedNews()?.published_at) {
+          <div class="news-detail__date">
+            {{ selectedNews()?.published_at | date:'d MMMM, y' }}
+          </div>
+        }
+
+        <!-- Divider -->
+        <div class="news-detail__divider"></div>
+
+        <!-- Body -->
+        <p class="news-detail__body">{{ selectedNews()?.body }}</p>
+
+        <!-- CTA Link -->
+        @if (selectedNews()?.link_url && selectedNews()?.link_label) {
+          <div class="news-detail__cta-wrapper">
+            <a [href]="selectedNews()?.link_url" 
+               [routerLink]="selectedNews()?.link_url?.startsWith('/') ? selectedNews()?.link_url : null" 
+               [attr.target]="selectedNews()?.link_url?.startsWith('http') ? '_blank' : null" 
+               (click)="showNewsDialog.set(false)"
+               class="news-detail__cta-btn">
+              <span>{{ selectedNews()?.link_label }}</span>
+              <i class="pi pi-arrow-right text-[12px]"></i>
+            </a>
+          </div>
+        }
+      </div>
+
+    </div>
+  }
+</p-dialog>

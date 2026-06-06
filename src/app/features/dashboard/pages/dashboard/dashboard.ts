@@ -1,5 +1,5 @@
 import { Component, inject, signal, computed, OnInit, OnDestroy } from '@angular/core';
-import { NgClass } from '@angular/common';
+import { NgClass, DatePipe } from '@angular/common';
 import { Router } from '@angular/router';
 import { RouterModule } from '@angular/router';
 import { SupabaseService } from '../../../../core/services/supabase-service';
@@ -15,6 +15,7 @@ import { NotificationService } from '../../../../core/services/notification.serv
 import { getTodayLocalYYYYMMDD, formatDateToLocalYYYYMMDD } from '../../../../core/functions/date-utils';
 import { Subscription } from 'rxjs';
 import { ToastModule } from 'primeng/toast';
+import { DialogModule } from 'primeng/dialog';
 import { MessageService } from 'primeng/api';
 import { WaitlistUiService } from '../../../../core/services/waitlist-ui.service';
 
@@ -41,7 +42,7 @@ interface BookingCard {
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [NgClass, ToastModule, RouterModule],
+  imports: [NgClass, DatePipe, ToastModule, DialogModule, RouterModule],
   providers: [MessageService],
   templateUrl: './dashboard.html',
   styleUrl: './dashboard.scss'
@@ -83,6 +84,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
   ];
 
   news = signal<NewsItem[]>([]);
+  readNewsIds = signal<Set<string>>(new Set());
+  selectedNews = signal<NewsItem | null>(null);
+  showNewsDialog = signal<boolean>(false);
 
   badges = [
     { id: 1, label: '5 días seguidos',    icon: '🔥', unlocked: true,  glow: '255,100,30'  },
@@ -144,6 +148,14 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.authSub = this.supabase.currentUser$.subscribe(async user => {
       if (user) {
         this.userId.set(user.id);
+        const saved = localStorage.getItem(`read_news_${user.id}`);
+        if (saved) {
+          try {
+            this.readNewsIds.set(new Set(JSON.parse(saved)));
+          } catch (e) {
+            console.warn('Could not parse read news state from localStorage', e);
+          }
+        }
         const profile = await this.supabase.getProfile(user.id);
         if (profile) this.userProfile.set(profile);
         await this.buildWeekDays(user.id);
@@ -371,6 +383,21 @@ export class DashboardComponent implements OnInit, OnDestroy {
   openPackagesModal() { this.packagesUiService.openPackagesModal(); }
   openGiftcardDialog() { this.giftcardUiService.openGiftcardDialog(); }
   openWaitlistDialog() { this.waitlistUiService.openWaitlistDialog(); }
+
+  openNewsDetail(item: NewsItem) {
+    this.selectedNews.set(item);
+    this.showNewsDialog.set(true);
+
+    const uid = this.userId();
+    if (uid) {
+      const current = new Set(this.readNewsIds());
+      if (!current.has(item.id)) {
+        current.add(item.id);
+        this.readNewsIds.set(current);
+        localStorage.setItem(`read_news_${uid}`, JSON.stringify(Array.from(current)));
+      }
+    }
+  }
 
   onActionClick(action: any) {
     if (action.id === 'reservar') { this.openBookingDialog(); return; }

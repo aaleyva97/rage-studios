@@ -74,6 +74,7 @@ export class NotificationService implements OnDestroy {
   private readonly _history = signal<NotificationSchedule[]>([]);
   readonly history = this._history.asReadonly();
   private readonly _readIds = signal<Set<string>>(new Set());
+  readonly readIds = this._readIds.asReadonly();
 
   readonly unreadNotificationsCount = computed(() => {
     const read = this._readIds();
