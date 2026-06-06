@@ -5,99 +5,127 @@ const supabase = createClient(
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 );
 
-const FCM_SERVER_KEY = Deno.env.get('FCM_SERVER_KEY');
-
 Deno.serve(async (_req) => {
+  const debugLogs: string[] = [];
   try {
-    const now = new Date().toISOString();
+    const nowStr = new Date().toISOString();
+    debugLogs.push(`Processing scheduled news at ${nowStr}`);
 
-    // Find news due for publishing
+    // Find news due for publishing (regardless of active status, since scheduling implies publication intent)
     const { data: dueNews, error: fetchError } = await supabase
       .from('news')
       .select('*')
-      .lte('scheduled_at', now)
-      .is('published_at', null)
-      .eq('is_active', true);
+      .lte('scheduled_at', nowStr)
+      .is('published_at', null);
 
-    if (fetchError) throw fetchError;
-    if (!dueNews || dueNews.length === 0) {
-      return new Response(JSON.stringify({ published: 0 }), { status: 200 });
+    if (fetchError) {
+      debugLogs.push(`Fetch error: ${fetchError.message}`);
+      throw fetchError;
     }
 
+    if (!dueNews || dueNews.length === 0) {
+      debugLogs.push('No pending news found');
+      return new Response(JSON.stringify({ published: 0, debugLogs }), { status: 200 });
+    }
+
+    debugLogs.push(`Found ${dueNews.length} news items to publish`);
     let published = 0;
 
     for (const item of dueNews) {
-      // Mark as published
+      // Mark as published and active
       const { error: updateError } = await supabase
         .from('news')
-        .update({ published_at: now })
+        .update({ 
+          published_at: nowStr,
+          is_active: true
+        })
         .eq('id', item.id);
 
       if (updateError) {
+        debugLogs.push(`Failed to publish news ${item.id}: ${updateError.message}`);
         console.error(`Failed to publish news ${item.id}:`, updateError);
         continue;
       }
 
       published++;
+      debugLogs.push(`Published news item ${item.id}`);
 
-      // Send push notification if requested and not already sent
-      if (item.send_notification && !item.notification_sent && FCM_SERVER_KEY) {
-        await sendPushNotification(item);
+      // Queue push and in-app notifications if requested and not already sent
+      if (item.send_notification && !item.notification_sent) {
+        debugLogs.push(`Sending notifications is enabled for news ${item.id}`);
+        const { data: users, error: usersError } = await supabase
+          .from('user_notification_preferences')
+          .select('user_id, primary_device_token')
+          .eq('push_notifications_enabled', true);
 
-        await supabase
+        if (usersError) {
+          debugLogs.push(`Failed to fetch users: ${usersError.message}`);
+          console.error(`Failed to fetch users for news notification:`, usersError);
+        } else {
+          const userCount = users?.length || 0;
+          debugLogs.push(`Fetched ${userCount} users with push enabled`);
+
+          if (users && users.length > 0) {
+            // Set scheduled_for to 60 seconds in the future to pass the (scheduled_for > created_at) check constraint
+            const scheduledForStr = new Date(Date.now() + 60 * 1000).toISOString();
+            
+            const schedules = users.map((user: any) => ({
+              user_id: user.user_id,
+              notification_type: 'news_alert',
+              status: 'scheduled',
+              scheduled_for: scheduledForStr,
+              priority: 3,
+              retry_count: 0,
+              max_retries: 3,
+              delivery_channels: ['push', 'database'],
+              push_token: user.primary_device_token || null,
+              message_payload: {
+                title: item.tag ? `[${item.tag}] ${item.title}` : item.title,
+                body: item.body,
+                icon: item.image_url || '/icons/icon-192x192.png',
+                badge: '/icons/badge-72x72.png',
+                data: {
+                  news_id: item.id,
+                  actionUrl: item.link_url ?? '/'
+                }
+              }
+            }));
+
+            // Bulk insert notifications into the schedules table
+            const { data: insertData, error: insertError } = await supabase
+              .from('notification_schedules')
+              .insert(schedules)
+              .select();
+
+            if (insertError) {
+              debugLogs.push(`Failed to insert notification schedules: ${insertError.message} (code: ${insertError.code})`);
+              console.error(`Failed to insert notification schedules for news ${item.id}:`, insertError);
+            } else {
+              debugLogs.push(`Successfully inserted ${insertData?.length || 0} notification schedules`);
+            }
+          }
+        }
+
+        // Mark notification as sent/scheduled on the news item
+        const { error: markError } = await supabase
           .from('news')
           .update({ notification_sent: true })
           .eq('id', item.id);
+
+        if (markError) {
+          debugLogs.push(`Failed to update notification_sent on news item: ${markError.message}`);
+        } else {
+          debugLogs.push(`Marked notification_sent as true on news ${item.id}`);
+        }
+      } else {
+        debugLogs.push(`Notification not requested or already sent for news ${item.id}: send_notification=${item.send_notification}, notification_sent=${item.notification_sent}`);
       }
     }
 
-    return new Response(JSON.stringify({ published }), { status: 200 });
+    return new Response(JSON.stringify({ published, debugLogs }), { status: 200 });
   } catch (err) {
+    debugLogs.push(`Fatal error: ${String(err)}`);
     console.error('publish-scheduled-news error:', err);
-    return new Response(JSON.stringify({ error: String(err) }), { status: 500 });
+    return new Response(JSON.stringify({ error: String(err), debugLogs }), { status: 500 });
   }
 });
-
-async function sendPushNotification(item: any) {
-  // Get all active push tokens from user_notification_preferences
-  const { data: prefs } = await supabase
-    .from('user_notification_preferences')
-    .select('push_tokens, primary_device_token')
-    .eq('push_notifications_enabled', true);
-
-  if (!prefs || prefs.length === 0) return;
-
-  // Collect unique tokens
-  const tokens = new Set<string>();
-  for (const pref of prefs) {
-    if (pref.primary_device_token) tokens.add(pref.primary_device_token);
-    if (Array.isArray(pref.push_tokens)) {
-      pref.push_tokens.forEach((t: string) => tokens.add(t));
-    }
-  }
-
-  if (tokens.size === 0) return;
-
-  const payload = {
-    registration_ids: Array.from(tokens),
-    notification: {
-      title: item.tag ? `[${item.tag}] ${item.title}` : item.title,
-      body: item.body,
-      icon: '/icons/icon-192x192.png',
-      click_action: item.link_url ?? '/'
-    },
-    data: {
-      news_id: item.id,
-      link_url: item.link_url ?? '/'
-    }
-  };
-
-  await fetch('https://fcm.googleapis.com/fcm/send', {
-    method: 'POST',
-    headers: {
-      'Authorization': `key=${FCM_SERVER_KEY}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(payload)
-  });
-}
