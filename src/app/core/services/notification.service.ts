@@ -211,6 +211,10 @@ export class NotificationService implements OnDestroy {
         }
       }
 
+      // Load notification history and setup realtime subscription
+      await this.loadNotificationHistory();
+      await this.setupRealtimeSubscription();
+
       // Configurar debug tools
       this.setupDebugTools();
 
@@ -350,6 +354,9 @@ export class NotificationService implements OnDestroy {
           nativeNotification.close();
         };
       }
+
+      // Refresh history from database to ensure alignment
+      this.loadNotificationHistory().catch(err => console.error(err));
 
       // Log event
       this.logInteraction('push_message_received', { message: payload });
@@ -1605,7 +1612,15 @@ async scheduleBookingNotifications(booking: any): Promise<{ success: boolean; re
     this._pushToken.set(null);
     this._preferences.set(null);
     this._isInitialized.set(false);
+    this._history.set([]);
+    this._readIds.set(new Set());
     
+    // Limpiar canales de tiempo real
+    if (this.realtimeChannel) {
+      this.supabase.client.removeChannel(this.realtimeChannel);
+      this.realtimeChannel = null;
+    }
+
     // Limpiar intervalos
     if (this.tokenMonitorInterval) {
       clearInterval(this.tokenMonitorInterval);
@@ -1853,16 +1868,162 @@ private async verifyServiceWorkerStatus(): Promise<void> {
       // Auto cerrar después de 5 segundos
       setTimeout(() => nativeNotification.close(), 5000);
     }
+
+    // Refresh history from database to ensure alignment
+    this.loadNotificationHistory().catch(err => console.error(err));
   }
 
 // IMPORTANTE: Añadir esta propiedad a la clase
 private swMessageHandler: ((event: MessageEvent) => void) | null = null;
+private realtimeChannel: any = null;
 
-// IMPORTANTE: En el método ngOnDestroy, limpiar el listener
+  /**
+   * 📋 LOAD NOTIFICATION HISTORY FROM DATABASE
+   */
+  async loadNotificationHistory(): Promise<void> {
+    try {
+      const user = await this.getCurrentUser();
+      if (!user) return;
+
+      console.log('📋 Loading notification history for user:', user.id);
+
+      const { data, error } = await this.supabase.client
+        .from('notification_schedules')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('status', 'sent')
+        .order('sent_at', { ascending: false })
+        .limit(20);
+
+      if (error) {
+        console.error('❌ Error loading notification history:', error);
+        return;
+      }
+
+      if (data) {
+        this._history.set(data as NotificationSchedule[]);
+        this.loadReadStateFromLocalStorage(user.id);
+        console.log(`... Loaded ${data.length} notifications into history`);
+      }
+    } catch (error) {
+      console.error('❌ Error in loadNotificationHistory:', error);
+    }
+  }
+
+  private loadReadStateFromLocalStorage(userId: string): void {
+    try {
+      const stored = localStorage.getItem(`read_notifications_${userId}`);
+      if (stored) {
+        const ids = JSON.parse(stored);
+        this._readIds.set(new Set(ids));
+      } else {
+        this._readIds.set(new Set());
+      }
+    } catch (e) {
+      console.warn('⚠️ Could not load read notification state from localStorage', e);
+    }
+  }
+
+  private saveReadStateToLocalStorage(userId: string): void {
+    try {
+      const ids = Array.from(this._readIds());
+      localStorage.setItem(`read_notifications_${userId}`, JSON.stringify(ids));
+    } catch (e) {
+      console.warn('⚠️ Could not save read notification state to localStorage', e);
+    }
+  }
+
+  async markAsRead(notificationId: string): Promise<void> {
+    const user = await this.getCurrentUser();
+    if (!user) return;
+
+    const currentRead = new Set(this._readIds());
+    if (!currentRead.has(notificationId)) {
+      currentRead.add(notificationId);
+      this._readIds.set(currentRead);
+      this.saveReadStateToLocalStorage(user.id);
+      console.log(`🔔 Notification ${notificationId} marked as read`);
+    }
+  }
+
+  async markAllAsRead(): Promise<void> {
+    const user = await this.getCurrentUser();
+    if (!user) return;
+
+    const allIds = this._history().map(n => n.id);
+    this._readIds.set(new Set(allIds));
+    this.saveReadStateToLocalStorage(user.id);
+    console.log('🔔 All notifications marked as read');
+  }
+
+  private async setupRealtimeSubscription(): Promise<void> {
+    const user = await this.getCurrentUser();
+    if (!user) return;
+
+    if (this.realtimeChannel) {
+      this.supabase.client.removeChannel(this.realtimeChannel);
+    }
+
+    console.log('📡 Setting up Supabase Realtime subscription for notification_schedules...');
+
+    this.realtimeChannel = this.supabase.client
+      .channel(`notification_changes_${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'notification_schedules',
+          filter: `user_id=eq.${user.id}`
+        },
+        (payload: any) => {
+          this.handleRealtimeNotification(payload);
+        }
+      )
+      .subscribe((status: string) => {
+        console.log(`📡 Realtime subscription status: ${status}`);
+      });
+  }
+
+  private handleRealtimeNotification(payload: any): void {
+    console.log('📨 Realtime notification received:', payload);
+    const eventType = payload.eventType;
+    const newRecord = payload.new as NotificationSchedule;
+
+    if (!newRecord) return;
+
+    if (newRecord.status !== 'sent') {
+      if (eventType === 'DELETE' || newRecord.status === 'cancelled') {
+        this._history.update(history => history.filter(n => n.id !== (payload.old?.id || newRecord.id)));
+      }
+      return;
+    }
+
+    if (eventType === 'INSERT') {
+      this._history.update(history => {
+        if (history.some(n => n.id === newRecord.id)) return history;
+        return [newRecord, ...history];
+      });
+    } else if (eventType === 'UPDATE') {
+      this._history.update(history => {
+        const index = history.findIndex(n => n.id === newRecord.id);
+        if (index > -1) {
+          const updated = [...history];
+          updated[index] = newRecord;
+          return updated;
+        } else {
+          return [newRecord, ...history];
+        }
+      });
+    }
+  }
+
+// En el método ngOnDestroy, limpiar el listener y suscripción en tiempo real
 ngOnDestroy(): void {
-  // ... resto del código de limpieza ...
-  
-  // Limpiar listener del Service Worker
+  if (this.realtimeChannel) {
+    this.supabase.client.removeChannel(this.realtimeChannel);
+  }
+
   if (this.swMessageHandler && 'serviceWorker' in navigator) {
     navigator.serviceWorker.removeEventListener('message', this.swMessageHandler);
   }
