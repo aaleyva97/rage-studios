@@ -21,6 +21,7 @@ export class AppSettingsService {
   private _bookingAvailabilityMode = signal<'available_now' | 'date_range'>('available_now'); // Modo de disponibilidad
   private _bookingDateRangeStart = signal<string | null>(null); // Fecha inicio del rango
   private _bookingDateRangeEnd = signal<string | null>(null); // Fecha fin del rango
+  private _brandingPopColor = signal('#EF4444'); // Color de marca por defecto
   private _isLoading = signal(false);
   private _lastUpdated = signal<Date | null>(null);
 
@@ -53,6 +54,10 @@ export class AppSettingsService {
 
   get bookingDateRangeEnd() {
     return this._bookingDateRangeEnd.asReadonly();
+  }
+
+  get brandingPopColor() {
+    return this._brandingPopColor.asReadonly();
   }
 
   get isLoading() {
@@ -96,6 +101,14 @@ export class AppSettingsService {
       const dateRangeEnd = await this.getSetting('booking_date_range_end');
       if (dateRangeEnd !== null) {
         this._bookingDateRangeEnd.set(dateRangeEnd);
+      }
+
+      const popColor = await this.getSetting('branding_pop_color');
+      if (popColor !== null && popColor !== '') {
+        this._brandingPopColor.set(popColor);
+        this.applyBrandingColor(popColor);
+      } else {
+        this.applyBrandingColor('#EF4444');
       }
 
       this._lastUpdated.set(new Date());
@@ -220,7 +233,8 @@ export class AppSettingsService {
         'cancellation_hours_before',
         'booking_availability_mode',
         'booking_date_range_start',
-        'booking_date_range_end'
+        'booking_date_range_end',
+        'branding_pop_color'
       ]);
 
       // Recargar desde BD
@@ -230,6 +244,58 @@ export class AppSettingsService {
     } catch (error) {
       console.error('❌ Error refrescando configuraciones críticas:', error);
     }
+  }
+
+  /**
+   * 🎨 Convertir Hexadecimal a RGBA
+   */
+  private hexToRgba(hex: string, alpha: number): string {
+    hex = hex.replace('#', '');
+    let r = 0, g = 0, b = 0;
+    if (hex.length === 3) {
+      r = parseInt(hex.substring(0, 1).repeat(2), 16);
+      g = parseInt(hex.substring(1, 2).repeat(2), 16);
+      b = parseInt(hex.substring(2, 3).repeat(2), 16);
+    } else if (hex.length === 6) {
+      r = parseInt(hex.substring(0, 2), 16);
+      g = parseInt(hex.substring(2, 4), 16);
+      b = parseInt(hex.substring(4, 6), 16);
+    }
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  }
+
+  /**
+   * 🎨 Aplicar color de marca en el root del documento
+   */
+  applyBrandingColor(color: string) {
+    if (typeof document === 'undefined') {
+      return; // Safe for SSR
+    }
+    if (!color || !color.startsWith('#')) {
+      color = '#EF4444';
+    }
+    const root = document.documentElement;
+    root.style.setProperty('--pop-color', color);
+    root.style.setProperty('--pop-color-light', this.hexToRgba(color, 0.06));
+    root.style.setProperty('--pop-color-hover', this.hexToRgba(color, 0.85));
+    root.style.setProperty('--pop-color-glow', this.hexToRgba(color, 0.4));
+  }
+
+  /**
+   * 🎨 Guardar/Actualizar color de marca
+   */
+  async updateBrandingPopColor(color: string): Promise<{ success: boolean; error?: string }> {
+    console.log(`🎨 Actualizando color de marca a ${color}...`);
+    const result = await this.updateSetting(
+      'branding_pop_color',
+      color,
+      `Color de acento de la marca personalizable`
+    );
+    if (result.success) {
+      this._brandingPopColor.set(color);
+      this.applyBrandingColor(color);
+    }
+    return result;
   }
 
   /**

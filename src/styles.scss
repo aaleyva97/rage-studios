@@ -18,6 +18,10 @@
   --font-sans: 'Monoid', ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji;
   --font-mono: 'Monoid', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace;
   --font-serif: 'Monoid', ui-serif, Georgia, Cambria, Times New Roman, Times, serif;
+
+  /* Custom branding colors */
+  --color-pop: var(--pop-color, #ef4444);
+  --color-pop-light: var(--pop-color-light, rgba(239, 68, 68, 0.06));
 }
 
 /* Global Font Application */

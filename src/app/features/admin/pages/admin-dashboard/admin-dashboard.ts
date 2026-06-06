@@ -1,4 +1,4 @@
-import { Component, signal, inject, viewChild } from '@angular/core';
+import { Component, signal, inject, viewChild, OnDestroy } from '@angular/core';
 import { CardModule } from 'primeng/card';
 import { ButtonModule } from 'primeng/button';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
@@ -32,7 +32,7 @@ import { AvailabilityConfigDialog } from '../../components/availability-config-d
   templateUrl: './admin-dashboard.html',
   styleUrl: './admin-dashboard.scss'
 })
-export class AdminDashboard {
+export class AdminDashboard implements OnDestroy {
   private router = inject(Router);
   private supabaseService = inject(SupabaseService);
   private appSettingsService = inject(AppSettingsService);
@@ -55,6 +55,10 @@ export class AdminDashboard {
 
   // 📝 Input temporal para editar horas de cancelación
   tempCancellationHours = signal<number>(6);
+
+  // 🎨 Color de marca temporal para visualización en tiempo real
+  tempBrandingPopColor = signal<string>('#EF4444');
+  initialBrandingPopColor = signal<string>('#EF4444');
   
   private async loadAdminStats() {
     try {
@@ -106,6 +110,10 @@ export class AdminDashboard {
     return this.appSettingsService.bookingDateRangeEnd();
   }
 
+  get brandingPopColor() {
+    return this.appSettingsService.brandingPopColor();
+  }
+
   get settingsLoading() {
     return this.appSettingsService.isLoading();
   }
@@ -117,6 +125,10 @@ export class AdminDashboard {
 
     // Inicializar el valor temporal con el valor actual
     this.tempCancellationHours.set(this.cancellationHoursBefore);
+
+    // Inicializar el color de marca con el valor actual
+    this.tempBrandingPopColor.set(this.brandingPopColor);
+    this.initialBrandingPopColor.set(this.brandingPopColor);
   }
 
   /**
@@ -266,5 +278,52 @@ export class AdminDashboard {
     }
 
     return 'No configurado';
+  }
+
+  /**
+   * 🎨 Cambiar color temporal y aplicar en tiempo real
+   */
+  onPopColorChange(color: string) {
+    this.tempBrandingPopColor.set(color);
+    this.appSettingsService.applyBrandingColor(color);
+  }
+
+  /**
+   * 🎨 Guardar color de marca en base de datos
+   */
+  async saveBrandingPopColor() {
+    const color = this.tempBrandingPopColor();
+    try {
+      const result = await this.appSettingsService.updateBrandingPopColor(color);
+      if (result.success) {
+        this.initialBrandingPopColor.set(color);
+        this.messageService.add({
+          severity: 'success',
+          summary: 'Éxito',
+          detail: 'Color de marca actualizado correctamente'
+        });
+      } else {
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Error',
+          detail: result.error || 'Error al guardar el color'
+        });
+      }
+    } catch (err) {
+      this.messageService.add({
+        severity: 'error',
+        summary: 'Error',
+        detail: 'Error inesperado al guardar el color'
+      });
+    }
+  }
+
+  /**
+   * 🔄 Revertir cambios no guardados
+   */
+  ngOnDestroy() {
+    if (this.tempBrandingPopColor() !== this.initialBrandingPopColor()) {
+      this.appSettingsService.applyBrandingColor(this.initialBrandingPopColor());
+    }
   }
 }

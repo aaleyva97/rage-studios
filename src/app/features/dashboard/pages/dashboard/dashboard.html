@@ -15,15 +15,15 @@
                 Hola, {{ displayName }}
               </div>
             </div>
-            <div class="bg-red-500 rounded-md px-2.5 py-1 text-[10px] font-black tracking-[0.18em] uppercase text-white flex-shrink-0 shadow-[0_4px_12px_rgba(239,68,68,0.4)]">
+            <div class="bg-pop rounded-md px-2.5 py-1 text-[10px] font-black tracking-[0.18em] uppercase text-white flex-shrink-0 shadow-[0_4px_12px_var(--pop-color-glow,rgba(239,68,68,0.4))]">
               {{ membership() }}
             </div>
           </div>
 
           <div class="flex items-center gap-2">
-            <div class="flex items-center gap-1.5 border border-white/10 rounded-full px-3 py-1.5 bg-white/5">
-              <i class="pi pi-bolt text-red-400 text-xs"></i>
-              <span class="text-[13px] font-bold text-white/70">Racha: <span class="text-red-400">{{ streak() }} días</span></span>
+            <div class="flex items-center gap-2.5 border border-white/10 rounded-full px-3 py-1.5 bg-white/5">
+              <i class="pi pi-bolt text-pop text-xs"></i>
+              <span class="text-[13px] font-bold text-white/70">Racha: <span class="text-pop">{{ streak() }} días</span></span>
             </div>
           </div>
         </div>
@@ -35,12 +35,12 @@
           @if (urgentBatches().length > 0) {
             <div class="px-5 pt-3 flex flex-col gap-1.5">
               @for (b of urgentBatches(); track b.id) {
-                <div class="flex items-center gap-2 bg-red-50 border border-red-200 rounded-xl px-3 py-2">
-                  <div class="w-1.5 h-1.5 rounded-full bg-red-500 flex-shrink-0 animate-pulse"></div>
-                  <span class="text-[11px] font-black text-red-600 tracking-wide uppercase leading-tight flex-1">
+                <div class="flex items-center gap-2 bg-pop-light border border-pop/20 rounded-xl px-3 py-2">
+                  <div class="w-1.5 h-1.5 rounded-full bg-pop flex-shrink-0 animate-pulse"></div>
+                  <span class="text-[11px] font-black text-pop tracking-wide uppercase leading-tight flex-1">
                     {{ batchLabel(b) }} — vence en {{ daysUntil(b.expiration_date!) }} día{{ daysUntil(b.expiration_date!) === 1 ? '' : 's' }}
                   </span>
-                  <span class="text-[11px] font-black text-red-500 flex-shrink-0">{{ b.credits_remaining }} cls</span>
+                  <span class="text-[11px] font-black text-pop flex-shrink-0">{{ b.credits_remaining }} cls</span>
                 </div>
               }
             </div>
@@ -59,7 +59,7 @@
                 }
               </div>
               <span class="text-[13px] font-black"
-                    [ngClass]="creditsService.totalCredits() > 0 ? 'text-[#0a0a0a]' : 'text-red-500'">
+                    [ngClass]="creditsService.totalCredits() > 0 ? 'text-[#0a0a0a]' : 'text-pop'">
                 {{ creditsService.getCreditsDisplay() }} cls
               </span>
             </div>
@@ -92,13 +92,13 @@
                   @for (batch of activeBatches(); track batch.id) {
                     <div class="rounded-xl border bg-white overflow-hidden"
                          [ngClass]="daysUntil(batch.expiration_date ?? '') <= 7 && batch.expiration_date
-                           ? 'border-red-200 bg-red-50/40'
+                           ? 'border-pop/20 bg-pop-light'
                            : 'border-black/8'">
                       <div class="flex items-center gap-3 px-3 py-2.5">
 
                         <!-- Icon -->
                         <div class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-                             [ngClass]="batch.is_unlimited ? 'bg-red-500' : 'bg-[#0a0a0a]'">
+                             [ngClass]="batch.is_unlimited ? 'bg-pop' : 'bg-[#0a0a0a]'">
                           <i [class]="(batch.is_unlimited ? 'pi pi-infinity' : 'pi pi-ticket') + ' text-white text-[11px]'"></i>
                         </div>
 
@@ -115,7 +115,7 @@
                         <!-- Credits pill -->
                         <div class="flex-shrink-0 flex flex-col items-end gap-0.5">
                           <span class="text-[16px] font-black leading-none"
-                                [ngClass]="batch.is_unlimited ? 'text-red-500' : 'text-[#0a0a0a]'">
+                                [ngClass]="batch.is_unlimited ? 'text-pop' : 'text-[#0a0a0a]'">
                             {{ batch.is_unlimited ? '∞' : batch.credits_remaining }}
                           </span>
                           <span class="text-[9px] font-bold text-black/30 uppercase tracking-wider">clases</span>
@@ -125,8 +125,8 @@
 
                       <!-- Expiry urgency bar -->
                       @if (batch.expiration_date && daysUntil(batch.expiration_date) <= 7) {
-                        <div class="h-[2px] w-full bg-red-100">
-                          <div class="h-full bg-red-500 transition-all"
+                        <div class="h-[2px] w-full bg-pop/20">
+                          <div class="h-full bg-pop transition-all"
                                [style.width]="(((7 - daysUntil(batch.expiration_date)) / 7) * 100) + '%'"></div>
                         </div>
                       }
@@ -158,7 +158,7 @@
         <div class="attendance-module rounded-2xl border border-black/10 overflow-hidden bg-white shadow-[0_8px_32px_rgba(0,0,0,0.12)]">
           <div class="p-5">
             <div class="flex items-center gap-3 mb-4">
-              <div class="w-1.5 h-6 bg-red-500 rounded-full"></div>
+              <div class="w-1.5 h-6 bg-pop rounded-full"></div>
               <div>
                 <h3 class="text-[14px] font-black uppercase tracking-widest text-black">Próxima Clase</h3>
                 <p class="text-[11px] font-bold text-black/35 uppercase tracking-wide">{{ nextBooking().fullDateFormatted }}</p>
@@ -214,10 +214,10 @@
               style="background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 50%, #16213e 100%); box-shadow: 0 8px 32px -4px rgba(0,0,0,0.35);">
         <div class="absolute inset-0 opacity-20"
              style="background: linear-gradient(105deg, transparent 40%, rgba(255,255,255,0.15) 50%, transparent 60%); animation: shimmer 3s infinite;"></div>
-        <div class="absolute -right-4 -top-4 w-20 h-20 rounded-full opacity-10" style="background: radial-gradient(circle, #EF4444, transparent)"></div>
+        <div class="absolute -right-4 -top-4 w-20 h-20 rounded-full opacity-10" style="background: radial-gradient(circle, var(--pop-color, #EF4444), transparent)"></div>
         <div class="absolute -right-1 -bottom-4 w-14 h-14 rounded-full opacity-10" style="background: radial-gradient(circle, #ffffff, transparent)"></div>
         <div class="relative flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center"
-             style="background: linear-gradient(135deg, #EF4444, #dc2626); box-shadow: 0 4px 14px rgba(239,68,68,0.5);">
+             style="background: linear-gradient(135deg, var(--pop-color, #EF4444), var(--pop-color-hover, #dc2626)); box-shadow: 0 4px 14px var(--pop-color-glow, rgba(239,68,68,0.5));">
           <i class="pi pi-gift text-white text-[15px]"></i>
         </div>
         <div class="relative flex flex-col items-start gap-0.5">
@@ -243,7 +243,7 @@
               
               <!-- Unread Badge -->
               @if (!readNewsIds().has(n.id)) {
-                <div class="absolute top-3 right-3 bg-red-500 text-white text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full z-10 shadow-[0_2px_8px_rgba(239,68,68,0.4)]">
+                <div class="absolute top-3 right-3 bg-pop text-white text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full z-10 shadow-[0_2px_8px_var(--pop-color-glow,rgba(239,68,68,0.4))]">
                   Nuevo
                 </div>
               }
@@ -253,14 +253,14 @@
               }
               <div class="p-4">
                 @if (n.tag) {
-                  <div class="inline-block bg-red-500/8 border border-red-500/20 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-[0.16em] mb-3 text-red-500">
+                  <div class="inline-block bg-pop-light border border-pop/20 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-[0.16em] mb-3 text-pop">
                     {{ n.tag }}
                   </div>
                 }
                 <div class="text-[14px] font-bold text-[#0a0a0a] leading-snug pr-2">{{ n.title }}</div>
                 <div class="text-[12px] text-black/40 mt-1 line-clamp-2 leading-snug">{{ n.body }}</div>
                 
-                <div class="mt-3 flex items-center gap-1 text-[11px] font-black text-red-500 uppercase tracking-wide">
+                <div class="mt-3 flex items-center gap-1 text-[11px] font-black text-pop uppercase tracking-wide">
                   Leer más <i class="pi pi-chevron-right text-[9px]"></i>
                 </div>
               </div>
@@ -323,7 +323,7 @@
           <h3 class="text-[16px] font-black uppercase tracking-[0.2em]">Mis Clases</h3>
           <p class="text-[11px] text-black/35 font-bold mt-0.5 tracking-wide">Próximas reservaciones</p>
         </div>
-        <span class="text-[11px] text-red-500 font-black uppercase tracking-widest cursor-pointer hover:opacity-70 transition-opacity"
+        <span class="text-[11px] text-pop font-black uppercase tracking-widest cursor-pointer hover:opacity-70 transition-opacity"
               (click)="onActionClick({route: '/dashboard/reservas'})">Ver todas →</span>
       </div>
 
@@ -346,7 +346,7 @@
             </span>
             @if (day.hasBooking) {
               <div class="w-1.5 h-1.5 rounded-full"
-                   [ngClass]="selectedDay()?.iso === day.iso ? 'bg-red-400' : 'bg-red-500'"></div>
+                   [ngClass]="selectedDay()?.iso === day.iso ? 'bg-pop/80' : 'bg-pop'"></div>
             } @else {
               <div class="w-1.5 h-1.5"></div>
             }
@@ -366,7 +366,7 @@
             @for (booking of dayBookings(); track booking.id) {
               <div class="rounded-2xl border border-black/10 bg-white shadow-[0_4px_20px_-4px_rgba(0,0,0,0.10)] overflow-hidden">
                 <div class="flex">
-                  <div class="w-[3px] bg-red-500 flex-shrink-0"></div>
+                  <div class="w-[3px] bg-pop flex-shrink-0"></div>
                   <div class="flex-1 p-4">
 
                     <div class="flex items-start justify-between mb-3">
@@ -389,7 +389,7 @@
 
                     @if (booking.canCancel) {
                       <button (click)="onCancelClass(booking)"
-                              class="w-full border border-red-500/25 text-red-500 rounded-lg py-2 text-[11px] font-black uppercase tracking-wider transition-all hover:bg-red-500/6 hover:border-red-500/50 disabled:opacity-40"
+                              class="w-full border border-pop/25 text-pop rounded-lg py-2 text-[11px] font-black uppercase tracking-wider transition-all hover:bg-pop/6 hover:border-pop/50 disabled:opacity-40"
                               [disabled]="cancellingId() === booking.id">
                         @if (cancellingId() === booking.id) {
                           Cancelando…
@@ -429,7 +429,7 @@
 
         <div class="flex items-center justify-between mb-4">
           <h3 class="text-[16px] font-black uppercase tracking-[0.2em]">Mi Racha</h3>
-          <div class="flex items-center gap-1 text-[12px] font-black text-red-500">
+          <div class="flex items-center gap-1 text-[12px] font-black text-pop">
             <i class="pi pi-bolt text-[12px]"></i>
             {{ streak() }} días
           </div>

@@ -972,6 +972,7 @@ async scheduleBookingNotifications(booking: any): Promise<{ success: boolean; re
     const confirmationPayload = await this.buildNotificationPayload('booking_confirmation', booking);
     const reminder24hPayload = await this.buildNotificationPayload('reminder_24h', booking);
     const reminder1hPayload = await this.buildNotificationPayload('reminder_1h', booking);
+    const checkinReminderPayload = await this.buildNotificationPayload('checkin_reminder', booking);
 
     // Token push (puede ser null)
     const pushToken = this.canSendPushNotifications() ? this._pushToken() : null;
@@ -991,8 +992,10 @@ async scheduleBookingNotifications(booking: any): Promise<{ success: boolean; re
       p_preferences: {
         booking_confirmation_enabled: preferences.booking_confirmation_enabled !== false,
         reminder_24h_enabled: preferences.reminder_24h_enabled !== false,
-        reminder_1h_enabled: preferences.reminder_1h_enabled !== false
-      }
+        reminder_1h_enabled: preferences.reminder_1h_enabled !== false,
+        checkin_reminder_enabled: preferences.checkin_reminder_enabled !== false
+      },
+      p_checkin_reminder_payload: checkinReminderPayload
     });
 
     if (error) {
@@ -1120,7 +1123,7 @@ async scheduleBookingNotifications(booking: any): Promise<{ success: boolean; re
         data: {
           bookingId: booking.id,
           type,
-          actionUrl: data.action_url || '/account/bookings',
+          actionUrl: data.action_url || (type === 'checkin_reminder' ? '/dashboard' : '/account/bookings'),
           timestamp: new Date().toISOString(),
         },
       };
@@ -1171,6 +1174,14 @@ async scheduleBookingNotifications(booking: any): Promise<{ success: boolean; re
         title: 'Actualización de clase 📝',
         body: 'Hay cambios en tu clase programada.',
       },
+      news_alert: {
+        title: 'Nueva Noticia 📰',
+        body: 'Hay una nueva noticia disponible.',
+      },
+      checkin_reminder: {
+        title: '¡Hora de hacer Check-In! 📲',
+        body: `Tu clase de ${booking.class_name || 'tu clase'} comienza en 5 minutos. Haz check-in ahora para asegurar tu asistencia.`,
+      },
     };
 
     const message = fallbackMessages[type] || fallbackMessages.booking_confirmation;
@@ -1183,7 +1194,7 @@ async scheduleBookingNotifications(booking: any): Promise<{ success: boolean; re
       data: {
         bookingId: booking.id,
         type,
-        actionUrl: '/account/bookings',
+        actionUrl: type === 'checkin_reminder' ? '/dashboard' : '/account/bookings',
         timestamp: new Date().toISOString(),
         fallback: true,
       },
@@ -1270,6 +1281,7 @@ async scheduleBookingNotifications(booking: any): Promise<{ success: boolean; re
       booking_confirmation_enabled: true,
       reminder_24h_enabled: true,
       reminder_1h_enabled: true,
+      checkin_reminder_enabled: true,
       cancellation_notifications_enabled: true,
       class_update_notifications_enabled: true,
       push_notifications_enabled: true,

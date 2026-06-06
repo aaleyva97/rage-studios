@@ -314,6 +314,57 @@
           </div>
         </div>
       </p-card>
+
+      <!-- Color de Marca Personalizado -->
+      <p-card class="action-card">
+        <div class="text-center">
+          <i class="pi pi-palette text-4xl text-blue-500 mb-4"></i>
+          <h3 class="text-lg font-semibold mb-2">Color de Marca (Pops)</h3>
+          <p class="text-gray-600 text-sm mb-4">Personaliza los colores de acento de la aplicación</p>
+
+          <div class="flex flex-col items-center gap-4 px-4">
+            <div class="flex items-center gap-3">
+              <!-- Color Picker -->
+              <input 
+                type="color" 
+                [ngModel]="tempBrandingPopColor()" 
+                (ngModelChange)="onPopColorChange($event)"
+                class="w-12 h-12 rounded-lg cursor-pointer border border-gray-300 shadow-sm"
+                [disabled]="settingsLoading">
+                
+              <!-- Hex Input -->
+              <input 
+                type="text" 
+                [ngModel]="tempBrandingPopColor()" 
+                (ngModelChange)="onPopColorChange($event)"
+                class="w-24 px-2 py-1 text-sm border rounded text-center font-mono uppercase"
+                [disabled]="settingsLoading">
+            </div>
+
+            <p-button
+              label="Guardar Color"
+              icon="pi pi-save"
+              severity="success"
+              size="small"
+              (onClick)="saveBrandingPopColor()"
+              [disabled]="settingsLoading || tempBrandingPopColor() === initialBrandingPopColor()"
+              styleClass="w-full max-w-[200px]">
+            </p-button>
+
+            <div class="text-xs text-gray-500 mt-1">
+              <i class="pi pi-info-circle mr-1"></i>
+              Por defecto: #EF4444 (Rojo)
+            </div>
+
+            @if (settingsLoading) {
+              <div class="flex items-center gap-2 text-xs text-gray-500">
+                <i class="pi pi-spin pi-spinner"></i>
+                <span>Guardando...</span>
+              </div>
+            }
+          </div>
+        </div>
+      </p-card>
     </div>
   }
 </div>

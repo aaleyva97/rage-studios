@@ -15,6 +15,7 @@ export interface UserNotificationPreferences {
   cancellation_notifications_enabled?: boolean;
   class_update_notifications_enabled?: boolean;
   marketing_notifications_enabled?: boolean;
+  checkin_reminder_enabled?: boolean;
   
   // Channel preferences
   push_notifications_enabled?: boolean;
@@ -205,7 +206,9 @@ export type NotificationType =
   | 'reminder_1h'
   | 'cancellation_user'
   | 'cancellation_admin'
-  | 'class_update';
+  | 'class_update'
+  | 'news_alert'
+  | 'checkin_reminder';
 
 export interface NotificationPayload {
   title: string;

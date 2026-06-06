@@ -144,8 +144,8 @@
   }
 
   &--unlimited#{&}--selected {
-    border-color: #ef4444;
-    box-shadow: 0 6px 20px rgba(239, 68, 68, 0.15);
+    border-color: var(--pop-color, #ef4444);
+    box-shadow: 0 6px 20px var(--pop-color-glow, rgba(239, 68, 68, 0.15));
   }
 }
 
@@ -156,10 +156,9 @@
   bottom: 0;
   width: 3px;
   background: #0a0a0a;
-  border-radius: 0;
 
   .pkg-card--unlimited & {
-    background: #ef4444;
+    background: var(--pop-color, #ef4444);
   }
 }
 
@@ -180,7 +179,7 @@
   }
 
   .pkg-card--unlimited.pkg-card--selected & {
-    border-color: #ef4444;
+    border-color: var(--pop-color, #ef4444);
   }
 }
 
@@ -192,7 +191,7 @@
   animation: pkg-pop 180ms cubic-bezier(0.34, 1.56, 0.64, 1);
 
   .pkg-card--unlimited & {
-    background: #ef4444;
+    background: var(--pop-color, #ef4444);
   }
 }
 
@@ -231,9 +230,9 @@
   font-weight: 900;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: #ef4444;
-  background: rgba(239, 68, 68, 0.08);
-  border: 1px solid rgba(239, 68, 68, 0.20);
+  color: var(--pop-color, #ef4444);
+  background: var(--pop-color-light, rgba(239, 68, 68, 0.08));
+  border: 1px solid var(--pop-color-glow, rgba(239, 68, 68, 0.20));
   border-radius: 4px;
   padding: 2px 5px;
   flex-shrink: 0;
