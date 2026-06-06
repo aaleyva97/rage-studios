@@ -95,21 +95,34 @@ export class RegisterDialog {
     const { email, password, fullName, phone } = this.registerForm.value;
     
     try {
-      await this.supabaseService.signUp(email, password, fullName, phone);
-      
-      this.messageService.add({
-        severity: 'success',
-        summary: '¡Cuenta creada exitosamente!',
-        detail: 'Listo hemos iniciado sesión por ti',
-        life: 5000
-      });
-      
-      setTimeout(() => {
-        this.visible.set(false);
-        this.registerForm.reset();
-        this.router.navigate(['/dashboard']);
-      }, 1500);
-      
+      const data = await this.supabaseService.signUp(email, password, fullName, phone);
+
+      // Si hay sesión, la confirmación está desactivada y el usuario ya quedó dentro.
+      // Si no hay sesión, debe confirmar su correo antes de poder iniciar sesión.
+      if (data.session) {
+        this.messageService.add({
+          severity: 'success',
+          summary: '¡Cuenta creada exitosamente!',
+          detail: 'Listo hemos iniciado sesión por ti',
+          life: 5000
+        });
+        setTimeout(() => {
+          this.visible.set(false);
+          this.registerForm.reset();
+          this.router.navigate(['/dashboard']);
+        }, 1500);
+      } else {
+        this.messageService.add({
+          severity: 'success',
+          summary: '¡Revisa tu correo!',
+          detail: `Te enviamos un correo de confirmación a ${email}. Haz clic en el enlace para activar tu cuenta.`,
+          life: 8000
+        });
+        setTimeout(() => {
+          this.visible.set(false);
+          this.registerForm.reset();
+        }, 2500);
+      }
     } catch (error: any) {
       this.messageService.add({
         severity: 'error',

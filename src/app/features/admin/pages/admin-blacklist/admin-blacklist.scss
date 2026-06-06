@@ -1,0 +1,40 @@
+.admin-blacklist-container {
+  max-width: 960px;
+}
+
+.blacklist-table {
+  border: 1px solid #f3f4f6;
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+
+.blacklist-header {
+  grid-template-columns: 2fr 1fr 2fr 1.5fr auto;
+  padding: 0.75rem 1rem;
+  background-color: #f9fafb;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #6b7280;
+  gap: 1rem;
+  align-items: center;
+}
+
+.blacklist-item {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.75rem;
+  padding: 0.875rem 1rem;
+  border-top: 1px solid #f3f4f6;
+  align-items: center;
+  transition: background-color 0.15s;
+
+  &:hover {
+    background-color: #fafafa;
+  }
+
+  @media (min-width: 768px) {
+    grid-template-columns: 2fr 1fr 2fr 1.5fr auto;
+  }
+}

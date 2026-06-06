@@ -44,6 +44,7 @@ export interface TimeSlot {
   available: boolean;
   occupiedBeds: number;
   slot_id?: string;
+  capacity?: number;
 }
 
 @Injectable({
@@ -187,17 +188,14 @@ export class ScheduleService {
     return this.convertScheduleSlotsToTimeSlots(scheduleSlots);
   }
 
-  /**
-   * Convierte ScheduleSlots a formato TimeSlot para retrocompatibilidad.
-   * Cada slot de BD representa una clase individual, no un rango de horas.
-   */
   private convertScheduleSlotsToTimeSlots(scheduleSlots: ScheduleSlot[]): TimeSlot[] {
     const timeSlots: TimeSlot[] = scheduleSlots.map(slot => ({
       time: slot.start_time.substring(0, 5), // "HH:MM" preservando minutos
       coach: this.formatCoachNames(slot.coaches),
       available: true,
       occupiedBeds: 0,
-      slot_id: slot.id
+      slot_id: slot.id,
+      capacity: slot.max_capacity
     }));
 
     return timeSlots.sort((a, b) => a.time.localeCompare(b.time));

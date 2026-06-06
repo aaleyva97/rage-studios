@@ -31,7 +31,8 @@
           placeholder="Buscar usuario por nombre o teléfono"
           [minLength]="2"
           [dropdown]="false"
-          [forceSelection]="true"
+          [forceSelection]="false"
+          (onBlur)="onUserBlur()"
           class="w-full"
           styleClass="w-full user-autocomplete"
           [inputStyleClass]="'w-full'">

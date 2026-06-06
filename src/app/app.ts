@@ -6,6 +6,7 @@ import { Topbar } from './shared/components/topbar/topbar';
 import { Footer } from './shared/components/footer/footer';
 import { SocialSpeedDial } from './shared/components/social-speed-dial/social-speed-dial';
 import { PwaInstallDialogComponent } from './shared/components/pwa-install-dialog/pwa-install-dialog';
+import { PwaInstallInstructionsDialogComponent } from './shared/components/pwa-install-instructions-dialog/pwa-install-instructions-dialog';
 import { PwaInstallService } from './core/services/pwa-install.service';
 import { NotificationService } from './core/services/notification.service';
 import { filter } from 'rxjs/operators';
@@ -15,7 +16,7 @@ const TOPBAR_HIDDEN_ROUTES = ['/dashboard'];
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [RouterOutlet, ButtonModule, ToastModule, Topbar, SocialSpeedDial, PwaInstallDialogComponent],
+  imports: [RouterOutlet, ButtonModule, ToastModule, Topbar, SocialSpeedDial, PwaInstallDialogComponent, PwaInstallInstructionsDialogComponent],
   templateUrl: './app.html',
   styleUrl: './app.scss'
 })

@@ -28,6 +28,14 @@ export const routes: Routes = [
     ]
   },
   {
+    path: 'auth/confirm',
+    loadComponent: () => import('./features/account/pages/auth-confirm/auth-confirm').then(m => m.AuthConfirm)
+  },
+  {
+    path: 'email-confirmado',
+    loadComponent: () => import('./features/account/pages/email-confirmed/email-confirmed').then(m => m.EmailConfirmed)
+  },
+  {
     path: 'mi-cuenta',
     redirectTo: '/dashboard',
     pathMatch: 'full'
@@ -54,13 +62,19 @@ export const routes: Routes = [
         loadComponent: () => import('./features/account/pages/my-bookings/my-bookings').then(m => m.MyBookings)
       },
       {
+        path: 'lista-espera',
+        loadComponent: () => import('./features/account/pages/my-waitlist/my-waitlist').then(m => m.MyWaitlist)
+      },
+      {
         path: 'gestion-creditos',
         loadComponent: () => import('./features/account/pages/credit-management/credit-management').then(m => m.CreditManagement)
       },
+      /*
       {
         path: 'historial-creditos',
         loadComponent: () => import('./features/account/pages/credit-history/credit-history').then(m => m.CreditHistory)
       }
+       */
     ]
   },
   {
@@ -75,6 +89,10 @@ export const routes: Routes = [
       {
         path: 'reservas',
         loadComponent: () => import('./features/admin/pages/admin-reservas/admin-reservas').then(m => m.AdminReservas)
+      },
+      {
+        path: 'lista-espera',
+        loadComponent: () => import('./features/admin/pages/admin-waitlist/admin-waitlist').then(m => m.AdminWaitlist)
       },
       {
         path: 'coaches',
@@ -127,12 +145,24 @@ export const routes: Routes = [
         loadComponent: () => import('./features/admin/pages/admin-schedule/admin-schedule').then(m => m.AdminSchedule)
       },
       {
+        path: 'membresias',
+        loadComponent: () => import('./features/admin/pages/admin-memberships/admin-memberships').then(m => m.AdminMemberships)
+      },
+      {
         path: 'excepciones',
         loadComponent: () => import('./features/admin/pages/admin-exceptions/admin-exceptions').then(m => m.AdminExceptions)
       },
       {
         path: 'noticias',
         loadComponent: () => import('./features/admin/pages/admin-noticias/admin-noticias').then(m => m.AdminNoticias)
+      },
+      {
+        path: 'blacklist',
+        loadComponent: () => import('./features/admin/pages/admin-blacklist/admin-blacklist').then(m => m.AdminBlacklist)
+      },
+      {
+        path: 'footer',
+        loadComponent: () => import('./features/admin/pages/admin-footer/admin-footer').then(m => m.AdminFooter)
       }
     ]
   },

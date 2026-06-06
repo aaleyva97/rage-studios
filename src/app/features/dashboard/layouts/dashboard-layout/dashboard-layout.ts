@@ -73,13 +73,14 @@ export class DashboardLayout implements OnInit, OnDestroy {
   navItems: NavItem[] = [
     { label: 'Dashboard',         icon: 'pi pi-home',          route: '/dashboard' },
     { label: 'Mis Reservas',      icon: 'pi pi-calendar',      route: '/dashboard/reservas' },
+    { label: 'Lista de Espera',   icon: 'pi pi-clock',         route: '/dashboard/lista-espera' },
     { label: 'Créditos',          icon: 'pi pi-credit-card',   route: '/dashboard/gestion-creditos' },
     { label: 'Historial',         icon: 'pi pi-wallet',        route: '/dashboard/historial-creditos' },
     { label: 'Mi Perfil',         icon: 'pi pi-user',          route: '/dashboard/perfil' },
     { label: 'Contraseña',        icon: 'pi pi-lock',          route: '/dashboard/cambiar-contrasena' },
   ];
 
-  bottomNavItems: NavItem[] = this.navItems.slice(0, 5);
+  bottomNavItems: NavItem[] = this.navItems.slice(0, 6);
 
   private resizeListener?: () => void;
   private notificationSub?: Subscription;

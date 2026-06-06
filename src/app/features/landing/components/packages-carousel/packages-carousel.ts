@@ -3,14 +3,18 @@ import { CarouselModule } from 'primeng/carousel';
 import { ButtonModule } from 'primeng/button';
 import { DialogModule } from 'primeng/dialog';
 import { SkeletonModule } from 'primeng/skeleton';
+import { ToastModule } from 'primeng/toast';
+import { MessageService } from 'primeng/api';
 import { PackagesService, Package } from '../../services/packages.service';
 import { SupabaseService } from '../../../../core/services/supabase-service';
 import { AuthUiService } from '../../../../core/services/auth-ui.service';
+import { BlacklistService } from '../../../../core/services/blacklist.service';
 import { Router } from '@angular/router';
 
 @Component({
   selector: 'app-packages-carousel',
-  imports: [CarouselModule, ButtonModule, DialogModule, SkeletonModule],
+  imports: [CarouselModule, ButtonModule, DialogModule, SkeletonModule, ToastModule],
+  providers: [MessageService],
   templateUrl: './packages-carousel.html',
   styleUrl: './packages-carousel.scss'
 })
@@ -18,11 +22,14 @@ export class PackagesCarousel implements OnInit {
   private packagesService = inject(PackagesService);
   private supabaseService = inject(SupabaseService);
   private authUiService = inject(AuthUiService);
+  private blacklistService = inject(BlacklistService);
+  private messageService = inject(MessageService);
   private router = inject(Router);
-  
+
   packages = signal<Package[]>([]);
   isLoading = signal(true);
   isLoggedIn = signal(false);
+  isBlacklisted = signal(false);
   selectedPackage = signal<Package | null>(null);
   showPoliciesDialog = signal(false);
   
@@ -50,8 +57,14 @@ export class PackagesCarousel implements OnInit {
   }
   
   private checkAuthStatus() {
-    this.supabaseService.currentUser$.subscribe(user => {
+    this.supabaseService.currentUser$.subscribe(async user => {
       this.isLoggedIn.set(!!user);
+      if (user) {
+        const blacklisted = await this.blacklistService.checkBlacklistStatus(user.id);
+        this.isBlacklisted.set(blacklisted);
+      } else {
+        this.isBlacklisted.set(false);
+      }
     });
   }
   
@@ -80,13 +93,21 @@ export class PackagesCarousel implements OnInit {
   }
   
   onPurchaseClick(packageItem: Package) {
-  if (this.isLoggedIn()) {
-    // Navegar a la página de checkout
+    if (!this.isLoggedIn()) {
+      this.openLoginDialog();
+      return;
+    }
+    if (this.isBlacklisted()) {
+      this.messageService.add({
+        severity: 'warn',
+        summary: 'Acceso restringido',
+        detail: 'Para más información sobre el estado de tu cuenta, comunícate con el personal de Rage Studios.',
+        life: 6000
+      });
+      return;
+    }
     this.router.navigate(['/checkout', packageItem.id]);
-  } else {
-    this.openLoginDialog();
   }
-}
   
   openLoginDialog() {
     this.authUiService.openLoginDialog();

@@ -11,6 +11,9 @@ export interface TimeSlot {
   available: boolean;
   occupiedBeds: number;
   isPast?: boolean; // Indica si el horario ya pasó (solo para día actual)
+  capacity?: number; // Capacidad del slot (max_capacity de schedule_slots)
+  isFull?: boolean; // Slot lleno: ocupado >= capacity (no por ser pasado)
+  slot_id?: string;
 }
 
 export interface Booking {
@@ -90,16 +93,21 @@ export class BookingService {
   async getAvailableSlots(date: string): Promise<TimeSlot[]> {
     const daySchedule = await this.getDaySchedule(date);
 
-    // Obtener reservas existentes para esa fecha
-    const { data: bookings, error } = await this.supabaseService.client
-      .from('bookings')
-      .select('session_time, bed_numbers')
-      .eq('session_date', date)
-      .eq('status', 'active');
+    // Try RPC first (returns bookings + memberships), fallback to direct query
+    let bookings: any[] = [];
+    const { data: rpcData, error: rpcError } = await this.supabaseService.client
+      .rpc('get_occupied_beds_for_date', { p_session_date: date });
 
-    if (error) {
-      console.error('Error fetching bookings:', error);
-      return daySchedule;
+    if (!rpcError && rpcData) {
+      bookings = rpcData;
+    } else {
+      // Fallback: direct bookings query (works even without membership tables)
+      const { data: directData } = await this.supabaseService.client
+        .from('bookings')
+        .select('session_time, bed_numbers')
+        .eq('session_date', date)
+        .eq('status', 'active');
+      bookings = directData || [];
     }
 
     // 🕒 DETECTAR SI ES HOY para validar horarios pasados (zona horaria México)
@@ -115,14 +123,18 @@ export class BookingService {
     // Calcular disponibilidad
     return daySchedule.map((slot) => {
       const slotBookings =
-        bookings?.filter((b) => b.session_time === slot.time + ':00') || [];
+        bookings?.filter((b: any) => b.session_time === slot.time + ':00') || [];
       const occupiedBeds = slotBookings.reduce(
-        (acc, b) => acc + b.bed_numbers.length,
+        (acc: number, b: any) => acc + b.bed_numbers.length,
         0
       );
 
-      // Verificar disponibilidad por capacidad
-      let isAvailable = occupiedBeds < 14;
+      // Capacidad real del slot (proviene de schedule_slots.max_capacity).
+      // Fallback a 14 solo si por algún motivo no llegó la capacidad.
+      const capacity = (slot as any).capacity ?? 14;
+
+      const isFull = occupiedBeds >= capacity;
+      let isAvailable = !isFull;
       let isPast = false;
 
       // 🚫 Si es hoy, deshabilitar horarios que ya pasaron
@@ -147,6 +159,8 @@ export class BookingService {
         available: isAvailable,
         occupiedBeds,
         isPast,
+        capacity,
+        isFull,
       };
     });
   }
@@ -173,9 +187,10 @@ export class BookingService {
     }
   }
   
-  // 🛡️ FALLBACK: Consulta directa (filtrada por RLS)
+  // 🛡️ FALLBACK: Consulta directa bookings + memberships (filtrada por RLS)
   private async getOccupiedBedsFallback(date: string, time: string): Promise<number[]> {
-    const { data, error } = await this.supabaseService.client
+    // Bookings directos
+    const { data: bookingData, error: bookingError } = await this.supabaseService.client
       .from('bookings')
       .select('bed_numbers')
       .eq('session_date', date)
@@ -183,23 +198,36 @@ export class BookingService {
       .eq('status', 'active')
       .order('created_at', { ascending: false });
 
-    if (error || !data) return [];
+    // Memberships via RPC (date → day_of_week matching done server-side)
+    const { data: membershipData, error: membershipError } = await this.supabaseService.client
+      .rpc('get_occupied_beds_for_date', { p_session_date: date });
 
     const allBeds: number[] = [];
-    data.forEach((booking: { bed_numbers: number[] }) => {
-      allBeds.push(...booking.bed_numbers);
-    });
+
+    if (!bookingError && bookingData) {
+      bookingData.forEach((booking: { bed_numbers: number[] }) => {
+        allBeds.push(...booking.bed_numbers);
+      });
+    }
+
+    if (!membershipError && membershipData) {
+      membershipData
+        .filter((row: any) => row.session_time === time)
+        .forEach((row: any) => {
+          allBeds.push(...row.bed_numbers);
+        });
+    }
 
     return [...new Set(allBeds)];
   }
   
-  // 🔄 MÉTODO OPTIMIZADO: Obtener snapshot fresco con metadatos
+  // 🔄 MÉTODO OPTIMIZADO: Obtener snapshot fresco con metadatos (bookings + memberships)
   async getOccupiedBedsWithMetadata(date: string, time: string): Promise<{
     beds: number[];
     totalBookings: number;
     lastUpdated: Date;
   }> {
-    const { data, error } = await this.supabaseService.client
+    const { data: bookingData, error: bookingError } = await this.supabaseService.client
       .from('bookings')
       .select('bed_numbers, created_at, updated_at')
       .eq('session_date', date)
@@ -207,22 +235,36 @@ export class BookingService {
       .eq('status', 'active')
       .order('updated_at', { ascending: false });
 
-    if (error || !data) {
-      return {
-        beds: [],
-        totalBookings: 0,
-        lastUpdated: new Date()
-      };
-    }
+    const { data: allOccupied, error: rpcError } = await this.supabaseService.client
+      .rpc('get_occupied_beds_for_date', { p_session_date: date });
 
     const allBeds: number[] = [];
-    data.forEach((booking: { bed_numbers: number[] }) => {
-      allBeds.push(...booking.bed_numbers);
-    });
+    let totalBookings = 0;
+
+    if (!bookingError && bookingData) {
+      totalBookings = bookingData.length;
+      bookingData.forEach((booking: { bed_numbers: number[] }) => {
+        allBeds.push(...booking.bed_numbers);
+      });
+    }
+
+    // Add membership beds for this specific time
+    if (!rpcError && allOccupied) {
+      allOccupied
+        .filter((row: any) => row.session_time === time)
+        .forEach((row: any) => {
+          // Only add beds not already counted from bookings
+          row.bed_numbers.forEach((bed: number) => {
+            if (!allBeds.includes(bed)) {
+              allBeds.push(bed);
+            }
+          });
+        });
+    }
 
     return {
       beds: [...new Set(allBeds)],
-      totalBookings: data.length,
+      totalBookings,
       lastUpdated: new Date()
     };
   }

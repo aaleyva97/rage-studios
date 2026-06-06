@@ -308,6 +308,23 @@
   
   @if (selectedSlot()) {
     <form class="space-y-6">
+      <!-- Advertencias -->
+      @if (dialogMode() === 'edit' && existingBookingsCount() > 0) {
+        <div class="mb-4">
+          <p-message severity="warn">
+            Este horario tiene {{existingBookingsCount()}} reserva(s) activa(s). Cualquier cambio podría afectar a los usuarios.
+          </p-message>
+        </div>
+      }
+
+      @if (hasScheduleConflict()) {
+        <div class="mb-4">
+          <p-message severity="warn">
+            {{conflictMessage()}}
+          </p-message>
+        </div>
+      }
+
       <!-- Día de la semana -->
       <div class="field">
         <label for="dayOfWeek" class="block text-sm font-medium text-gray-700 mb-2">
@@ -340,7 +357,8 @@
             optionLabel="label"
             optionValue="value"
             placeholder="Hora inicio"
-            [style]="{'width': '100%'}">
+            [style]="{'width': '100%'}"
+            (onChange)="onTimeChange()">
           </p-select>
         </div>
 
@@ -356,7 +374,8 @@
             optionLabel="label"
             optionValue="value"
             placeholder="Hora fin"
-            [style]="{'width': '100%'}">
+            [style]="{'width': '100%'}"
+            (onChange)="onTimeChange()">
           </p-select>
         </div>
       </div>

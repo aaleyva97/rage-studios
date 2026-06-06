@@ -42,6 +42,11 @@ export class AdminLayout {
       routerLink: '/admin/reservas'
     },
     {
+      label: 'Lista de Espera',
+      icon: 'pi pi-clock',
+      routerLink: '/admin/lista-espera'
+    },
+    {
       label: 'Créditos',
       icon: 'pi pi-wallet',
       routerLink: '/admin/credits',
@@ -72,6 +77,11 @@ export class AdminLayout {
       routerLink: '/admin/horarios',
     },
     {
+      label: 'Membres\u00edas',
+      icon: 'pi pi-id-card',
+      routerLink: '/admin/membresias',
+    },
+    {
       label: 'Excepciones',
       icon: 'pi pi-exclamation-circle',
       routerLink: '/admin/excepciones',
@@ -80,6 +90,16 @@ export class AdminLayout {
       label: 'Noticias',
       icon: 'pi pi-megaphone',
       routerLink: '/admin/noticias',
+    },
+    {
+      label: 'Black List',
+      icon: 'pi pi-ban',
+      routerLink: '/admin/blacklist',
+    },
+    {
+      label: 'Footer',
+      icon: 'pi pi-layout',
+      routerLink: '/admin/footer',
     }
   ];
   

@@ -71,6 +71,13 @@ export class AdminGiftcardsAssign {
     });
   }
 
+  onUserBlur() {
+    const form = this.assignmentForm();
+    if (form.selectedUser && typeof form.selectedUser !== 'object') {
+      this.assignmentForm.set({ ...form, selectedUser: null });
+    }
+  }
+
   onCodeChange(code: string) {
     const form = this.assignmentForm();
     this.assignmentForm.set({

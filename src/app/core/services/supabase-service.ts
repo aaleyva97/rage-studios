@@ -1,5 +1,6 @@
 import { Injectable, signal, PLATFORM_ID, Inject } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
+import { Router } from '@angular/router';
 import { createClient, SupabaseClient, User } from '@supabase/supabase-js';
 import { environment } from '../../../environments/environment';
 import { BehaviorSubject, Observable, debounceTime, distinctUntilChanged } from 'rxjs';
@@ -46,7 +47,7 @@ export class SupabaseService {
   // 🔄 SSR OPTIMIZATION: Prevent duplicate initialization during hydration
   private userLoadAttempted = false;
   
-  constructor(@Inject(PLATFORM_ID) private platformId: Object) {
+  constructor(@Inject(PLATFORM_ID) private platformId: Object, private router: Router) {
     this.isBrowser = isPlatformBrowser(platformId);
     this.tokenManager = new AuthTokenManagerService(platformId);
     
@@ -72,22 +73,30 @@ export class SupabaseService {
     if (this.isBrowser && !this.userLoadAttempted) {
       this.userLoadAttempted = true;
       
-      try {
-        const { data: { user } } = await this.supabaseClient.auth.getUser();
-        this.currentUser.next(user);
-      
-      // Solo registrar un listener de estado de auth, con manejo de rate limiting
+      // Registramos el listener de auth ANTES de cualquier await: detectSessionInUrl
+      // procesa el enlace de recuperación al cargar la página y dispara PASSWORD_RECOVERY
+      // muy temprano. Si el listener se registrara después del await getUser(), perderíamos
+      // ese evento y el usuario se quedaría en la home en vez de ir a cambiar la contraseña.
       this.supabaseClient.auth.onAuthStateChange((event, session) => {
         if (event === 'TOKEN_REFRESHED') {
           console.log('🔄 Token refreshed successfully');
           // No emitir cambios solo por refresh de token para reducir rate limiting
           return;
         }
-        
+
+        // El usuario llegó desde un enlace de recuperación de contraseña: Supabase crea
+        // una sesión temporal. Lo emitimos y lo llevamos directo a "Cambiar contraseña"
+        // una vez que la sesión ya está lista, evitando que el authGuard lo rebote a la home.
+        if (event === 'PASSWORD_RECOVERY') {
+          this.currentUser.next(session?.user ?? null);
+          this.router.navigate(['/mi-cuenta/cambiar-contrasena']);
+          return;
+        }
+
         if (event === 'SIGNED_OUT') {
           this.tokenManager.reset();
         }
-        
+
         // Para eventos importantes (SIGNED_IN, SIGNED_OUT), siempre emitir
         // Para otros eventos, solo emitir si hay cambio real en el usuario
         if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'USER_UPDATED') {
@@ -101,6 +110,10 @@ export class SupabaseService {
           }
         }
       });
+
+      try {
+        const { data: { user } } = await this.supabaseClient.auth.getUser();
+        this.currentUser.next(user);
       } catch (error) {
         console.warn('Error loading user:', error);
         this.currentUser.next(null);
@@ -144,20 +157,39 @@ export class SupabaseService {
       email,
       password,
       options: {
+        // Página a la que llega el usuario tras hacer clic en el correo de confirmación
+        emailRedirectTo: 'https://ragestudios.mx/email-confirmado',
         data: {
           full_name: fullName,
-          phone: phone // Respaldo en metadata
+          phone: phone // El trigger handle_new_user lee estos metadatos para crear el perfil
         }
       }
     });
-    
+
     if (error) throw error;
-    
-    if (data.user) {
-      // Intentar actualizar perfil con retry logic
+
+    // Si Supabase devuelve sesión, la confirmación de email está desactivada y el
+    // usuario quedó logueado: mantenemos el guardado de perfil por compatibilidad.
+    // Si NO hay sesión, la confirmación está activa: el perfil (incluido el teléfono)
+    // lo crea el trigger en la base de datos a partir de la metadata.
+    if (data.session && data.user) {
       await this.updateProfileWithRetry(data.user.id, { full_name: fullName, phone });
     }
-    
+
+    return data;
+  }
+
+  // Reenvía el correo de confirmación para usuarios que aún no han verificado su email
+  async resendConfirmationEmail(email: string) {
+    const { data, error } = await this.supabaseClient.auth.resend({
+      type: 'signup',
+      email,
+      options: {
+        emailRedirectTo: 'https://ragestudios.mx/email-confirmado'
+      }
+    });
+
+    if (error) throw error;
     return data;
   }
 

@@ -4,15 +4,18 @@ import {
   signal,
   inject,
   effect,
+  computed,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
 import { DialogModule } from 'primeng/dialog';
 import { StepperModule } from 'primeng/stepper';
 import { DatePickerModule } from 'primeng/datepicker';
 import { ButtonModule } from 'primeng/button';
 import { ToggleSwitchModule } from 'primeng/toggleswitch';
 import { InputTextModule } from 'primeng/inputtext';
+import { CheckboxModule } from 'primeng/checkbox';
 import { BookingService } from '../../../../core/services/booking.service';
 import { CreditsService } from '../../../../core/services/credits.service';
 import { SupabaseService } from '../../../../core/services/supabase-service';
@@ -23,6 +26,9 @@ import { PaymentService } from '../../../../core/services/payment.service';
 import { NotificationService } from '../../../../core/services/notification.service';
 import { AppSettingsService } from '../../../../core/services/app-settings.service';
 import { BookingUiService } from '../../../../core/services/booking-ui.service';
+import { WaitlistService, SessionAvailability } from '../../../../core/services/waitlist.service';
+import { PwaInstallService } from '../../../../core/services/pwa-install.service';
+import { BlacklistService } from '../../../../core/services/blacklist.service';
 import { MessageModule } from 'primeng/message';
 import { formatDateToLocalYYYYMMDD, parseLocalDate } from '../../../../core/functions/date-utils';
 
@@ -37,6 +43,7 @@ import { formatDateToLocalYYYYMMDD, parseLocalDate } from '../../../../core/func
     ButtonModule,
     ToggleSwitchModule,
     InputTextModule,
+    CheckboxModule,
     ToastModule,
     MessageModule,
     ProgressSpinnerModule,
@@ -56,6 +63,10 @@ export class BookingDialog {
   private messageService = inject(MessageService);
   private notificationService = inject(NotificationService);
   private appSettingsService = inject(AppSettingsService);
+  private waitlistService = inject(WaitlistService);
+  private pwaInstallService = inject(PwaInstallService);
+  private blacklistService = inject(BlacklistService);
+  private router = inject(Router);
 
   // Estados
   currentStep = signal(1);
@@ -81,6 +92,51 @@ export class BookingDialog {
   isVerifyingBookings = signal(false);
   verifiedBookingsEnabled = signal(true); // Valor por defecto optimista
 
+  // 📝 MODO LISTA DE ESPERA
+  isWaitlistMode = signal(false);
+  slotAvailability = signal<SessionAvailability | null>(null);
+  isEnrollingWaitlist = signal(false);
+  acknowledgedRisk = signal(false);
+  isRequestingPermission = signal(false);
+  // Tick para que los computed re-evalúen cuando cambian permisos/token
+  private channelTick = signal(0);
+
+  /**
+   * Estado del canal de notificación push para el usuario actual.
+   * - 'push_ready': granted + token activo (recibirá push)
+   * - 'permission_default': aún no se le ha preguntado
+   * - 'permission_denied': bloqueó las notificaciones
+   * - 'ios_needs_pwa': iPhone Safari sin PWA instalada (limitación de iOS)
+   * - 'unsupported': navegador no soporta notificaciones
+   * - 'no_token': permisos OK pero falta token (estado transitorio)
+   */
+  notificationChannelStatus = computed<
+    'push_ready' | 'permission_default' | 'permission_denied' | 'ios_needs_pwa' | 'unsupported' | 'no_token'
+  >(() => {
+    this.channelTick();
+    const pwa = this.pwaInstallService.installabilityState();
+    if (pwa.platform === 'ios' && pwa.browser === 'safari' && !pwa.isInstalled) {
+      return 'ios_needs_pwa';
+    }
+    if (!this.notificationService.isNotificationSupported()) {
+      return 'unsupported';
+    }
+    const status = this.notificationService.getStatus();
+    if (status.permission === 'denied') return 'permission_denied';
+    if (status.permission === 'default') return 'permission_default';
+    if (status.permission === 'granted' && status.hasToken) return 'push_ready';
+    return 'no_token';
+  });
+
+  /**
+   * Solo se permite enviar el waitlist si: el canal está listo, O el usuario
+   * acepta explícitamente el riesgo de no recibir aviso.
+   */
+  canSubmitWaitlist = computed(() => {
+    if (this.isEnrollingWaitlist()) return false;
+    return this.notificationChannelStatus() === 'push_ready' || this.acknowledgedRisk();
+  });
+
   // Fecha mínima (hoy)
   minDate = new Date();
   // Fecha máxima (null por defecto, se calcula según configuración)
@@ -90,6 +146,7 @@ export class BookingDialog {
     // 🔍 EFECTO: Verificar estado cuando se abre el diálogo
     effect(() => {
       if (this.visible()) {
+        this.checkBlacklistOnOpen();
         this.verifyBookingsOnOpen();
         // 🔄 Actualizar créditos al abrir el diálogo
         this.refreshCreditsOnOpen();
@@ -102,6 +159,25 @@ export class BookingDialog {
   // 🎛️ GETTER PÚBLICO para acceder al estado verificado de reservas
   get bookingsEnabled() {
     return this.verifiedBookingsEnabled();
+  }
+
+  /**
+   * 🚫 Verificar si el usuario está en la lista negra al abrir el diálogo
+   */
+  private async checkBlacklistOnOpen(): Promise<void> {
+    const user = this.supabaseService.getUser();
+    if (!user) return;
+
+    const isBlacklisted = await this.blacklistService.checkBlacklistStatus(user.id);
+    if (isBlacklisted) {
+      this.visible.set(false);
+      this.messageService.add({
+        severity: 'warn',
+        summary: 'Acceso restringido',
+        detail: 'Para más información sobre el estado de tu cuenta, comunícate con el personal de Rage Studios.',
+        life: 7000
+      });
+    }
   }
 
   /**
@@ -205,14 +281,82 @@ export class BookingDialog {
   }
 
   selectTimeSlot(slot: any) {
-    if (!slot.available) return;
+    // Bloquear solo si el slot es del pasado.
+    // Slot lleno (slot.isFull && !slot.isPast) = ofrecemos lista de espera.
+    if (slot.isPast) return;
+    if (!slot.available && !slot.isFull) return;
 
     this.selectedTime.set(slot.time);
     this.selectedCoach.set(slot.coach);
-    this.loadOccupiedBeds();
-    
-    // 🔄 INICIAR REFRESCO AUTOMÁTICO cada 10 segundos
-    this.startAutoRefresh();
+
+    if (slot.isFull) {
+      // Modo lista de espera: no cargamos camas, cargamos availability
+      this.isWaitlistMode.set(true);
+      this.stopAutoRefresh();
+      this.loadSlotAvailability();
+    } else {
+      // Modo normal
+      this.isWaitlistMode.set(false);
+      this.slotAvailability.set(null);
+      this.loadOccupiedBeds();
+      this.startAutoRefresh();
+    }
+  }
+
+  /**
+   * Carga la disponibilidad del slot (capacidad, ocupado, waitlist count).
+   * Usado en modo lista de espera para mostrar la posicion proyectada.
+   */
+  async loadSlotAvailability() {
+    const date = this.selectedDate();
+    const time = this.selectedTime();
+    if (!date || !time) return;
+
+    const dateStr = formatDateToLocalYYYYMMDD(date);
+    const result = await this.waitlistService.getSessionAvailability(dateStr, time + ':00');
+    this.slotAvailability.set(result);
+  }
+
+  /**
+   * Posicion que ocuparia el usuario si se inscribe ahora.
+   */
+  projectedWaitlistPosition(): number {
+    const av = this.slotAvailability();
+    return (av?.waitlist_count ?? 0) + 1;
+  }
+
+  /**
+   * El usuario esta en iOS Safari y NO tiene la PWA instalada.
+   * En este caso no recibira push notifications.
+   */
+  iosNeedsPwa(): boolean {
+    return this.notificationChannelStatus() === 'ios_needs_pwa';
+  }
+
+  /**
+   * Abre el dialog dedicado de instrucciones paso a paso para instalar la PWA.
+   * NO abre el prompt promocional general (ese es para "primera visita").
+   */
+  openPwaInstall() {
+    this.pwaInstallService.openInstructionsDialog();
+  }
+
+  /**
+   * Solicita permisos de notificacion desde el dialog (Capa 1).
+   * Tras la solicitud, refresca el estado del canal.
+   */
+  async activateNotifications() {
+    if (this.isRequestingPermission()) return;
+    this.isRequestingPermission.set(true);
+    try {
+      await this.notificationService.requestPermissions();
+    } catch (err) {
+      console.warn('Permission request failed:', err);
+    } finally {
+      this.isRequestingPermission.set(false);
+      // Forzar re-evaluación de los computed
+      this.channelTick.update((v) => v + 1);
+    }
   }
 
   async loadOccupiedBeds() {
@@ -301,9 +445,19 @@ export class BookingDialog {
   closeDialog() {
     // 🛑 PARAR REFRESCO AUTOMÁTICO
     this.stopAutoRefresh();
-    
+
     this.visible.set(false);
     this.resetForm();
+  }
+
+  /**
+   * Cierra el diálogo y lleva al usuario a la gestión de su lista de espera.
+   * Se invoca desde el toast accionable tras inscribirse correctamente.
+   */
+  goToWaitlist() {
+    this.messageService.clear('waitlist-success');
+    this.closeDialog();
+    this.router.navigate(['/mi-cuenta/lista-espera']);
   }
 
   // Navegación del Stepper
@@ -332,6 +486,101 @@ export class BookingDialog {
     this.hasCompanions.set(false);
     this.companions.set([]);
     this.newCompanion = '';
+    this.isWaitlistMode.set(false);
+    this.slotAvailability.set(null);
+    this.isEnrollingWaitlist.set(false);
+    this.acknowledgedRisk.set(false);
+  }
+
+  /**
+   * 📝 Inscribir al usuario en la lista de espera del slot seleccionado.
+   * No descuenta creditos.
+   */
+  async enrollInWaitlist() {
+    if (this.isEnrollingWaitlist()) return;
+
+    const date = this.selectedDate();
+    const time = this.selectedTime();
+    const coach = this.selectedCoach();
+    const user = this.supabaseService.getUser();
+
+    if (!date || !time || !coach || !user) return;
+
+    const totalAttendees = this.companions().length + 1;
+    const availableCredits = this.creditsService.totalCredits();
+
+    if (availableCredits < totalAttendees) {
+      this.messageService.add({
+        severity: 'error',
+        summary: 'Creditos insuficientes',
+        detail: `Necesitas al menos ${totalAttendees} credito${totalAttendees > 1 ? 's' : ''} disponible${totalAttendees > 1 ? 's' : ''} para inscribirte. No se descontaran ahora.`,
+      });
+      return;
+    }
+
+    this.isEnrollingWaitlist.set(true);
+    try {
+      // Pedir permisos de notificacion antes de inscribir (silencioso)
+      await this.ensureNotificationPermissions();
+
+      const result = await this.waitlistService.enrollInWaitlist({
+        userId: user.id,
+        sessionDate: formatDateToLocalYYYYMMDD(date),
+        sessionTime: time + ':00',
+        coachName: coach,
+        attendees: this.companions(),
+        totalAttendees,
+      });
+
+      if (result.success) {
+        this.messageService.add({
+          key: 'waitlist-success',
+          severity: 'success',
+          summary: 'Inscrito en lista de espera',
+          detail: `Quedaste en posicion #${result.position}. Te avisaremos si se libera un lugar.`,
+          life: 8000,
+        });
+        setTimeout(() => this.closeDialog(), 1500);
+      } else {
+        this.messageService.add({
+          severity: 'error',
+          summary: 'No se pudo inscribir',
+          detail: this.translateWaitlistError(result.error, result),
+        });
+      }
+    } catch (err: any) {
+      console.error('❌ Error en enrollInWaitlist:', err);
+      this.messageService.add({
+        severity: 'error',
+        summary: 'Error',
+        detail: err?.message || 'No se pudo inscribir a la lista de espera',
+      });
+    } finally {
+      this.isEnrollingWaitlist.set(false);
+    }
+  }
+
+  private translateWaitlistError(code: string | undefined, ctx: any): string {
+    switch (code) {
+      case 'waitlist_disabled':
+        return 'La lista de espera esta deshabilitada por el administrador.';
+      case 'session_in_past':
+        return 'La sesion ya inicio o paso.';
+      case 'session_not_full':
+        return 'El horario ya tiene lugares libres, intenta reservar normalmente.';
+      case 'user_already_booked':
+        return 'Ya tienes una reserva activa para este horario.';
+      case 'already_in_waitlist':
+        return 'Ya estas inscrito en la lista de espera de este horario.';
+      case 'insufficient_credits':
+        return `Necesitas ${ctx?.required ?? '?'} creditos pero solo tienes ${ctx?.available ?? 0}.`;
+      case 'waitlist_full':
+        return `La lista de espera de este horario llego al maximo (${ctx?.max ?? '?'}).`;
+      case 'slot_not_found':
+        return 'Este horario no existe o esta inactivo.';
+      default:
+        return code || 'Error desconocido';
+    }
   }
 
   async confirmBooking() {
@@ -350,12 +599,15 @@ export class BookingDialog {
     const coach = this.selectedCoach();
     const beds = this.selectedBeds();
     const user = this.supabaseService.getUser();
-    
+
     if (!date || !time || !coach || !user) {
       this.isBooking.set(false);
       return;
     }
-  
+
+    // 🔔 PROFESIONAL: Solicitar permisos de notificaciones ANTES de crear la reserva
+    await this.ensureNotificationPermissions();
+
     // Validar créditos disponibles
     const requiredCredits = this.companions().length + 1;
     const availableCredits = this.creditsService.totalCredits();
@@ -491,6 +743,54 @@ export class BookingDialog {
     // 🚨 CRÍTICO: Siempre restablecer estado
     this.isBooking.set(false);
     this.isLoading.set(false);
+  }
+}
+
+/**
+ * 🔔 PROFESIONAL: Solicitar permisos de notificaciones push ANTES de crear reserva
+ * - Solo pide si aún no hay permisos
+ * - No bloquea si el usuario rechaza (la reserva continúa)
+ * - Timeout de 5 segundos para no bloquear indefinidamente
+ */
+private async ensureNotificationPermissions(): Promise<void> {
+  try {
+    // Verificar estado actual de permisos
+    const currentPermission = this.notificationService.getPermissionStatus();
+
+    console.log('🔔 Current notification permission:', currentPermission);
+
+    // Si ya tiene permisos concedidos, no hacer nada
+    if (currentPermission === 'granted') {
+      console.log('✅ Notification permissions already granted');
+      return;
+    }
+
+    // Si el usuario rechazó previamente, no insistir
+    if (currentPermission === 'denied') {
+      console.log('ℹ️ Notification permissions were denied by user, proceeding with booking');
+      return;
+    }
+
+    // Si está en 'default', pedir permisos con timeout
+    console.log('🔔 Requesting notification permissions...');
+
+    const permissionPromise = this.notificationService.requestPermissions();
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Permission request timeout')), 5000)
+    );
+
+    const result = await Promise.race([permissionPromise, timeoutPromise]) as any;
+
+    if (result?.granted) {
+      console.log('✅ Notification permissions granted by user');
+    } else {
+      console.log('ℹ️ Notification permissions not granted, proceeding with booking anyway');
+    }
+
+  } catch (error) {
+    // Si falla o timeout, continuar sin notificaciones push
+    // La reserva NO debe bloquearse por esto
+    console.warn('⚠️ Could not request notification permissions, proceeding with booking:', error);
   }
 }
 
