@@ -7,6 +7,31 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="icon" type="image/png" href="ragefav.png">
   <link rel="manifest" href="manifest.webmanifest">
+  <script>
+    (function() {
+      try {
+        var color = localStorage.getItem('branding_pop_color');
+        if (color && color.startsWith('#')) {
+          var root = document.documentElement;
+          root.style.setProperty('--pop-color', color);
+          var hex = color.replace('#', '');
+          var r = 0, g = 0, b = 0;
+          if (hex.length === 3) {
+            r = parseInt(hex.substring(0, 1).repeat(2), 16);
+            g = parseInt(hex.substring(1, 2).repeat(2), 16);
+            b = parseInt(hex.substring(2, 3).repeat(2), 16);
+          } else if (hex.length === 6) {
+            r = parseInt(hex.substring(0, 2), 16);
+            g = parseInt(hex.substring(2, 4), 16);
+            b = parseInt(hex.substring(4, 6), 16);
+          }
+          root.style.setProperty('--pop-color-light', 'rgba(' + r + ',' + g + ',' + b + ',0.06)');
+          root.style.setProperty('--pop-color-hover', 'rgba(' + r + ',' + g + ',' + b + ',0.85)');
+          root.style.setProperty('--pop-color-glow', 'rgba(' + r + ',' + g + ',' + b + ',0.4)');
+        }
+      } catch (e) {}
+    })();
+  </script>
 </head>
 <body>
   <app-root></app-root>

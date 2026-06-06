@@ -31,6 +31,8 @@ export class AppSettingsService {
   private readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutos
 
   constructor() {
+    // Intentar cargar el color de marca del localStorage inmediatamente para evitar parpadeos
+    this.loadCachedBrandingColor();
     // Cargar configuraciones al inicializar
     this.loadCriticalSettings();
   }
@@ -107,8 +109,18 @@ export class AppSettingsService {
       if (popColor !== null && popColor !== '') {
         this._brandingPopColor.set(popColor);
         this.applyBrandingColor(popColor);
+        if (typeof localStorage !== 'undefined') {
+          try {
+            localStorage.setItem('branding_pop_color', popColor);
+          } catch (e) {}
+        }
       } else {
         this.applyBrandingColor('#EF4444');
+        if (typeof localStorage !== 'undefined') {
+          try {
+            localStorage.setItem('branding_pop_color', '#EF4444');
+          } catch (e) {}
+        }
       }
 
       this._lastUpdated.set(new Date());
@@ -265,6 +277,23 @@ export class AppSettingsService {
   }
 
   /**
+   * 🎨 Cargar el color de marca almacenado en caché local
+   */
+  private loadCachedBrandingColor() {
+    if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
+      try {
+        const cachedColor = localStorage.getItem('branding_pop_color');
+        if (cachedColor) {
+          this._brandingPopColor.set(cachedColor);
+          this.applyBrandingColor(cachedColor);
+        }
+      } catch (e) {
+        console.warn('⚠️ No se pudo leer del localStorage:', e);
+      }
+    }
+  }
+
+  /**
    * 🎨 Aplicar color de marca en el root del documento
    */
   applyBrandingColor(color: string) {
@@ -294,6 +323,11 @@ export class AppSettingsService {
     if (result.success) {
       this._brandingPopColor.set(color);
       this.applyBrandingColor(color);
+      if (typeof localStorage !== 'undefined') {
+        try {
+          localStorage.setItem('branding_pop_color', color);
+        } catch (e) {}
+      }
     }
     return result;
   }
