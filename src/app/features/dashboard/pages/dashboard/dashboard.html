@@ -151,16 +151,16 @@
     </div>
 
     <!-- Módulo de Asistencia (Cita Inmediata) -->
-    @if (nextBooking()) {
-      <div class="mx-4 mb-6">
-        <h2 class="text-[14px] font-black uppercase tracking-[0.2em] text-black/90 mb-4 px-1">Check-In</h2>
-        
-        <div class="attendance-module rounded-2xl border border-black/10 overflow-hidden bg-white shadow-[0_8px_32px_rgba(0,0,0,0.12)]">
+    <div class="mx-4 mb-6" id="checkin-section">
+      <h2 class="text-[14px] font-black uppercase tracking-[0.2em] text-black/90 mb-4 px-1">Check-In Próxima Clase</h2>
+      
+      <div class="attendance-module rounded-2xl border border-black/10 overflow-hidden bg-white shadow-[0_8px_32px_rgba(0,0,0,0.12)]">
+        @if (nextBooking()) {
           <div class="p-5">
             <div class="flex items-center gap-3 mb-4">
               <div class="w-1.5 h-6 bg-pop rounded-full"></div>
               <div>
-                <h3 class="text-[14px] font-black uppercase tracking-widest text-black">Próxima Clase</h3>
+                <h3 class="text-[14px] font-black uppercase tracking-widest text-black">Clase Programada</h3>
                 <p class="text-[11px] font-bold text-black/35 uppercase tracking-wide">{{ nextBooking().fullDateFormatted }}</p>
               </div>
             </div>
@@ -203,9 +203,22 @@
               </button>
             </div>
           </div>
-        </div>
+        } @else {
+          <!-- Estado vacío (Sin Clases Próximas) -->
+          <div class="p-6 text-center">
+            <div class="w-10 h-10 rounded-xl bg-black/[0.03] border border-black/8 flex items-center justify-center mx-auto mb-3">
+              <i class="pi pi-calendar-minus text-black/35 text-[18px]"></i>
+            </div>
+            <h3 class="text-[14px] font-black uppercase tracking-wider text-[#0a0a0a] mb-1">Sin Clases Próximas</h3>
+            <p class="text-[11px] font-bold text-black/35 uppercase tracking-wide mb-4">No tienes ninguna reserva activa programada.</p>
+            <button (click)="openBookingDialog()"
+                    class="bg-[#0a0a0a] text-white rounded-xl py-2.5 px-6 text-[11px] font-black uppercase tracking-wider shadow-[0_4px_12px_rgba(0,0,0,0.2)] transition-all hover:opacity-85 active:scale-[0.98]">
+              Reservar Clase
+            </button>
+          </div>
+        }
       </div>
-    }
+    </div>
 
     <!-- Gift Card Button -->
     <div class="px-4">

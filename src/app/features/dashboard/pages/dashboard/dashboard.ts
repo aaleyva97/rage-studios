@@ -167,7 +167,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.bookingSub = this.bookingUiService.bookingSuccess$.subscribe(async () => {
       const uid = this.userId();
       if (uid) {
-        await Promise.all([this.loadCredits(), this.buildWeekDays(uid)]);
+        await Promise.all([this.loadCredits(), this.buildWeekDays(uid), this.loadAttendanceData()]);
       }
     });
 
@@ -247,6 +247,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
           const day = this.selectedDay();
           if (day) await this.selectDay(day);
           await this.buildWeekDays(uid);
+          await this.loadAttendanceData();
         } else {
           this.messageService.add({ severity: 'error', summary: 'Error', detail: result.error || 'No se pudo cancelar la reserva' });
         }
