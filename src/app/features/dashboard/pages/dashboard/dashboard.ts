@@ -20,6 +20,7 @@ import { MessageService } from 'primeng/api';
 import { WaitlistUiService } from '../../../../core/services/waitlist-ui.service';
 import { MembershipService } from '../../../../core/services/membership.service';
 import { MembershipInfoDialog } from '../../../../shared/components/membership-info-dialog/membership-info-dialog';
+import { AppSettingsService } from '../../../../core/services/app-settings.service';
 
 interface DaySlot {
   date: Date;
@@ -64,6 +65,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   private messageService = inject(MessageService);
   private waitlistUiService = inject(WaitlistUiService);
   protected membershipService = inject(MembershipService);
+  private appSettingsService = inject(AppSettingsService);
 
   private authSub?: Subscription;
   private bookingSub?: Subscription;
@@ -197,7 +199,32 @@ export class DashboardComponent implements OnInit, OnDestroy {
     const today = new Date();
     const todayIso = getTodayLocalYYYYMMDD();
 
-    const slots: DaySlot[] = Array.from({ length: 7 }, (_, i) => {
+    // 1. Obtener el modo de disponibilidad y determinar los días visibles
+    const mode = this.appSettingsService.bookingAvailabilityMode();
+    let displayDays = 15; // Por defecto 15 días (Opción 2)
+
+    if (mode === 'date_range') {
+      const endDateStr = this.appSettingsService.bookingDateRangeEnd();
+      if (endDateStr) {
+        // Parsear la fecha de finalización de la agenda como fecha local
+        const [y, m, d] = endDateStr.split('-').map(Number);
+        const endDate = new Date(y, m - 1, d);
+        endDate.setHours(0, 0, 0, 0);
+
+        const todayStart = new Date(today);
+        todayStart.setHours(0, 0, 0, 0);
+
+        const diffTime = endDate.getTime() - todayStart.getTime();
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+        
+        // Si el rango es válido, usarlo (cappeado a 30 días como máximo de seguridad)
+        if (diffDays > 0) {
+          displayDays = Math.min(diffDays, 30);
+        }
+      }
+    }
+
+    const slots: DaySlot[] = Array.from({ length: displayDays }, (_, i) => {
       const d = new Date(today);
       d.setDate(today.getDate() + i);
       const iso = formatDateToLocalYYYYMMDD(d);
