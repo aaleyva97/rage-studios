@@ -369,3 +369,38 @@
     transform: translateX(4px);
   }
 }
+
+/* 💎 Premium Digital Membership Card */
+.membership-premium-card {
+  background: linear-gradient(135deg, #161616 0%, #0c0c0c 100%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 12px 32px -10px rgba(0, 0, 0, 0.7), 0 0 35px -15px var(--pop-color-glow, rgba(239, 68, 68, 0.3));
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.4s, border-color 0.4s;
+  
+  .membership-glow-effect {
+    background: radial-gradient(circle, var(--pop-color, #ef4444) 0%, transparent 70%);
+  }
+
+  &:hover {
+    transform: translateY(-4px) scale(1.005);
+    border-color: rgba(255, 255, 255, 0.16);
+    box-shadow: 0 20px 48px -8px rgba(0, 0, 0, 0.8), 0 0 45px -10px var(--pop-color-glow, rgba(239, 68, 68, 0.45));
+  }
+  
+  &:active {
+    transform: translateY(-1px) scale(0.995);
+  }
+}
+
+.membership-promo-card {
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  
+  &:hover {
+    transform: translateY(-3px);
+  }
+  
+  &:active {
+    transform: translateY(-1px);
+  }
+}
+

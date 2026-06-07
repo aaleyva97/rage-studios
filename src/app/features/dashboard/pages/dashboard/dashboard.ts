@@ -18,6 +18,8 @@ import { ToastModule } from 'primeng/toast';
 import { DialogModule } from 'primeng/dialog';
 import { MessageService } from 'primeng/api';
 import { WaitlistUiService } from '../../../../core/services/waitlist-ui.service';
+import { MembershipService } from '../../../../core/services/membership.service';
+import { MembershipInfoDialog } from '../../../../shared/components/membership-info-dialog/membership-info-dialog';
 
 interface DaySlot {
   date: Date;
@@ -42,7 +44,7 @@ interface BookingCard {
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [NgClass, DatePipe, ToastModule, DialogModule, RouterModule],
+  imports: [NgClass, DatePipe, ToastModule, DialogModule, RouterModule, MembershipInfoDialog],
   providers: [MessageService],
   templateUrl: './dashboard.html',
   styleUrl: './dashboard.scss'
@@ -61,6 +63,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   private notificationService = inject(NotificationService);
   private messageService = inject(MessageService);
   private waitlistUiService = inject(WaitlistUiService);
+  protected membershipService = inject(MembershipService);
 
   private authSub?: Subscription;
   private bookingSub?: Subscription;
@@ -69,6 +72,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
   userProfile = signal<any>(null);
   streak = signal(0);
   membership = signal('ÉLITE');
+  showMembershipDialog = signal(false);
+  userMembership = this.membershipService.userMembership;
 
   nextBooking = signal<any | null>(null);
   markingAttendance = signal(false);
@@ -161,6 +166,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
         await this.buildWeekDays(user.id);
         await this.loadCredits();
         await this.loadAttendanceData();
+        await this.membershipService.loadUserMembership(user.id);
       }
     });
 
@@ -429,5 +435,19 @@ export class DashboardComponent implements OnInit, OnDestroy {
       day: 'numeric', 
       month: 'long' 
     }).format(date).toUpperCase();
+  }
+
+  getUniqueBeds(schedules: any[]): string {
+    if (!schedules) return '';
+    const beds = new Set<number>();
+    schedules.forEach(s => {
+      if (s.bed_numbers) {
+        s.bed_numbers.forEach((b: number) => beds.add(b));
+      }
+    });
+    return Array.from(beds)
+      .sort((a, b) => a - b)
+      .map(b => b < 10 ? `0${b}` : `${b}`)
+      .join(', ');
   }
 }
