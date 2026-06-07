@@ -9,7 +9,7 @@ Deno.serve(async (_req) => {
   const debugLogs: string[] = [];
   try {
     const nowStr = new Date().toISOString();
-    debugLogs.push(`Processing scheduled news at ${nowStr}`);
+    debugLogs.push(`Processing news notifications at ${nowStr}`);
 
     // Find news due for publishing (regardless of active status, since scheduling implies publication intent)
     const { data: dueNews, error: fetchError } = await supabase
@@ -19,36 +19,59 @@ Deno.serve(async (_req) => {
       .is('published_at', null);
 
     if (fetchError) {
-      debugLogs.push(`Fetch error: ${fetchError.message}`);
+      debugLogs.push(`Fetch scheduled news error: ${fetchError.message}`);
       throw fetchError;
     }
 
-    if (!dueNews || dueNews.length === 0) {
-      debugLogs.push('No pending news found');
+    // Find immediate news that are active, need notifications, and haven't had them sent yet
+    const { data: immediateNews, error: immediateError } = await supabase
+      .from('news')
+      .select('*')
+      .is('scheduled_at', null)
+      .eq('is_active', true)
+      .eq('send_notification', true)
+      .eq('notification_sent', false);
+
+    if (immediateError) {
+      debugLogs.push(`Fetch immediate news error: ${immediateError.message}`);
+      throw immediateError;
+    }
+
+    const allNews = [
+      ...(dueNews || []),
+      ...(immediateNews || [])
+    ];
+
+    if (allNews.length === 0) {
+      debugLogs.push('No pending scheduled news or immediate news notifications found');
       return new Response(JSON.stringify({ published: 0, debugLogs }), { status: 200 });
     }
 
-    debugLogs.push(`Found ${dueNews.length} news items to publish`);
+    debugLogs.push(`Found ${allNews.length} total news items to process (${dueNews?.length || 0} scheduled, ${immediateNews?.length || 0} immediate)`);
     let published = 0;
 
-    for (const item of dueNews) {
-      // Mark as published and active
-      const { error: updateError } = await supabase
-        .from('news')
-        .update({ 
-          published_at: nowStr,
-          is_active: true
-        })
-        .eq('id', item.id);
+    for (const item of allNews) {
+      const isScheduled = !item.published_at;
 
-      if (updateError) {
-        debugLogs.push(`Failed to publish news ${item.id}: ${updateError.message}`);
-        console.error(`Failed to publish news ${item.id}:`, updateError);
-        continue;
+      if (isScheduled) {
+        // Mark as published and active
+        const { error: updateError } = await supabase
+          .from('news')
+          .update({ 
+            published_at: nowStr,
+            is_active: true
+          })
+          .eq('id', item.id);
+
+        if (updateError) {
+          debugLogs.push(`Failed to publish scheduled news ${item.id}: ${updateError.message}`);
+          console.error(`Failed to publish scheduled news ${item.id}:`, updateError);
+          continue;
+        }
+        debugLogs.push(`Published scheduled news item ${item.id}`);
       }
 
       published++;
-      debugLogs.push(`Published news item ${item.id}`);
 
       // Queue push and in-app notifications if requested and not already sent
       if (item.send_notification && !item.notification_sent) {
