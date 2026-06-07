@@ -8,6 +8,7 @@
   [style]="{width: '90vw', maxWidth: '1000px'}"
   [breakpoints]="{'960px': '95vw', '640px': '100vw'}"
   header="Mis Reservas Activas"
+  (onShow)="initializeDialogData()"
   (onHide)="closeDialog()">
 
   <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 p-4">
@@ -23,7 +24,7 @@
         (onSelect)="onDateSelect($event)">
 
         <!-- Template para customizar días con reservas -->
-        <ng-template pTemplate="date" let-date>
+        <ng-template #date let-date>
           @if (hasBookingOnDate(date)) {
             <span class="booking-day">
               {{ date.day }}

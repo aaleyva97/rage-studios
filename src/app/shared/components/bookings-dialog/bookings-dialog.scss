@@ -1,7 +1,9 @@
 // Estilos para días con reservas en el calendario
 :host ::ng-deep {
-  // Estilo ultra-específico para forzar el círculo verde
-  .p-datepicker-calendar td span.booking-day {
+  // Estilo genérico y ultra-específico para el día con reserva
+  .booking-day,
+  .p-datepicker-calendar td span.booking-day,
+  .p-datepicker-calendar td button.booking-day {
     background-color: #10B981 !important;
     color: #ffffff !important;
     border-radius: 50% !important;
@@ -17,13 +19,17 @@
   }
 
   // Estilo para cuando el día con reserva es el seleccionado (mezcla visual)
-  .p-datepicker-day-selected .booking-day {
+  .p-datepicker-day-selected .booking-day,
+  .p-datepicker-current-day .booking-day,
+  [data-p-selected="true"] .booking-day {
     background-color: #059669 !important; // Un verde más oscuro para el seleccionado
     box-shadow: 0 0 15px rgba(16, 185, 129, 0.6) !important;
   }
 
   // Asegurar que el día seleccionado mantenga su estilo primario pero respete el círculo
-  .p-datepicker-day-selected {
+  .p-datepicker-day-selected,
+  .p-datepicker-current-day,
+  [data-p-selected="true"] {
     border-radius: 50% !important;
   }
   

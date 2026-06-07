@@ -76,6 +76,14 @@ export class BookingsDialog implements OnInit, OnDestroy {
 
   async initializeDialogData() {
     if (!this.currentUserId) {
+      const user = this.supabaseService.getUser();
+      if (user) {
+        this.currentUserId = user.id;
+      }
+    }
+
+    if (!this.currentUserId) {
+      console.warn('⚠️ [Bookings Dialog] No current user ID available in initializeDialogData');
       return;
     }
 
