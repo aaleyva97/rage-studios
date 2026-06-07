@@ -174,7 +174,7 @@
                   <div class="flex items-center gap-2 text-[12px] font-bold text-black/40">
                     <span>{{ nextBooking().coach_name }}</span>
                     <span class="w-1 h-1 rounded-full bg-black/20"></span>
-                    <span>Cama {{ nextBooking().bed_numbers?.join(', ') }}</span>
+                    <span>Reformer {{ nextBooking().bed_numbers?.join(', ') }}</span>
                   </div>
                 </div>
                 <div class="bg-[#0a0a0a] text-white px-3 py-1.5 rounded-xl text-[12px] font-black shadow-[0_4px_12px_rgba(0,0,0,0.2)]">
@@ -392,14 +392,12 @@
                         <span class="text-[11px] font-black text-black/60">{{ booking.time }}</span>
                       </div>
                     </div>
-
                     <div class="flex items-center gap-1.5 mb-4">
                       <div class="flex items-center gap-1 border border-black/8 rounded-lg px-2 py-1 bg-black/[0.02]">
                         <i class="pi pi-bed text-[10px] text-black/35"></i>
-                        <span class="text-[11px] font-bold text-black/45">Cama {{ booking.bed }}</span>
+                        <span class="text-[11px] font-bold text-black/45">Reformer {{ booking.bed }}</span>
                       </div>
                     </div>
-
                     @if (booking.canCancel) {
                       <button (click)="onCancelClass(booking)"
                               class="w-full border border-pop/25 text-pop rounded-lg py-2 text-[11px] font-black uppercase tracking-wider transition-all hover:bg-pop/6 hover:border-pop/50 disabled:opacity-40"
@@ -431,6 +429,118 @@
                     class="bg-[#0a0a0a] text-white rounded-lg py-2 px-5 text-[11px] font-black uppercase tracking-wider shadow-[0_4px_12px_rgba(0,0,0,0.2)] transition-all hover:opacity-80">
               Reservar ahora
             </button>
+          </div>
+        }
+      </div>
+    </div>
+
+    <!-- ── DYNAMIC MEMBERSHIP CARD ── -->
+    <div class="mb-8">
+      <div class="flex items-baseline px-4 mb-3">
+        <h3 class="text-[16px] font-black uppercase tracking-[0.2em]">Membresía</h3>
+      </div>
+      
+      <div class="px-4">
+        @if (userMembership(); as m) {
+          <div (click)="showMembershipDialog.set(true)"
+               class="membership-premium-card relative overflow-hidden rounded-2xl p-6 cursor-pointer border border-white/10 shadow-[0_12px_32px_-10px_rgba(0,0,0,0.8)] transition-all duration-300">
+            
+            <!-- Glass/Shiny background gradient overlay -->
+            <div class="absolute inset-0 bg-gradient-to-br from-white/10 via-transparent to-transparent pointer-events-none"></div>
+            
+            <!-- Radial glow using brand pop color -->
+            <div class="membership-glow-effect absolute -right-20 -bottom-20 w-44 h-44 rounded-full blur-[60px] pointer-events-none opacity-45"></div>
+
+            <!-- Header -->
+            <div class="flex justify-between items-center mb-6">
+              <span class="text-[18px] font-black tracking-[0.22em] text-white">RAGE <span class="text-pop" style="color: var(--pop-color)">STUDIOS</span></span>
+              <span class="text-[9px] font-black tracking-[0.15em] uppercase text-white/50 border border-white/20 rounded px-2 py-0.5 bg-white/5">
+                {{ m.client_name }}
+              </span>
+            </div>
+
+            <!-- Holder Details -->
+            <div class="mb-5">
+              <div class="text-[8px] text-white/40 font-bold tracking-[0.2em] uppercase mb-0.5">Socio</div>
+              <div class="text-[18px] font-black uppercase tracking-wider text-white leading-tight">
+                {{ userProfile()?.full_name || displayName }}
+              </div>
+              <div class="text-[9px] font-bold text-white/30 tracking-wider mt-0.5">ID: RGE-{{ m.id.substring(0, 8).toUpperCase() }}</div>
+            </div>
+
+            <!-- Columns for schedules & reformer -->
+            <div class="grid grid-cols-2 gap-4 border-t border-white/10 pt-4">
+              <div>
+                <div class="text-[8px] text-white/40 font-bold tracking-[0.2em] uppercase mb-1">Horarios Fijos</div>
+                @if (m.schedules.length > 0) {
+                  <div class="space-y-0.5">
+                    @for (s of m.schedules.slice(0, 2); track s.id) {
+                      <div class="text-[11px] font-black text-white/90 uppercase tracking-wide">
+                        {{ s.day_name.substring(0, 3) }} • {{ s.start_time.substring(0, 5) }}
+                      </div>
+                    }
+                    @if (m.schedules.length > 2) {
+                      <div class="text-[9px] font-bold text-white/50 uppercase tracking-wide">+ {{ m.schedules.length - 2 }} más</div>
+                    }
+                  </div>
+                } @else {
+                  <div class="text-[11px] font-bold text-white/30 uppercase tracking-wide">Sin horarios</div>
+                }
+              </div>
+              
+              <div>
+                <div class="text-[8px] text-white/40 font-bold tracking-[0.2em] uppercase mb-1">Reformers Asignados</div>
+                @if (m.schedules.length > 0) {
+                  <div class="text-[14px] font-black tracking-wide" style="color: var(--pop-color)">
+                    REFORMER {{ getUniqueBeds(m.schedules) }}
+                  </div>
+                } @else {
+                  <div class="text-[11px] font-bold text-white/30 uppercase tracking-wide">Sin reformer</div>
+                }
+              </div>
+            </div>
+
+            <!-- Active Indicator -->
+            <div class="flex items-center justify-between mt-5 pt-3 border-t border-white/5 text-[9px] font-bold text-white/40">
+              <div class="flex items-center gap-1.5">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981] animate-pulse"></span>
+                <span class="tracking-widest uppercase text-emerald-400">Pase Activo</span>
+              </div>
+              <div class="flex items-center gap-1 hover:text-white transition-colors">
+                <span>GESTIONAR</span>
+                <i class="pi pi-chevron-right text-[7px]"></i>
+              </div>
+            </div>
+
+          </div>
+        } @else {
+          <!-- Luxury promotion mockup card -->
+          <div class="membership-promo-card relative overflow-hidden rounded-2xl p-6 border border-black/10 bg-white shadow-[0_4px_20px_-4px_rgba(0,0,0,0.10)] transition-all">
+            <div class="flex justify-between items-start mb-4">
+              <div class="space-y-1 pr-6">
+                <div class="text-[10px] font-black tracking-[0.18em] uppercase" style="color: var(--pop-color)">Membresía Fija</div>
+                <h4 class="text-[15px] font-black uppercase tracking-tight text-black">Asegura tu Reformer y Horario Fijo</h4>
+                <p class="text-[11px] text-black/55 font-medium leading-snug">
+                  Evita reservar manualmente cada semana. Asegura tu reformer y horario recurrente favorito hoy mismo.
+                </p>
+              </div>
+              <div class="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style="background-color: var(--pop-color-light); color: var(--pop-color)">
+                <i class="pi pi-id-card text-lg"></i>
+              </div>
+            </div>
+            
+            <div class="flex flex-col sm:flex-row gap-2 mt-4">
+              <a href="https://wa.me/5218715817065?text=Hola,%20me%20gustaría%20solicitar%20información%20sobre%20las%20membresías%20de%20horario%20y%20reformer%20fijo."
+                 target="_blank"
+                 rel="noopener noreferrer"
+                 class="flex-1 flex items-center justify-center gap-2 bg-[#25D366] text-white rounded-xl py-3 px-4 text-[11px] font-black uppercase tracking-wider shadow-[0_4px_12px_rgba(37,211,102,0.25)] hover:bg-[#20ba59] transition-all text-center no-underline">
+                <i class="pi pi-whatsapp text-[13px]"></i>
+                <span>Solicitar por WhatsApp</span>
+              </a>
+              <div class="flex-1 flex items-center justify-center border border-black/10 rounded-xl py-3 px-4 text-[10px] font-black uppercase tracking-wider text-black/60 bg-black/[0.01] text-center">
+                Adquiérela en Recepción
+              </div>
+            </div>
           </div>
         }
       </div>
@@ -484,136 +594,26 @@
 
     <!-- ── LOGROS con glow ──────────────────────────────────────── -->
     <div>
-      <div class="flex items-baseline px-4 mb-3">
-        <h3 class="text-[16px] font-black uppercase tracking-[0.2em]">Logros</h3>
+      <div class="flex items-center px-4 mb-3 gap-2">
+        <h3 class="text-[16px] font-black uppercase tracking-[0.2em] text-black/40">Logros</h3>
+        <span class="text-[8px] font-black tracking-[0.15em] bg-black/[0.04] border border-black/8 text-black/50 px-2 py-0.5 rounded uppercase">
+          Próximamente
+        </span>
       </div>
-      <div class="flex gap-4 overflow-x-auto px-6 pb-8 pt-3 scrollbar-hide">
+      <div class="flex gap-4 overflow-x-auto px-6 pb-8 pt-3 scrollbar-hide opacity-60 pointer-events-none">
         @for (b of badges; track b.id) {
           <div class="flex flex-col items-center gap-2 min-w-[80px] flex-shrink-0">
-            <div class="badge-wrap relative w-16 h-16 flex items-center justify-center"
-                 [ngClass]="b.unlocked ? '' : 'opacity-35 grayscale'">
-              @if (b.unlocked) {
-                <div class="absolute inset-0 rounded-2xl blur-md opacity-30 transition-opacity"
-                     [style.background]="'rgb(' + b.glow + ')'"></div>
-              }
-              <div class="relative w-16 h-16 rounded-2xl border flex items-center justify-center text-3xl shadow-[0_4px_12px_rgba(0,0,0,0.10)] bg-white"
-                   [style.border-color]="b.unlocked ? 'rgba(' + b.glow + ',0.25)' : 'rgba(0,0,0,0.08)'">
+            <div class="badge-wrap relative w-16 h-16 flex items-center justify-center opacity-35 grayscale">
+              <div class="relative w-16 h-16 rounded-2xl border border-black/8 flex items-center justify-center text-3xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] bg-white">
                 {{ b.icon }}
-                @if (!b.unlocked) {
-                  <div class="absolute inset-0 rounded-2xl flex items-center justify-center">
-                    <i class="pi pi-lock text-[10px] text-black/25"></i>
-                  </div>
-                }
+                <div class="absolute inset-0 rounded-2xl flex items-center justify-center bg-black/[0.02]">
+                  <i class="pi pi-lock text-[10px] text-black/35"></i>
+                </div>
               </div>
             </div>
-            <span class="text-[10px] font-bold text-center leading-tight tracking-wider uppercase w-20"
-                  [ngClass]="b.unlocked ? 'text-black/55' : 'text-black/22'">
+            <span class="text-[10px] font-bold text-center leading-tight tracking-wider uppercase w-20 text-black/22">
               {{ b.label }}
             </span>
-          </div>
-        }
-      </div>
-    </div>
-
-    <!-- ── DYNAMIC MEMBERSHIP CARD ── -->
-    <div class="mb-8">
-      <div class="flex items-baseline px-4 mb-3">
-        <h3 class="text-[16px] font-black uppercase tracking-[0.2em]">Membresía</h3>
-      </div>
-      
-      <div class="px-4">
-        @if (userMembership(); as m) {
-          <div (click)="showMembershipDialog.set(true)"
-               class="membership-premium-card relative overflow-hidden rounded-2xl p-6 cursor-pointer border border-white/10 shadow-[0_12px_32px_-10px_rgba(0,0,0,0.8)] transition-all duration-300">
-            
-            <!-- Glass/Shiny background gradient overlay -->
-            <div class="absolute inset-0 bg-gradient-to-br from-white/10 via-transparent to-transparent pointer-events-none"></div>
-            
-            <!-- Radial glow using brand pop color -->
-            <div class="membership-glow-effect absolute -right-20 -bottom-20 w-44 h-44 rounded-full blur-[60px] pointer-events-none opacity-45"></div>
-
-            <!-- Header -->
-            <div class="flex justify-between items-center mb-6">
-              <span class="text-[18px] font-black tracking-[0.22em] text-white">RAGE <span class="text-pop" style="color: var(--pop-color)">STUDIOS</span></span>
-              <span class="text-[9px] font-black tracking-[0.15em] uppercase text-white/50 border border-white/20 rounded px-2 py-0.5 bg-white/5">
-                {{ m.client_name }}
-              </span>
-            </div>
-
-            <!-- Holder Details -->
-            <div class="mb-5">
-              <div class="text-[8px] text-white/40 font-bold tracking-[0.2em] uppercase mb-0.5">Socio</div>
-              <div class="text-[18px] font-black uppercase tracking-wider text-white leading-tight">
-                {{ userProfile()?.full_name || displayName }}
-              </div>
-              <div class="text-[9px] font-bold text-white/30 tracking-wider mt-0.5">ID: RGE-{{ m.id.substring(0, 8).toUpperCase() }}</div>
-            </div>
-
-            <!-- Columns for schedules & bed -->
-            <div class="grid grid-cols-2 gap-4 border-t border-white/10 pt-4">
-              <div>
-                <div class="text-[8px] text-white/40 font-bold tracking-[0.2em] uppercase mb-1">Horarios Fijos</div>
-                @if (m.schedules.length > 0) {
-                  <div class="space-y-0.5">
-                    @for (s of m.schedules.slice(0, 2); track s.id) {
-                      <div class="text-[11px] font-black text-white/90 uppercase tracking-wide">
-                        {{ s.day_name.substring(0, 3) }} • {{ s.start_time.substring(0, 5) }}
-                      </div>
-                    }
-                    @if (m.schedules.length > 2) {
-                      <div class="text-[9px] font-bold text-white/50 uppercase tracking-wide">+ {{ m.schedules.length - 2 }} más</div>
-                    }
-                  </div>
-                } @else {
-                  <div class="text-[11px] font-bold text-white/30 uppercase tracking-wide">Sin horarios</div>
-                }
-              </div>
-              
-              <div>
-                <div class="text-[8px] text-white/40 font-bold tracking-[0.2em] uppercase mb-1">Camas Asignadas</div>
-                @if (m.schedules.length > 0) {
-                  <div class="text-[14px] font-black tracking-wide" style="color: var(--pop-color)">
-                    CAMA {{ getUniqueBeds(m.schedules) }}
-                  </div>
-                } @else {
-                  <div class="text-[11px] font-bold text-white/30 uppercase tracking-wide">Sin cama</div>
-                }
-              </div>
-            </div>
-
-            <!-- Active Indicator -->
-            <div class="flex items-center justify-between mt-5 pt-3 border-t border-white/5 text-[9px] font-bold text-white/40">
-              <div class="flex items-center gap-1.5">
-                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981] animate-pulse"></span>
-                <span class="tracking-widest uppercase text-emerald-400">Pase Activo</span>
-              </div>
-              <div class="flex items-center gap-1 hover:text-white transition-colors">
-                <span>GESTIONAR</span>
-                <i class="pi pi-chevron-right text-[7px]"></i>
-              </div>
-            </div>
-
-          </div>
-        } @else {
-          <!-- Luxury promotion mockup card -->
-          <div (click)="openBookingDialog()" 
-               class="membership-promo-card relative overflow-hidden rounded-2xl p-5 border border-black/10 bg-white shadow-[0_4px_20px_-4px_rgba(0,0,0,0.10)] cursor-pointer hover:shadow-[0_8px_28px_-4px_rgba(0,0,0,0.15)] transition-all">
-            <div class="flex justify-between items-start">
-              <div class="space-y-1 pr-6">
-                <div class="text-[10px] font-black tracking-[0.18em] uppercase" style="color: var(--pop-color)">Membresía Fija</div>
-                <h4 class="text-[14px] font-black uppercase tracking-tight text-black">Asegura tu Cama y Horario Fijo</h4>
-                <p class="text-[11px] text-black/55 font-semibold leading-snug">
-                  Olvídate de reservar manualmente cada semana. Separa tu horario recurrente favorito.
-                </p>
-              </div>
-              <div class="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style="background-color: var(--pop-color-light); color: var(--pop-color)">
-                <i class="pi pi-id-card text-lg"></i>
-              </div>
-            </div>
-            <div class="flex items-center gap-1 mt-4 text-[10px] font-black text-black uppercase tracking-wider">
-              <span>Reservar Clases</span>
-              <i class="pi pi-arrow-right text-[8px]"></i>
-            </div>
           </div>
         }
       </div>
