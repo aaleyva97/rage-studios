@@ -407,6 +407,21 @@ export class DashboardComponent implements OnInit, OnDestroy {
     if (action.route) this.router.navigate([action.route]);
   }
 
+  formatCtaUrl(url: string | undefined | null): string {
+    if (!url) return '';
+    const trimmed = url.trim();
+    if (trimmed.startsWith('/') || trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+      return trimmed;
+    }
+    return `https://${trimmed}`;
+  }
+
+  isExternalUrl(url: string | undefined | null): boolean {
+    if (!url) return false;
+    const trimmed = url.trim();
+    return !trimmed.startsWith('/');
+  }
+
   private formatFullDate(dateStr: string): string {
     const date = new Date(dateStr + 'T00:00:00');
     return new Intl.DateTimeFormat('es-MX', { 

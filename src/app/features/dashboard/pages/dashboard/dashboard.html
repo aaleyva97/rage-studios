@@ -568,9 +568,10 @@
         <!-- CTA Link -->
         @if (selectedNews()?.link_url && selectedNews()?.link_label) {
           <div class="news-detail__cta-wrapper">
-            <a [href]="selectedNews()?.link_url" 
-               [routerLink]="selectedNews()?.link_url?.startsWith('/') ? selectedNews()?.link_url : null" 
-               [attr.target]="selectedNews()?.link_url?.startsWith('http') ? '_blank' : null" 
+            <a [href]="formatCtaUrl(selectedNews()?.link_url)" 
+               [routerLink]="isExternalUrl(selectedNews()?.link_url) ? null : selectedNews()?.link_url" 
+               [attr.target]="isExternalUrl(selectedNews()?.link_url) ? '_blank' : null" 
+               [attr.rel]="isExternalUrl(selectedNews()?.link_url) ? 'noopener noreferrer' : null"
                (click)="showNewsDialog.set(false)"
                class="news-detail__cta-btn">
               <span>{{ selectedNews()?.link_label }}</span>

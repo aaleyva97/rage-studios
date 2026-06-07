@@ -62,19 +62,28 @@
           <div class="notif-panel notif-panel--desktop">
             <div class="notif-panel__header">
               <span class="notif-panel__title">Notificaciones</span>
-              <button (click)="showNotifications.set(false)" class="notif-panel__close">
-                <i class="pi pi-times"></i>
-              </button>
+              <div style="display: flex; align-items: center; gap: 12px;">
+                @if (unreadNotifications().length > 0) {
+                  <button (click)="markAllRead()" style="background: none; border: none; font-size: 11px; font-weight: 700; color: #EF4444; cursor: pointer; text-transform: uppercase; letter-spacing: 0.5px;">
+                    Limpiar
+                  </button>
+                }
+                <button (click)="closeNotifications()" class="notif-panel__close">
+                  <i class="pi pi-times"></i>
+                </button>
+              </div>
             </div>
             <div class="notif-panel__body">
-              @if (notificationHistory().length === 0) {
+              @if (unreadNotifications().length === 0) {
                 <div class="notif-panel__empty">
                   <i class="pi pi-bell-slash"></i>
                   <p>No tienes notificaciones aún</p>
                 </div>
               } @else {
-                @for (notif of notificationHistory(); track notif.id) {
-                  <div class="notif-item" [class.notif-item--unread]="!notificationService.readIds().has(notif.id)">
+                @for (notif of unreadNotifications(); track notif.id) {
+                  <div class="notif-item" 
+                       [class.notif-item--unread]="!notificationService.readIds().has(notif.id)"
+                       (click)="handleNotificationClick(notif)">
                     <div class="notif-item__icon"
                          [class.notif-item__icon--red]="notif.notification_type === 'cancellation_user'">
                       <i class="pi" [class]="notif.notification_type === 'cancellation_user' ? 'pi-times' : 'pi-calendar'"></i>
@@ -191,20 +200,29 @@
              <div class="notif-panel">
               <div class="notif-panel__header">
                 <span class="notif-panel__title">Notificaciones</span>
-                <button (click)="showNotifications.set(false)" class="notif-panel__close">
-                  <i class="pi pi-times"></i>
-                </button>
+                <div style="display: flex; align-items: center; gap: 12px;">
+                  @if (unreadNotifications().length > 0) {
+                    <button (click)="markAllRead()" style="background: none; border: none; font-size: 11px; font-weight: 700; color: #EF4444; cursor: pointer; text-transform: uppercase; letter-spacing: 0.5px;">
+                      Limpiar
+                    </button>
+                  }
+                  <button (click)="closeNotifications()" class="notif-panel__close">
+                    <i class="pi pi-times"></i>
+                  </button>
+                </div>
               </div>
 
               <div class="notif-panel__body">
-                @if (notificationHistory().length === 0) {
+                @if (unreadNotifications().length === 0) {
                   <div class="notif-panel__empty">
                     <i class="pi pi-bell-slash"></i>
                     <p>No tienes notificaciones aún</p>
                   </div>
                 } @else {
-                  @for (notif of notificationHistory(); track notif.id) {
-                    <div class="notif-item" [class.notif-item--unread]="!notificationService.readIds().has(notif.id)">
+                  @for (notif of unreadNotifications(); track notif.id) {
+                    <div class="notif-item" 
+                         [class.notif-item--unread]="!notificationService.readIds().has(notif.id)"
+                         (click)="handleNotificationClick(notif)">
                       <div class="notif-item__icon"
                            [class.notif-item__icon--red]="notif.notification_type === 'cancellation_user'">
                         <i class="pi" [class]="notif.notification_type === 'cancellation_user' ? 'pi-times' : 'pi-calendar'"></i>

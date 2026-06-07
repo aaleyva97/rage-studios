@@ -1,4 +1,4 @@
-import { Component, signal, inject, OnInit, OnDestroy, PLATFORM_ID } from '@angular/core';
+import { Component, signal, inject, OnInit, OnDestroy, PLATFORM_ID, computed } from '@angular/core';
 import { isPlatformBrowser, DatePipe } from '@angular/common';
 import { RouterModule, Router } from '@angular/router';
 import { SupabaseService } from '../../../../core/services/supabase-service';
@@ -72,6 +72,10 @@ export class DashboardLayout implements OnInit, OnDestroy {
 
   unreadCount = this.notificationService.unreadNotificationsCount;
   notificationHistory = this.notificationService.history;
+  unreadNotifications = computed(() => {
+    const read = this.notificationService.readIds();
+    return this.notificationHistory().filter(notif => !read.has(notif.id));
+  });
   activeBookingsCount = this.bookingService.activeBookingsCount;
 
   navItems: NavItem[] = [
@@ -134,9 +138,25 @@ export class DashboardLayout implements OnInit, OnDestroy {
   toggleNotifications() {
     const isOpening = !this.showNotifications();
     this.showNotifications.set(isOpening);
-    if (isOpening) {
+    if (!isOpening) {
       this.notificationService.markAllAsRead();
     }
+  }
+
+  closeNotifications() {
+    this.showNotifications.set(false);
+    this.notificationService.markAllAsRead();
+  }
+
+  markAllRead() {
+    this.notificationService.markAllAsRead();
+  }
+
+  async handleNotificationClick(notif: any) {
+    await this.notificationService.markAsRead(notif.id);
+    this.showNotifications.set(false);
+    const url = notif.message_payload?.data?.actionUrl || '/dashboard/reservas';
+    this.router.navigateByUrl(url);
   }
 
   reload() {
