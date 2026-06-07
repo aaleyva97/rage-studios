@@ -109,7 +109,7 @@ Deno.serve(async (_req) => {
                 badge: '/icons/badge-72x72.png',
                 data: {
                   news_id: item.id,
-                  actionUrl: item.link_url ?? '/'
+                  actionUrl: item.link_url ?? '/dashboard'
                 }
               }
             }));
