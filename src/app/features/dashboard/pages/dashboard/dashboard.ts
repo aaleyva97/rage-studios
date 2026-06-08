@@ -366,6 +366,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   private async loadWeeklyAttendance(userId: string) {
     const today = new Date();
+    today.setHours(0, 0, 0, 0);
     // Obtener el Lunes de esta semana
     const day = today.getDay();
     const diff = today.getDate() - day + (day === 0 ? -6 : 1);
@@ -379,7 +380,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
       bookings.forEach(b => {
         if (b.status === 'active' && b.attendance_status === 'attended') {
           const bDate = new Date(b.session_date + 'T00:00:00');
-          const dayDiff = Math.floor((bDate.getTime() - monday.getTime()) / (1000 * 60 * 60 * 24));
+          const dayDiff = Math.round((bDate.getTime() - monday.getTime()) / (1000 * 60 * 60 * 24));
           if (dayDiff >= 0 && dayDiff < 7) {
             weekData[dayDiff] = true;
           }
