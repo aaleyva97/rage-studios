@@ -17,8 +17,25 @@ if (typeof self.skipWaiting === 'function') {
   try {
     // Solo intentar importar durante la instalación inicial
     if (!self.ngsw) {
+      // ✅ EVITAR DUPLICADOS DE NOTIFICACIONES PUSH:
+      // Sobrescribir temporalmente self.addEventListener para ignorar registros de 'push' y 'notificationclick'
+      // que vienen en ngsw-worker.js. Esto evita que Angular interfiera con Firebase Messaging
+      // pero conserva todas las características PWA de caché y offline de Angular.
+      const originalAddEventListener = self.addEventListener;
+      self.addEventListener = function(type, listener, options) {
+        if (type === 'push' || type === 'notificationclick') {
+          console.log(`🚫 [SW] Registro de listener '${type}' ignorado para evitar duplicaciones`);
+          return;
+        }
+        return originalAddEventListener.call(self, type, listener, options);
+      };
+
       importScripts('./ngsw-worker.js');
-      console.log('✅ [SW] Angular PWA Service Worker imported successfully');
+      
+      // Restaurar addEventListener original
+      self.addEventListener = originalAddEventListener;
+      
+      console.log('✅ [SW] Angular PWA Service Worker imported successfully (Push listeners bypassed)');
     }
   } catch (error) {
     // No es crítico si falla - Firebase Messaging seguirá funcionando
@@ -63,7 +80,7 @@ const MAX_RETRY_ATTEMPTS = 3;
 // MANEJADOR DE MENSAJES EN BACKGROUND
 // ============================================
 messaging.onBackgroundMessage((payload) => {
-  console.log('📨 [SW] Background message received:', payload);
+  console.log('📨 [SW] Background message received (FCM automatically displays this):', payload);
   
   // Validación robusta del payload
   if (!payload || (!payload.notification && !payload.data)) {
@@ -71,74 +88,22 @@ messaging.onBackgroundMessage((payload) => {
     return;
   }
   
-  // Extraer datos con fallbacks seguros
-  const notificationTitle = payload.notification?.title || 
-                          payload.data?.title || 
-                          'RageStudios';
+  // ✅ NO HACER LLAMADA MANUAL A showNotification:
+  // Firebase SDK automáticamente muestra la notificación en segundo plano utilizando el campo 'notification' del payload.
+  // Solo reenviaremos el mensaje a los clientes activos (pestañas abiertas) para sincronizar la interfaz.
   
-  const notificationBody = payload.notification?.body || 
-                         payload.data?.body || 
-                         'Nueva notificación';
-  
-  // Opciones de notificación enriquecidas
-  const notificationOptions = {
-    body: notificationBody,
-    icon: payload.notification?.icon || '/icons/icon-192x192.png',
-    badge: '/icons/badge-72x72.png',
-    tag: payload.data?.notificationType || `notification-${Date.now()}`,
-    renotify: true,
-    requireInteraction: payload.data?.priority >= 5,
-    silent: false,
-    data: {
-      ...payload.data,
-      FCM_MSG: payload,
-      timestamp: Date.now(),
-      version: 'v5.0.0'
-    },
-    vibrate: [200, 100, 200],
-    actions: []
-  };
-
-  // Añadir URL de acción si existe
-  if (payload.data?.actionUrl) {
-    notificationOptions.data.actionUrl = payload.data.actionUrl;
-  }
-
-  // Parsear acciones personalizadas si existen
-  if (payload.data?.actions) {
-    try {
-      const actions = typeof payload.data.actions === 'string' 
-        ? JSON.parse(payload.data.actions) 
-        : payload.data.actions;
-      notificationOptions.actions = actions;
-    } catch (e) {
-      console.warn('[SW] Could not parse actions:', e);
-    }
-  }
-
-  // Registrar notificación recibida
-  console.log('✅ [SW] Showing notification:', notificationTitle);
-  
-  // Mostrar notificación
-  return self.registration.showNotification(notificationTitle, notificationOptions)
-    .then(() => {
-      // Notificar a la app principal si está abierta
-      self.clients.matchAll({ type: 'window', includeUncontrolled: true })
-        .then(clients => {
-          clients.forEach(client => {
-            client.postMessage({
-              type: 'NOTIFICATION_RECEIVED',
-              payload: payload,
-              timestamp: Date.now()
-            });
-          });
+  return self.clients.matchAll({ type: 'window', includeUncontrolled: true })
+    .then(clients => {
+      clients.forEach(client => {
+        client.postMessage({
+          type: 'NOTIFICATION_RECEIVED',
+          payload: payload,
+          timestamp: Date.now()
         });
+      });
     })
     .catch(error => {
-      console.error('❌ [SW] Error showing notification:', error);
-      // Intentar recuperación
-      notificationQueue.push({ payload, attempts: 0 });
-      attemptNotificationRecovery();
+      console.error('❌ [SW] Error notifying active clients:', error);
     });
 });
 
