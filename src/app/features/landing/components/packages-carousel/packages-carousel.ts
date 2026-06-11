@@ -98,10 +98,11 @@ export class PackagesCarousel implements OnInit {
       return;
     }
     if (this.isBlacklisted()) {
+      // Mensaje neutral: no se revela que la cuenta está en lista de bloqueo.
       this.messageService.add({
-        severity: 'warn',
-        summary: 'Acceso restringido',
-        detail: 'Para más información sobre el estado de tu cuenta, comunícate con el personal de Rage Studios.',
+        severity: 'info',
+        summary: 'No disponible',
+        detail: 'Por el momento no es posible completar esta operación.',
         life: 6000
       });
       return;

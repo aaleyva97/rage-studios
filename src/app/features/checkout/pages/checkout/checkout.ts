@@ -10,6 +10,7 @@ import { DividerModule } from 'primeng/divider';
 import { PackagesService, Package } from '../../../landing/services/packages.service';
 import { PaymentService } from '../../../../core/services/payment.service';
 import { SupabaseService } from '../../../../core/services/supabase-service';
+import { BlacklistService } from '../../../../core/services/blacklist.service';
 
 @Component({
   selector: 'app-checkout',
@@ -31,6 +32,7 @@ export class Checkout implements OnInit {
   private packagesService = inject(PackagesService);
   private paymentService = inject(PaymentService);
   private supabaseService = inject(SupabaseService);
+  private blacklistService = inject(BlacklistService);
   private messageService = inject(MessageService);
   
   packageData = signal<Package | null>(null);
@@ -57,8 +59,21 @@ export class Checkout implements OnInit {
       return;
     }
     
+    // 🚫 Acceso directo por URL: bloquear usuarios en lista de bloqueo.
+    // Mensaje neutral: no se revela el motivo real.
+    const isBlacklisted = await this.blacklistService.checkBlacklistStatus(user.id);
+    if (isBlacklisted) {
+      this.messageService.add({
+        severity: 'info',
+        summary: 'No disponible',
+        detail: 'Por el momento no es posible completar esta operación.'
+      });
+      this.router.navigate(['/']);
+      return;
+    }
+
     this.userEmail.set(user.email || '');
-    
+
     try {
       const packageData = await this.packagesService.getPackage(packageId);
       this.packageData.set(packageData);
