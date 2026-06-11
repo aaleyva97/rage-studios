@@ -42,6 +42,11 @@ export class AdminLayout {
       routerLink: '/admin/reservas'
     },
     {
+      label: 'Asistente IA',
+      icon: 'pi pi-sparkles',
+      routerLink: '/admin/asistente'
+    },
+    {
       label: 'Lista de Espera',
       icon: 'pi pi-clock',
       routerLink: '/admin/lista-espera'

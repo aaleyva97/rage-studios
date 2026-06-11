@@ -1,0 +1,150 @@
+<p-toast />
+
+<div class="admin-asistente-container">
+  <div class="header-section mb-6">
+    <h2 class="text-2xl font-bold text-gray-900 mb-2">Asistente de Soporte IA</h2>
+    <p class="text-gray-600">
+      Consulta el estado de una clienta (créditos, vencimientos, cuentas duplicadas) y obtén un
+      informe listo para responder por WhatsApp.
+    </p>
+  </div>
+
+  <!-- Form Card -->
+  <p-card>
+    <ng-template pTemplate="header">
+      <div class="flex items-center gap-2 p-4 pb-0">
+        <i class="pi pi-sparkles text-blue-500 text-xl"></i>
+        <h3 class="text-lg font-semibold">Nueva consulta</h3>
+      </div>
+    </ng-template>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <!-- User Selection -->
+      <div class="field">
+        <label class="block text-sm font-medium text-gray-700 mb-1">Clienta (opcional)</label>
+        <p-autoComplete
+          [(ngModel)]="selectedUser"
+          [suggestions]="filteredUsers()"
+          (completeMethod)="searchUsers($event)"
+          (onSelect)="onUserSelect($event)"
+          optionLabel="full_name"
+          placeholder="Buscar por nombre o teléfono"
+          [minLength]="2"
+          [dropdown]="false"
+          [forceSelection]="false"
+          class="w-full"
+          styleClass="w-full"
+          [inputStyleClass]="'w-full'">
+          <ng-template let-user pTemplate="item">
+            <div class="flex items-center gap-3 p-2">
+              <div class="flex-1">
+                <div class="font-medium text-gray-900">{{ user.full_name }}</div>
+                @if (user.phone) {
+                  <div class="text-sm text-gray-600">{{ user.phone }}</div>
+                }
+                <div class="text-xs text-blue-600">{{ user.role }}</div>
+              </div>
+            </div>
+          </ng-template>
+          <ng-template let-user pTemplate="selectedItem">
+            <div class="flex items-center gap-2">
+              <i class="pi pi-user text-blue-500"></i>
+              <span>{{ user.full_name }}</span>
+              @if (user.phone) {
+                <span class="text-gray-500">({{ user.phone }})</span>
+              }
+            </div>
+          </ng-template>
+        </p-autoComplete>
+        <small class="text-gray-500 block mt-1 pt-1">
+          Para "cuentas duplicadas" puedes dejarlo vacío y describir el caso en la consulta.
+        </small>
+      </div>
+
+      <!-- Template Selection -->
+      <div class="field">
+        <label class="block text-sm font-medium text-gray-700 mb-1">Plantilla</label>
+        <p-select
+          [(ngModel)]="selectedTemplate"
+          [options]="templates"
+          (onChange)="onTemplateChange($event)"
+          optionLabel="label"
+          placeholder="Elige un caso común"
+          class="w-full"
+          [showClear]="true">
+        </p-select>
+        <small class="text-gray-500 block mt-1 pt-1">
+          Al elegir una plantilla se prellena la consulta; puedes editarla.
+        </small>
+      </div>
+    </div>
+
+    <!-- Prompt -->
+    <div class="field mt-4">
+      <label class="block text-sm font-medium text-gray-700 mb-1">Consulta</label>
+      <textarea
+        pTextarea
+        [(ngModel)]="promptText"
+        rows="4"
+        class="w-full"
+        placeholder="Describe la duda de la clienta...">
+      </textarea>
+    </div>
+
+    <ng-template pTemplate="footer">
+      <div class="flex gap-3 justify-end">
+        <p-button
+          label="Limpiar"
+          severity="secondary"
+          (onClick)="resetForm()"
+          [disabled]="isLoading()">
+        </p-button>
+        <p-button
+          label="Generar informe"
+          icon="pi pi-send"
+          [loading]="isLoading()"
+          (onClick)="generar()">
+        </p-button>
+      </div>
+    </ng-template>
+  </p-card>
+
+  <!-- Result -->
+  @if (isLoading()) {
+    <div class="mt-6 flex items-center gap-3 text-gray-600">
+      <i class="pi pi-spin pi-spinner text-xl"></i>
+      <span>Analizando la base de datos y redactando el informe...</span>
+    </div>
+  }
+
+  @if (result(); as res) {
+    <div class="mt-6">
+      <p-card>
+        <ng-template pTemplate="header">
+          <div class="flex items-center gap-2 p-4 pb-0">
+            <i class="pi pi-file-edit text-green-600 text-xl"></i>
+            <h3 class="text-lg font-semibold">Informe</h3>
+          </div>
+        </ng-template>
+
+        <div class="report-body" [innerHTML]="reportHtml()"></div>
+
+        @if (res.toolCalls.length) {
+          <div class="mt-4">
+            <p-panel header="Consultas realizadas a la base de datos" [toggleable]="true" [collapsed]="true">
+              <ul class="text-sm text-gray-700 space-y-1">
+                @for (call of res.toolCalls; track $index) {
+                  <li>
+                    <i class="pi pi-database text-blue-400 mr-1"></i>
+                    <strong>{{ call.name }}</strong>
+                    <span class="text-gray-500"> — {{ formatToolInput(call.input) }}</span>
+                  </li>
+                }
+              </ul>
+            </p-panel>
+          </div>
+        }
+      </p-card>
+    </div>
+  }
+</div>

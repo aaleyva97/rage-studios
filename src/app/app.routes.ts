@@ -89,6 +89,10 @@ export const routes: Routes = [
         loadComponent: () => import('./features/admin/pages/admin-reservas/admin-reservas').then(m => m.AdminReservas)
       },
       {
+        path: 'asistente',
+        loadComponent: () => import('./features/admin/pages/admin-asistente/admin-asistente').then(m => m.AdminAsistente)
+      },
+      {
         path: 'lista-espera',
         loadComponent: () => import('./features/admin/pages/admin-waitlist/admin-waitlist').then(m => m.AdminWaitlist)
       },
