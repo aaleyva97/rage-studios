@@ -34,6 +34,9 @@ export class Checkout implements OnInit {
   private supabaseService = inject(SupabaseService);
   private blacklistService = inject(BlacklistService);
   private messageService = inject(MessageService);
+  // MessageService raíz (el <p-toast> global de app.html), para mensajes que
+  // deben verse DESPUÉS de redirigir fuera de esta página (sobrevive la navegación).
+  private rootMessage = inject(MessageService, { skipSelf: true });
   
   packageData = signal<Package | null>(null);
   isLoading = signal(true);
@@ -63,7 +66,8 @@ export class Checkout implements OnInit {
     // Mensaje neutral: no se revela el motivo real.
     const isBlacklisted = await this.blacklistService.checkBlacklistStatus(user.id);
     if (isBlacklisted) {
-      this.messageService.add({
+      // Toast en el toast global: el de esta página se destruiría al redirigir.
+      this.rootMessage.add({
         severity: 'info',
         summary: 'No disponible',
         detail: 'Por el momento no es posible completar esta operación.'

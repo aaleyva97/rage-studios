@@ -1,7 +1,10 @@
 import { Component, model, signal, inject, effect, Injector, PLATFORM_ID } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { Router } from '@angular/router';
+import { MessageService } from 'primeng/api';
 import { PackagesService, Package } from '../../../features/landing/services/packages.service';
+import { SupabaseService } from '../../../core/services/supabase-service';
+import { BlacklistService } from '../../../core/services/blacklist.service';
 
 @Component({
   selector: 'app-packages-modal',
@@ -15,6 +18,10 @@ export class PackagesModal {
 
   private router = inject(Router);
   private packagesService = inject(PackagesService);
+  // MessageService raíz: el <p-toast> global de app.html persiste tras navegar.
+  private messageService = inject(MessageService);
+  private supabaseService = inject(SupabaseService);
+  private blacklistService = inject(BlacklistService);
   private platformId = inject(PLATFORM_ID);
   private injector = inject(Injector);
   private isBrowser = isPlatformBrowser(this.platformId);
@@ -77,9 +84,25 @@ export class PackagesModal {
     this.showPolicies.set(false);
   }
 
-  proceed() {
+  async proceed() {
     const pkg = this.selected();
     if (!pkg) return;
+
+    // 🚫 Usuarios en lista de bloqueo: no avanzar a pago. Mensaje neutral.
+    const user = this.supabaseService.getUser();
+    if (user) {
+      const isBlacklisted = await this.blacklistService.checkBlacklistStatus(user.id);
+      if (isBlacklisted) {
+        this.close();
+        this.messageService.add({
+          severity: 'info',
+          summary: 'No disponible',
+          detail: 'Por el momento no es posible completar esta operación.'
+        });
+        return;
+      }
+    }
+
     this.close();
     setTimeout(() => this.router.navigate(['/checkout', pkg.id]), 400);
   }

@@ -43,3 +43,6 @@ Thumbs.db
 .env
 .env.local
 .mcp.json
+
+# Supabase CLI local artifacts
+supabase/.temp/
