@@ -1,0 +1,73 @@
+<p-drawer
+  [(visible)]="visible"
+  position="bottom"
+  [modal]="true"
+  [dismissible]="true"
+  [showCloseIcon]="false"
+  styleClass="access-pass-drawer"
+  [style]="{ height: 'auto' }">
+
+  <div class="pass font-mono">
+
+    <div class="pass__grab"></div>
+
+    <div class="pass__head">
+      <div>
+        <div class="pass__eyebrow">Pase de acceso</div>
+        <h2 class="pass__title">Escanea para entrar</h2>
+      </div>
+      <button class="pass__close" type="button" (click)="close()" aria-label="Cerrar">
+        <i class="pi pi-times"></i>
+      </button>
+    </div>
+
+    <div class="pass__qr-wrap">
+      @if (errorMsg()) {
+        <div class="pass__state pass__state--error">
+          <i class="pi pi-wifi"></i>
+          <span>{{ errorMsg() }}</span>
+          <button type="button" (click)="refresh()">Reintentar</button>
+        </div>
+      } @else if (qrDataUrl(); as url) {
+        <img [src]="url" alt="Código QR de acceso" class="pass__qr" />
+        @if (loading()) {
+          <div class="pass__refreshing"><span class="dot"></span></div>
+        }
+      } @else {
+        <div class="pass__state">
+          <div class="spinner"></div>
+          <span>Generando pase…</span>
+        </div>
+      }
+    </div>
+
+    @if (secondsLeft() > 0) {
+      <div class="pass__validity">
+        <span class="dot"></span> Válido por {{ secondsLeft() }}s · se renueva solo
+      </div>
+    }
+
+    @if (memberCode()) {
+      <div class="pass__code">ID · {{ memberCode() }}</div>
+    }
+
+    <div class="pass__stats">
+      <div class="stat">
+        <i class="pi pi-bolt"></i>
+        <span class="stat__val">{{ streak() }}</span>
+        <span class="stat__lbl">Racha</span>
+      </div>
+      <div class="stat">
+        <i class="pi pi-ticket"></i>
+        <span class="stat__val">{{ creditsService.getCreditsDisplay() }}</span>
+        <span class="stat__lbl">Créditos</span>
+      </div>
+      <div class="stat">
+        <i class="pi pi-id-card"></i>
+        <span class="stat__val stat__val--sm">{{ membership() || '—' }}</span>
+        <span class="stat__lbl">Plan</span>
+      </div>
+    </div>
+
+  </div>
+</p-drawer>

@@ -89,6 +89,10 @@ export const routes: Routes = [
         loadComponent: () => import('./features/admin/pages/admin-reservas/admin-reservas').then(m => m.AdminReservas)
       },
       {
+        path: 'check-in',
+        loadComponent: () => import('./features/admin/pages/admin-checkin/admin-checkin').then(m => m.AdminCheckin)
+      },
+      {
         path: 'asistente',
         loadComponent: () => import('./features/admin/pages/admin-asistente/admin-asistente').then(m => m.AdminAsistente)
       },

@@ -21,6 +21,7 @@ import { WaitlistUiService } from '../../../../core/services/waitlist-ui.service
 import { MembershipService } from '../../../../core/services/membership.service';
 import { MembershipInfoDialog } from '../../../../shared/components/membership-info-dialog/membership-info-dialog';
 import { AppSettingsService } from '../../../../core/services/app-settings.service';
+import { AccessPassSheet } from '../../components/access-pass-sheet/access-pass-sheet';
 
 interface DaySlot {
   date: Date;
@@ -45,7 +46,7 @@ interface BookingCard {
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [NgClass, DatePipe, ToastModule, DialogModule, RouterModule, MembershipInfoDialog],
+  imports: [NgClass, DatePipe, ToastModule, DialogModule, RouterModule, MembershipInfoDialog, AccessPassSheet],
   providers: [MessageService],
   templateUrl: './dashboard.html',
   styleUrl: './dashboard.scss'
@@ -79,6 +80,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   nextBooking = signal<any | null>(null);
   markingAttendance = signal(false);
+  showAccessPass = signal(false);
 
   readonly weekDays = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
   weekAttended = signal<boolean[]>([false, false, false, false, false, false, false]);

@@ -42,6 +42,11 @@ export class AdminLayout {
       routerLink: '/admin/reservas'
     },
     {
+      label: 'Check-In',
+      icon: 'pi pi-qrcode',
+      routerLink: '/admin/check-in'
+    },
+    {
       label: 'Asistente IA',
       icon: 'pi pi-sparkles',
       routerLink: '/admin/asistente'

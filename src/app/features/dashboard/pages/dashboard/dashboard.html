@@ -189,25 +189,22 @@
               </div>
             </div>
 
-            <div class="grid grid-cols-2 gap-3">
-              <button (click)="onMarkAttendance('attended')"
-                      [disabled]="markingAttendance()"
-                      class="attendance-btn attendance-btn--check flex items-center justify-center gap-2 rounded-xl py-4 transition-all">
-                @if (markingAttendance()) {
-                  <div class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                } @else {
-                  <i class="pi pi-check text-[14px]"></i>
-                  <span class="text-[12px] font-black uppercase tracking-widest">¡Asistí!</span>
-                }
-              </button>
+            <!-- Check-in oficial: escaneando el pase QR en recepción -->
+            <button (click)="showAccessPass.set(true)"
+                    class="w-full flex items-center justify-center gap-2.5 rounded-xl py-4 bg-[#0a0a0a] text-white transition-all active:scale-[0.98] shadow-[0_4px_12px_rgba(0,0,0,0.2)]">
+              <i class="pi pi-qrcode text-[16px]"></i>
+              <span class="text-[12px] font-black uppercase tracking-widest">Mostrar mi pase QR</span>
+            </button>
+            <p class="text-[10px] font-bold text-black/35 uppercase tracking-wide text-center mt-3 leading-snug">
+              Tu asistencia se confirma al escanear tu pase en recepción
+            </p>
 
-              <button (click)="onMarkAttendance('missed')"
-                      [disabled]="markingAttendance()"
-                      class="attendance-btn attendance-btn--x flex items-center justify-center gap-2 rounded-xl py-4 transition-all">
-                <i class="pi pi-times text-[14px]"></i>
-                <span class="text-[12px] font-black uppercase tracking-widest">No pude ir</span>
-              </button>
-            </div>
+            <button (click)="onMarkAttendance('missed')"
+                    [disabled]="markingAttendance()"
+                    class="attendance-btn attendance-btn--x w-full mt-3 flex items-center justify-center gap-2 rounded-xl py-3 transition-all">
+              <i class="pi pi-times text-[13px]"></i>
+              <span class="text-[11px] font-black uppercase tracking-widest">No pude ir</span>
+            </button>
           </div>
         } @else {
           <!-- Estado vacío (Sin Clases Próximas) -->
@@ -689,4 +686,17 @@
 </p-dialog>
 
 <app-membership-info-dialog [(visible)]="showMembershipDialog"></app-membership-info-dialog>
+
+<!-- Botón flotante: Pase de acceso QR -->
+<button (click)="showAccessPass.set(true)"
+        aria-label="Mostrar mi pase de acceso QR"
+        class="access-fab fixed right-4 z-40 w-14 h-14 rounded-2xl bg-[#0a0a0a] text-white flex items-center justify-center shadow-[0_8px_24px_rgba(0,0,0,0.35)] active:scale-95 transition-transform"
+        style="bottom: calc(env(safe-area-inset-bottom, 0px) + 92px);">
+  <i class="pi pi-qrcode text-[22px]"></i>
+</button>
+
+<app-access-pass-sheet
+  [(visible)]="showAccessPass"
+  [streak]="streak()"
+  [membership]="membership()" />
 

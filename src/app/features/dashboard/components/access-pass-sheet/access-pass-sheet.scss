@@ -1,0 +1,229 @@
+:host ::ng-deep .access-pass-drawer {
+  border-top-left-radius: 28px;
+  border-top-right-radius: 28px;
+  background: #ffffff;
+  box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.25);
+
+  .p-drawer-content {
+    padding: 0;
+    overflow: visible;
+  }
+}
+
+.pass {
+  max-width: 420px;
+  margin: 0 auto;
+  padding: 10px 22px 32px;
+  color: #0a0a0a;
+
+  &__grab {
+    width: 44px;
+    height: 5px;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.14);
+    margin: 0 auto 18px;
+  }
+
+  &__head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 18px;
+  }
+
+  &__eyebrow {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: rgba(0, 0, 0, 0.4);
+    margin-bottom: 4px;
+  }
+
+  &__title {
+    font-size: 22px;
+    font-weight: 900;
+    letter-spacing: -0.01em;
+    text-transform: uppercase;
+    line-height: 1;
+    margin: 0;
+  }
+
+  &__close {
+    width: 36px;
+    height: 36px;
+    border-radius: 12px;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    background: #fff;
+    color: rgba(0, 0, 0, 0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  &__qr-wrap {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    max-width: 280px;
+    margin: 0 auto;
+    border-radius: 22px;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    background: #fff;
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+
+  &__qr {
+    width: 86%;
+    height: 86%;
+    object-fit: contain;
+  }
+
+  &__refreshing {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+
+    .dot {
+      display: block;
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--pop-color, #ef4444);
+      animation: pass-pulse 1s ease-in-out infinite;
+    }
+  }
+
+  &__state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: rgba(0, 0, 0, 0.4);
+
+    &--error {
+      color: var(--pop-color, #ef4444);
+
+      i { font-size: 22px; }
+
+      button {
+        margin-top: 4px;
+        border: 1px solid var(--pop-color, #ef4444);
+        color: var(--pop-color, #ef4444);
+        background: transparent;
+        border-radius: 10px;
+        padding: 6px 14px;
+        font-size: 11px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        cursor: pointer;
+      }
+    }
+
+    .spinner {
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      border: 3px solid rgba(0, 0, 0, 0.12);
+      border-top-color: #0a0a0a;
+      animation: pass-spin 0.8s linear infinite;
+    }
+  }
+
+  &__validity {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 16px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: rgba(0, 0, 0, 0.45);
+
+    .dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #10b981;
+      box-shadow: 0 0 8px #10b981;
+      animation: pass-pulse 1.4s ease-in-out infinite;
+    }
+  }
+
+  &__code {
+    text-align: center;
+    margin-top: 10px;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.14em;
+    color: rgba(0, 0, 0, 0.55);
+  }
+
+  &__stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-top: 22px;
+  }
+
+  .stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 14px 8px;
+    border-radius: 16px;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    background: rgba(0, 0, 0, 0.02);
+
+    i {
+      font-size: 15px;
+      color: var(--pop-color, #ef4444);
+      margin-bottom: 2px;
+    }
+
+    &__val {
+      font-size: 18px;
+      font-weight: 900;
+      line-height: 1;
+      color: #0a0a0a;
+
+      &--sm {
+        font-size: 12px;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+    }
+
+    &__lbl {
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: rgba(0, 0, 0, 0.35);
+    }
+  }
+}
+
+@keyframes pass-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes pass-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.85); }
+}

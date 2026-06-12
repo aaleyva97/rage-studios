@@ -1,0 +1,70 @@
+<div class="checkin-station">
+
+  <!-- Input invisible que captura el lector USB (keyboard wedge) -->
+  <input #scanInput
+         class="scan-input"
+         [(ngModel)]="buffer"
+         (keydown.enter)="onEnter()"
+         (blur)="focusInput()"
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"
+         inputmode="none"
+         aria-hidden="true" />
+
+  <header class="checkin-station__header">
+    <div>
+      <h1 class="checkin-station__title">Estación de Check-In</h1>
+      <p class="checkin-station__subtitle">Escanea el pase QR de la clienta con el lector</p>
+    </div>
+    <div class="checkin-station__counter">
+      <span class="checkin-station__counter-num">{{ successCount() }}</span>
+      <span class="checkin-station__counter-lbl">Check-ins</span>
+    </div>
+  </header>
+
+  <section class="checkin-station__result">
+    @if (result(); as r) {
+      <div class="result-card"
+           [class.result-card--ok]="isOk()"
+           [class.result-card--err]="!isOk()">
+        <i class="pi result-card__icon"
+           [class.pi-check-circle]="isOk()"
+           [class.pi-times-circle]="!isOk()"></i>
+
+        @if (r.client_name) {
+          <div class="result-card__name">{{ r.client_name }}</div>
+        }
+
+        @if (isOk()) {
+          <div class="result-card__meta">{{ r.class_name }} · {{ r.session_time }}</div>
+          <div class="result-card__status">Check-in confirmado</div>
+        } @else {
+          <div class="result-card__status">{{ r.message }}</div>
+        }
+      </div>
+    } @else {
+      <div class="idle">
+        <i class="pi pi-qrcode idle__icon"></i>
+        <span class="idle__text">{{ processing() ? 'Procesando…' : 'Esperando escaneo…' }}</span>
+      </div>
+    }
+  </section>
+
+  <section class="checkin-station__log">
+    <h2 class="checkin-station__log-title">Últimos check-ins</h2>
+    @if (log().length === 0) {
+      <p class="checkin-station__log-empty">Aún no hay registros en esta sesión.</p>
+    } @else {
+      @for (e of log(); track $index) {
+        <div class="log-row">
+          <span class="log-row__name">{{ e.name }}</span>
+          <span class="log-row__cls">{{ e.cls }} · {{ e.time }}</span>
+          <span class="log-row__at">{{ e.at }}</span>
+        </div>
+      }
+    }
+  </section>
+
+</div>
