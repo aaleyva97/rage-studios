@@ -319,11 +319,13 @@ serve(async (req) => {
     }
 
     // --- Guard: verificar que quien llama es un admin ---
+    // El token del usuario viene en el header Authorization. Lo extraemos y se lo
+    // pasamos EXPLÍCITO a getUser(token): un client creado en el servidor no tiene
+    // sesión persistida, así que getUser() sin argumento devolvería null.
     const authHeader = req.headers.get('Authorization') ?? ''
-    const callerClient = createClient(supabaseUrl, anonKey, {
-      global: { headers: { Authorization: authHeader } },
-    })
-    const { data: userData, error: userErr } = await callerClient.auth.getUser()
+    const token = authHeader.replace(/^Bearer\s+/i, '').trim()
+    const callerClient = createClient(supabaseUrl, anonKey)
+    const { data: userData, error: userErr } = await callerClient.auth.getUser(token)
     if (userErr || !userData?.user) {
       return new Response(JSON.stringify({ error: 'No autenticado' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
