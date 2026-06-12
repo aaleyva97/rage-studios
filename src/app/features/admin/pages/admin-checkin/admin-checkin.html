@@ -20,55 +20,103 @@
     </div>
     <div class="checkin-station__counter">
       <span class="checkin-station__counter-num">{{ successCount() }}</span>
-      <span class="checkin-station__counter-lbl">Check-ins</span>
+      <span class="checkin-station__counter-lbl">Escaneos hoy</span>
     </div>
   </header>
 
-  <section class="checkin-station__result">
-    @if (result(); as r) {
-      <div class="result-card"
-           [class.result-card--ok]="isOk()"
-           [class.result-card--err]="!isOk()">
-        <i class="pi result-card__icon"
-           [class.pi-check-circle]="isOk()"
-           [class.pi-times-circle]="!isOk()"></i>
-
-        @if (r.client_name) {
-          <div class="result-card__name">{{ r.client_name }}</div>
-        }
-
-        @if (r.is_membership) {
-          <div class="result-card__vip"><i class="pi pi-id-card"></i> Membresía VIP</div>
-        }
-
-        @if (isOk()) {
-          <div class="result-card__meta">{{ r.class_name }} · {{ r.session_time }}</div>
-          <div class="result-card__status">Check-in confirmado</div>
-        } @else {
-          <div class="result-card__status">{{ r.message }}</div>
-        }
+  <!-- Resultado transitorio del escaneo -->
+  @if (result(); as r) {
+    <div class="scan-banner" [class.scan-banner--ok]="isOk()" [class.scan-banner--err]="!isOk()">
+      <i class="pi" [class.pi-check-circle]="isOk()" [class.pi-times-circle]="!isOk()"></i>
+      <div class="scan-banner__body">
+        @if (r.client_name) { <span class="scan-banner__name">{{ r.client_name }}</span> }
+        @if (r.is_membership) { <span class="scan-banner__vip">VIP</span> }
+        <span class="scan-banner__msg">
+          @if (isOk()) { Check-in confirmado{{ r.session_time ? ' · ' + r.session_time : '' }} }
+          @else { {{ r.message }} }
+        </span>
       </div>
-    } @else {
-      <div class="idle">
-        <i class="pi pi-qrcode idle__icon"></i>
-        <span class="idle__text">{{ processing() ? 'Procesando…' : 'Esperando escaneo…' }}</span>
-      </div>
-    }
-  </section>
+    </div>
+  }
 
-  <section class="checkin-station__log">
-    <h2 class="checkin-station__log-title">Últimos check-ins</h2>
-    @if (log().length === 0) {
-      <p class="checkin-station__log-empty">Aún no hay registros en esta sesión.</p>
-    } @else {
-      @for (e of log(); track $index) {
-        <div class="log-row">
-          <span class="log-row__name">{{ e.name }}</span>
-          <span class="log-row__cls">{{ e.cls }} · {{ e.time }}</span>
-          <span class="log-row__at">{{ e.at }}</span>
-        </div>
+  <!-- Selector de clases de hoy -->
+  @if (classes().length > 0) {
+    <div class="class-tabs">
+      @for (c of classes(); track c.session_time) {
+        <button class="class-tab"
+                [class.class-tab--active]="c.session_time === selectedTime()"
+                (click)="selectClass(c.session_time)">
+          @if (c.is_current) { <span class="class-tab__live">● En curso</span> }
+          <span class="class-tab__time">{{ c.session_time }}</span>
+          <span class="class-tab__coach">{{ c.coach_name || '—' }}</span>
+          <span class="class-tab__count">{{ c.checked }}/{{ c.expected }}</span>
+        </button>
       }
-    }
-  </section>
+    </div>
+  }
+
+  <!-- Resumen de la clase seleccionada -->
+  @if (selectedClass(); as sc) {
+    <section class="class-summary">
+      <div class="class-summary__head">
+        <div>
+          <div class="class-summary__time">Clase {{ sc.session_time }}</div>
+          <div class="class-summary__coach">{{ sc.coach_name || 'Sin coach' }}</div>
+        </div>
+        <div class="class-summary__progress">
+          <span class="class-summary__big">{{ checkedCount() }}</span>
+          <span class="class-summary__total">/ {{ expectedCount() }}</span>
+          <span class="class-summary__lbl">registradas</span>
+        </div>
+      </div>
+      <div class="class-summary__bar">
+        <div class="class-summary__bar-fill" [style.width.%]="progressPct()"></div>
+      </div>
+    </section>
+
+    <!-- Roster -->
+    <section class="roster">
+      @if (loadingRoster() && roster().length === 0) {
+        <div class="roster__loading">
+          <div class="spinner"></div><span>Cargando lista…</span>
+        </div>
+      } @else if (roster().length === 0) {
+        <p class="roster__empty">No hay personas esperadas en esta clase.</p>
+      } @else {
+        @for (e of roster(); track entryKey(e)) {
+          <button class="roster-row"
+                  [class.roster-row--done]="e.attended"
+                  [disabled]="markingKey() === entryKey(e)"
+                  (click)="toggleEntry(e)">
+            <span class="roster-row__check" [class.roster-row__check--done]="e.attended">
+              @if (markingKey() === entryKey(e)) {
+                <span class="spinner spinner--sm"></span>
+              } @else if (e.attended) {
+                <i class="pi pi-check"></i>
+              }
+            </span>
+            <span class="roster-row__info">
+              <span class="roster-row__name">
+                {{ e.display_name }}
+                @if (e.extra_attendees > 0) { <span class="roster-row__extra">+{{ e.extra_attendees }}</span> }
+              </span>
+              <span class="roster-row__meta">
+                @if (e.is_membership) { <span class="roster-row__vip">VIP</span> }
+                @if (e.bed_numbers && e.bed_numbers.length > 0) {
+                  <span class="roster-row__beds">Reformer {{ e.bed_numbers.join(', ') }}</span>
+                }
+              </span>
+            </span>
+            <span class="roster-row__status">{{ e.attended ? 'Registrada' : 'Marcar' }}</span>
+          </button>
+        }
+      }
+    </section>
+  } @else {
+    <div class="idle">
+      <i class="pi pi-qrcode idle__icon"></i>
+      <span class="idle__text">Sin clases con reservas para hoy</span>
+    </div>
+  }
 
 </div>
