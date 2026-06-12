@@ -37,6 +37,10 @@
           <div class="result-card__name">{{ r.client_name }}</div>
         }
 
+        @if (r.is_membership) {
+          <div class="result-card__vip"><i class="pi pi-id-card"></i> Membresía VIP</div>
+        }
+
         @if (isOk()) {
           <div class="result-card__meta">{{ r.class_name }} · {{ r.session_time }}</div>
           <div class="result-card__status">Check-in confirmado</div>

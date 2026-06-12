@@ -23,6 +23,7 @@ export interface ScanResult {
   class_name?: string;
   session_time?: string;
   member_code?: string;
+  is_membership?: boolean;
 }
 
 @Injectable({ providedIn: 'root' })
