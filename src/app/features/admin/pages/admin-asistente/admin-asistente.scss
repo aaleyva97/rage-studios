@@ -4,6 +4,21 @@
   padding: 1rem;
 }
 
+.client-message-card {
+  border: 1px solid #bbf7d0;
+}
+
+.client-message-box {
+  white-space: pre-wrap;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 0.5rem;
+  padding: 0.875rem 1rem;
+  color: #14532d;
+  line-height: 1.5;
+  font-size: 0.95rem;
+}
+
 .report-body {
   color: #374151;
   line-height: 1.6;

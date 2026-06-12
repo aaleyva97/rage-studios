@@ -76,6 +76,20 @@ export class AdminAsistente {
 
   reportHtml = computed(() => this.toHtml(this.result()?.report ?? ''));
 
+  // Mensaje corto y sencillo para reenviar a la clienta final.
+  clientMessage = computed(() => this.result()?.clientMessage ?? '');
+
+  // Enlace de WhatsApp con el mensaje precargado; null si la clienta seleccionada
+  // no tiene un teléfono válido registrado.
+  whatsappHref = computed(() => {
+    const msg = this.result()?.clientMessage;
+    const phone = this.selectedUser()?.phone;
+    if (!msg || !phone) return null;
+    const intl = this.toMxWhatsappNumber(phone);
+    if (!intl) return null;
+    return `https://wa.me/${intl}?text=${encodeURIComponent(msg)}`;
+  });
+
   async searchUsers(event: any) {
     const query = event.query;
     if (!query || query.length < 2) {
@@ -153,6 +167,41 @@ export class AdminAsistente {
   formatToolInput(input: Record<string, unknown>): string {
     const parts = Object.entries(input).map(([k, v]) => `${k}: ${v}`);
     return parts.length ? parts.join(', ') : '(sin parámetros)';
+  }
+
+  async copyClientMessage() {
+    const msg = this.result()?.clientMessage;
+    if (!msg) return;
+    try {
+      await navigator.clipboard.writeText(msg);
+      this.messageService.add({
+        severity: 'success',
+        summary: 'Copiado',
+        detail: 'Mensaje copiado al portapapeles'
+      });
+    } catch {
+      this.messageService.add({
+        severity: 'error',
+        summary: 'Error',
+        detail: 'No se pudo copiar el mensaje'
+      });
+    }
+  }
+
+  openWhatsapp() {
+    const href = this.whatsappHref();
+    if (href) {
+      window.open(href, '_blank', 'noopener');
+    }
+  }
+
+  /** Normaliza un teléfono mexicano al formato internacional de wa.me (52 + 10 dígitos). */
+  private toMxWhatsappNumber(phone: string): string | null {
+    const digits = phone.replace(/\D/g, '');
+    if (digits.length === 10) return '52' + digits;                        // local de 10 dígitos
+    if (digits.length === 12 && digits.startsWith('52')) return digits;    // ya incluye 52
+    if (digits.length === 13 && digits.startsWith('521')) return '52' + digits.slice(3); // 52 + 1 heredado
+    return null;
   }
 
   /**

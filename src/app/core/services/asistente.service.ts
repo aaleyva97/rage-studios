@@ -8,6 +8,8 @@ export interface AsistenteToolCall {
 
 export interface AsistenteResponse {
   report: string;
+  /** Mensaje corto y sencillo, listo para enviar a la clienta final por WhatsApp. */
+  clientMessage: string;
   toolCalls: AsistenteToolCall[];
 }
 

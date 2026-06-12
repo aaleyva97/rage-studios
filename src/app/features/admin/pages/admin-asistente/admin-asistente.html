@@ -118,12 +118,51 @@
   }
 
   @if (result(); as res) {
+    <!-- Mensaje listo para enviar a la clienta final -->
+    @if (clientMessage()) {
+      <div class="mt-6">
+        <p-card styleClass="client-message-card">
+          <ng-template pTemplate="header">
+            <div class="flex items-center gap-2 p-4 pb-0">
+              <i class="pi pi-comments text-green-600 text-xl"></i>
+              <h3 class="text-lg font-semibold">Mensaje para la clienta</h3>
+            </div>
+          </ng-template>
+
+          <p class="text-sm text-gray-500 mb-3">Texto corto y sencillo, listo para enviar.</p>
+          <div class="client-message-box">{{ clientMessage() }}</div>
+
+          <div class="flex flex-wrap items-center gap-3 mt-4">
+            <p-button
+              label="Copiar"
+              icon="pi pi-copy"
+              severity="secondary"
+              (onClick)="copyClientMessage()">
+            </p-button>
+            @if (whatsappHref()) {
+              <p-button
+                label="Enviar por WhatsApp"
+                icon="pi pi-whatsapp"
+                severity="success"
+                (onClick)="openWhatsapp()">
+              </p-button>
+            } @else {
+              <small class="text-gray-400">
+                Sin teléfono registrado: copia el mensaje y envíalo manualmente.
+              </small>
+            }
+          </div>
+        </p-card>
+      </div>
+    }
+
+    <!-- Informe técnico para el equipo -->
     <div class="mt-6">
       <p-card>
         <ng-template pTemplate="header">
           <div class="flex items-center gap-2 p-4 pb-0">
-            <i class="pi pi-file-edit text-green-600 text-xl"></i>
-            <h3 class="text-lg font-semibold">Informe</h3>
+            <i class="pi pi-file-edit text-blue-500 text-xl"></i>
+            <h3 class="text-lg font-semibold">Informe para el equipo</h3>
           </div>
         </ng-template>
 

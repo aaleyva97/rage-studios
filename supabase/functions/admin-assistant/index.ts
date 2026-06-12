@@ -9,6 +9,10 @@ const corsHeaders = {
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages'
 const MODEL = 'claude-sonnet-4-6'
 const MAX_TOOL_ITERATIONS = 6
+// Separador que el modelo coloca entre el informe (para el admin) y el mensaje
+// corto para la clienta final. El frontend usa ese segundo bloque para los
+// botones de Copiar / WhatsApp.
+const CLIENT_MARKER = '===MENSAJE_AL_CLIENTE==='
 
 const SYSTEM_PROMPT = `Eres un analista de soporte de RageStudios, un estudio de entrenamiento.
 Tu trabajo es ayudar al equipo de administración a responder dudas de las clientas (que llegan
@@ -25,9 +29,26 @@ Reglas:
   nombre y/o teléfono para encontrar TODAS las cuentas de esa persona (puede tener varias con
   emails distintos) y di en cuál están los créditos.
 - Si te dan un user_id, empieza por ahí; si te dan un nombre/teléfono, empieza por buscar_cuentas.
-- Sé conciso: ve al grano, usa viñetas y fechas concretas. Cierra con una recomendación de qué
-  responderle a la clienta.
-- Las fechas vienen en UTC; RageStudios opera en hora de México (UTC-6).`
+- Sé conciso: ve al grano, usa viñetas y fechas concretas.
+- Las fechas vienen en UTC; RageStudios opera en hora de México (UTC-6).
+
+FORMATO DE RESPUESTA (OBLIGATORIO). Tu respuesta SIEMPRE tiene dos partes, en este orden:
+
+1) EL INFORME para el administrador: el análisis técnico de lo que encontraste, con viñetas,
+   fechas y datos. Sirve para que una persona del equipo entienda qué pasó.
+
+2) Una línea EXACTAMENTE con este separador, sola en su renglón y sin nada más:
+${CLIENT_MARKER}
+
+3) Debajo del separador, el MENSAJE PARA LA CLIENTA FINAL, listo para enviarse tal cual por
+   WhatsApp. Reglas estrictas de este mensaje:
+   - Máximo 2 o 3 frases, muy corto.
+   - Lenguaje simple, cálido y humano, como si le explicaras a alguien sin conocimientos técnicos.
+   - Nada de tecnicismos, ni nombres de tablas, ni IDs; las fechas en lenguaje natural
+     (ej. "el 5 de mayo", no "2026-05-05").
+   - Explica en palabras sencillas qué pasó y, si aplica, qué puede hacer.
+   - Empieza con un saludo cordial (ej. "¡Hola! 👋").
+   - No incluyas el separador ni encabezados dentro de este mensaje; solo el texto a enviar.`
 
 interface ToolCallLog {
   name: string
@@ -370,6 +391,7 @@ serve(async (req) => {
 
     // --- Loop de tool use ---
     let report = ''
+    let clientMessage = ''
     for (let i = 0; i < MAX_TOOL_ITERATIONS; i++) {
       const response = await callClaude(apiKey, messages)
 
@@ -393,12 +415,22 @@ serve(async (req) => {
         continue
       }
 
-      // end_turn (u otro): extraer el texto final
-      report = response.content
+      // end_turn (u otro): extraer el texto final y separar informe / mensaje a la clienta
+      const fullText = response.content
         .filter((b: any) => b.type === 'text')
         .map((b: any) => b.text)
         .join('\n')
         .trim()
+
+      // Tolerante a variaciones del marcador (===MENSAJE_AL_CLIENTE===, == MENSAJE AL CLIENTE ==, etc.)
+      const markerRe = /={2,}\s*MENSAJE[ _]AL[ _]CLIENTE\s*={2,}/i
+      const match = fullText.match(markerRe)
+      if (match && match.index !== undefined) {
+        report = fullText.slice(0, match.index).trim()
+        clientMessage = fullText.slice(match.index + match[0].length).trim()
+      } else {
+        report = fullText
+      }
       break
     }
 
@@ -407,7 +439,7 @@ serve(async (req) => {
         'No se pudo generar un informe completo (se alcanzó el límite de consultas). Intenta acotar la pregunta.'
     }
 
-    return new Response(JSON.stringify({ report, toolCalls }), {
+    return new Response(JSON.stringify({ report, clientMessage, toolCalls }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,
     })
