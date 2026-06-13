@@ -170,6 +170,7 @@ def main():
                     broadcast_url = f"{url}/realtime/v1/api/broadcast"
                     broadcast_headers = {
                         "apikey": key,
+                        "Authorization": f"Bearer {access_token}",
                         "Content-Type": "application/json"
                     }
                     broadcast_payload = {
