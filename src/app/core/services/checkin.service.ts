@@ -26,6 +26,8 @@ export interface ScanResult {
   member_code?: string;
   is_membership?: boolean;
   client_id?: string;
+  bed_numbers?: number[];
+  coach_name?: string;
   next_booking?: {
     session_date: string;
     session_time: string;
