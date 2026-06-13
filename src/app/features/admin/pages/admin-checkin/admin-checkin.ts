@@ -42,6 +42,10 @@ export class AdminCheckin implements AfterViewInit, OnDestroy {
 
   expectedCount = computed(() => this.roster().length);
   checkedCount = computed(() => this.roster().filter(e => e.attended).length);
+  isEditingConcludedClass = signal(false);
+  isCurrentClassConcluded = computed(() => {
+    return this.isClassConcluded(this.selectedTime());
+  });
   progressPct = computed(() => {
     const total = this.expectedCount();
     return total === 0 ? 0 : Math.round((this.checkedCount() / total) * 100);
@@ -121,8 +125,24 @@ export class AdminCheckin implements AfterViewInit, OnDestroy {
   selectClass(time: string) {
     if (time === this.selectedTime()) return;
     this.selectedTime.set(time);
+    this.isEditingConcludedClass.set(false); // Lock it back when switching classes
     this.loadRoster();
     this.focusInput();
+  }
+
+  isClassConcluded(sessionTime: string | null): boolean {
+    if (!sessionTime) return false;
+    if (!isPlatformBrowser(this.platformId)) return false;
+
+    const [hours, minutes] = sessionTime.split(':').map(Number);
+    const now = new Date();
+    const classStartTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes, 0);
+    const concludedTime = classStartTime.getTime() + (50 * 60 * 1000);
+    return now.getTime() > concludedTime;
+  }
+
+  enableEditingConcludedClass() {
+    this.isEditingConcludedClass.set(true);
   }
 
   // ── Escaneo ────────────────────────────────────────────────
@@ -227,7 +247,16 @@ export class AdminCheckin implements AfterViewInit, OnDestroy {
     this.markingKey.set(key);
     try {
       if (entry.kind === 'booking' && entry.booking_id) {
-        await this.checkinService.markBooking(entry.booking_id, entry.attended ? 'pending' : 'attended');
+        // Cycle booking status: pending (null) -> attended -> missed -> unattended -> pending
+        let nextStatus: 'attended' | 'missed' | 'unattended' | 'pending' = 'attended';
+        if (entry.attendance_status === 'attended') {
+          nextStatus = 'missed';
+        } else if (entry.attendance_status === 'missed') {
+          nextStatus = 'unattended';
+        } else if (entry.attendance_status === 'unattended') {
+          nextStatus = 'pending';
+        }
+        await this.checkinService.markBooking(entry.booking_id, nextStatus);
       } else if (entry.kind === 'membership' && entry.membership_schedule_id) {
         await this.checkinService.checkinMembership(entry.membership_schedule_id);
       }

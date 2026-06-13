@@ -1,4 +1,4 @@
-import { Component, inject, signal, effect, input, model, OnDestroy, PLATFORM_ID } from '@angular/core';
+import { Component, inject, signal, effect, input, model, output, OnDestroy, PLATFORM_ID } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { DrawerModule } from 'primeng/drawer';
 import QRCode from 'qrcode';
@@ -27,6 +27,7 @@ export class AccessPassSheet implements OnDestroy {
   visible = model<boolean>(false);
   streak = input<number>(0);
   membership = input<string>('');
+  checkinSuccess = output<void>();
 
   qrDataUrl = signal<string | null>(null);
   memberCode = signal<string>('');
@@ -122,6 +123,7 @@ export class AccessPassSheet implements OnDestroy {
         navigator.vibrate(100);
       }
       this.successScanResult.set(res);
+      this.checkinSuccess.emit();
       // Cerrar la hoja automáticamente después de 3.5 segundos
       setTimeout(() => {
         this.close();

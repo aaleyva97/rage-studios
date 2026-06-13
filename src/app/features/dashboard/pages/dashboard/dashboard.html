@@ -698,5 +698,6 @@
 <app-access-pass-sheet
   [(visible)]="showAccessPass"
   [streak]="streak()"
-  [membership]="membership()" />
+  [membership]="membership()"
+  (checkinSuccess)="refreshDashboardData()" />
 

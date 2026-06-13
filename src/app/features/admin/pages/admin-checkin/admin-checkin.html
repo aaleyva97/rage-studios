@@ -179,6 +179,23 @@
       </div>
     </section>
 
+    <!-- Concluded Lock Banner -->
+    @if (isCurrentClassConcluded() && !isEditingConcludedClass()) {
+      <div class="concluded-lock-banner">
+        <div class="concluded-lock-banner__content">
+          <i class="pi pi-lock concluded-lock-banner__icon"></i>
+          <div class="concluded-lock-banner__text">
+            <h3 class="concluded-lock-banner__title">Clase Concluida (Solo Lectura)</h3>
+            <p class="concluded-lock-banner__description">Esta clase ya terminó. La lista está bloqueada para evitar cambios accidentales.</p>
+          </div>
+        </div>
+        <button class="concluded-lock-banner__btn" (click)="enableEditingConcludedClass()">
+          <i class="pi pi-pencil"></i>
+          <span>Editar asistencia</span>
+        </button>
+      </div>
+    }
+
     <!-- Roster -->
     <section class="roster">
       @if (loadingRoster() && roster().length === 0) {
@@ -190,14 +207,24 @@
       } @else {
         @for (e of roster(); track entryKey(e)) {
           <button class="roster-row"
-                  [class.roster-row--done]="e.attended"
+                  [class.roster-row--done]="e.attendance_status === 'attended'"
+                  [class.roster-row--missed]="e.attendance_status === 'missed'"
+                  [class.roster-row--unattended]="e.attendance_status === 'unattended'"
+                  [class.roster-row--readonly]="isCurrentClassConcluded() && !isEditingConcludedClass()"
                   [disabled]="markingKey() === entryKey(e)"
                   (click)="toggleEntry(e)">
-            <span class="roster-row__check" [class.roster-row__check--done]="e.attended">
+            <span class="roster-row__check" 
+                  [class.roster-row__check--done]="e.attendance_status === 'attended'"
+                  [class.roster-row__check--missed]="e.attendance_status === 'missed'"
+                  [class.roster-row__check--unattended]="e.attendance_status === 'unattended'">
               @if (markingKey() === entryKey(e)) {
                 <span class="spinner spinner--sm"></span>
-              } @else if (e.attended) {
+              } @else if (e.attendance_status === 'attended') {
                 <i class="pi pi-check"></i>
+              } @else if (e.attendance_status === 'missed') {
+                <i class="pi pi-calendar-minus"></i>
+              } @else if (e.attendance_status === 'unattended') {
+                <i class="pi pi-clock"></i>
               }
             </span>
             <span class="roster-row__info">
@@ -212,7 +239,17 @@
                 }
               </span>
             </span>
-            <span class="roster-row__status">{{ e.attended ? 'Registrada' : 'Marcar' }}</span>
+            <span class="roster-row__status">
+              @if (e.attendance_status === 'attended') {
+                Registrada
+              } @else if (e.attendance_status === 'missed') {
+                No asistió
+              } @else if (e.attendance_status === 'unattended') {
+                Sin check in
+              } @else {
+                Marcar
+              }
+            </span>
           </button>
         }
       }

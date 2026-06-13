@@ -194,6 +194,24 @@ export class DashboardComponent implements OnInit, OnDestroy {
     return profile?.full_name ? profile.full_name.split(' ')[0] : 'Usuaria';
   }
 
+  async refreshDashboardData() {
+    const uid = this.userId();
+    if (!uid) return;
+    try {
+      console.log('DashboardComponent: Refreshing dashboard data after check-in success');
+      const profile = await this.supabase.getProfile(uid);
+      if (profile) this.userProfile.set(profile);
+      await Promise.all([
+        this.buildWeekDays(uid),
+        this.loadCredits(),
+        this.loadAttendanceData(),
+        this.membershipService.loadUserMembership(uid)
+      ]);
+    } catch (e) {
+      console.error('Error refreshing dashboard data:', e);
+    }
+  }
+
   private async buildWeekDays(userId: string) {
     const bookingDates = await this.bookingService.getUserBookingDates(userId);
     const dateSet = new Set(bookingDates);
