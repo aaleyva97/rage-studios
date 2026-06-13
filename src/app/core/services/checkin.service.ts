@@ -121,16 +121,16 @@ export class CheckinService {
     }
   }
 
-  /** Clases de hoy con contadores (esperados/registrados) para el selector. */
-  async getTodayClasses(): Promise<ClassInfo[]> {
-    const { data, error } = await this.supabaseService.client.rpc('get_checkin_classes_today');
+  /** Clases de hoy o fecha específica con contadores (esperados/registrados) para el selector. */
+  async getTodayClasses(date?: string): Promise<ClassInfo[]> {
+    const { data, error } = await this.supabaseService.client.rpc('get_checkin_classes_today', { p_date: date || null });
     if (error) throw error;
     return Array.isArray(data) ? (data as ClassInfo[]) : [];
   }
 
-  /** Lista de personas esperadas en la clase de hoy a la hora indicada. */
-  async getRoster(time: string): Promise<RosterEntry[]> {
-    const { data, error } = await this.supabaseService.client.rpc('get_checkin_roster', { p_time: time });
+  /** Lista de personas esperadas en la clase de hoy/fecha indicada a la hora indicada. */
+  async getRoster(time: string, date?: string): Promise<RosterEntry[]> {
+    const { data, error } = await this.supabaseService.client.rpc('get_checkin_roster', { p_time: time, p_date: date || null });
     if (error) throw error;
     return Array.isArray(data) ? (data as RosterEntry[]) : [];
   }

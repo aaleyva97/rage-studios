@@ -144,7 +144,30 @@
     </div>
   }
 
-  <!-- Selector de clases de hoy -->
+  <!-- Filtro de Fecha de Asistencia -->
+  <div class="checkin-filter-bar">
+    <div class="checkin-filter-bar__group">
+      <label for="checkin-date" class="checkin-filter-bar__label">
+        <i class="pi pi-calendar"></i>
+        <span>Fecha de asistencia:</span>
+      </label>
+      <div class="checkin-filter-bar__input-wrapper">
+        <input id="checkin-date" 
+               type="date" 
+               class="checkin-filter-bar__input" 
+               [ngModel]="selectedDate()" 
+               (ngModelChange)="changeDate($event)" />
+      </div>
+    </div>
+    @if (selectedDate() !== getTodayDateString()) {
+      <button class="checkin-filter-bar__today-btn" (click)="resetToToday()">
+        <i class="pi pi-replay"></i>
+        <span>Volver a hoy</span>
+      </button>
+    }
+  </div>
+
+  <!-- Selector de clases del día -->
   @if (classes().length > 0) {
     <div class="class-tabs">
       @for (c of classes(); track c.session_time) {
@@ -157,6 +180,11 @@
           <span class="class-tab__count">{{ c.checked }}/{{ c.expected }}</span>
         </button>
       }
+    </div>
+  } @else {
+    <div class="no-classes-message">
+      <i class="pi pi-calendar-times no-classes-message__icon"></i>
+      <p class="no-classes-message__text">No hay clases registradas para el {{ selectedDate() | date:'dd/MM/yyyy':'UTC' }}</p>
     </div>
   }
 

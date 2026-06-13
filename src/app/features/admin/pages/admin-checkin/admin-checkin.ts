@@ -1,5 +1,5 @@
 import { Component, inject, signal, computed, viewChild, ElementRef, AfterViewInit, OnDestroy, PLATFORM_ID } from '@angular/core';
-import { isPlatformBrowser } from '@angular/common';
+import { isPlatformBrowser, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { CheckinService, ScanResult, ClassInfo, RosterEntry } from '../../../../core/services/checkin.service';
 
@@ -16,7 +16,7 @@ import { CheckinService, ScanResult, ClassInfo, RosterEntry } from '../../../../
 @Component({
   selector: 'app-admin-checkin',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, DatePipe],
   templateUrl: './admin-checkin.html',
   styleUrl: './admin-checkin.scss'
 })
@@ -34,6 +34,14 @@ export class AdminCheckin implements AfterViewInit, OnDestroy {
   successCount = signal(0);
 
   // ── Lista en vivo ──────────────────────────────────────────
+  selectedDate = signal<string>(() => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }());
+
   classes = signal<ClassInfo[]>([]);
   selectedTime = signal<string | null>(null);
   roster = signal<RosterEntry[]>([]);
@@ -82,6 +90,42 @@ export class AdminCheckin implements AfterViewInit, OnDestroy {
     setTimeout(() => this.scanInput()?.nativeElement?.focus(), 0);
   }
 
+  getTodayDateString(): string {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
+  resetToToday() {
+    this.changeDate(this.getTodayDateString());
+  }
+
+  async changeDate(newDate: string) {
+    if (!newDate || newDate === this.selectedDate()) return;
+    this.selectedDate.set(newDate);
+    this.isEditingConcludedClass.set(false); // Lock it back when switching dates
+    
+    // Volver a cargar las clases para el nuevo día
+    await this.loadClasses();
+    
+    // Si la hora previamente seleccionada no existe en el nuevo día, elegir la primera disponible o nula
+    const times = this.classes().map(c => c.session_time);
+    if (this.selectedTime() && !times.includes(this.selectedTime()!)) {
+      this.selectedTime.set(null);
+    }
+    
+    // Si no hay hora seleccionada, seleccionar la clase en curso (si la hay) o la primera clase
+    if (!this.selectedTime()) {
+      const current = this.classes().find(c => c.is_current) ?? this.classes()[0];
+      if (current) this.selectedTime.set(current.session_time);
+    }
+    
+    await this.loadRoster();
+    this.focusInput();
+  }
+
   // ── Carga / refresco ───────────────────────────────────────
   private async loadAll() {
     await this.loadClasses();
@@ -94,7 +138,7 @@ export class AdminCheckin implements AfterViewInit, OnDestroy {
 
   private async loadClasses() {
     try {
-      this.classes.set(await this.checkinService.getTodayClasses());
+      this.classes.set(await this.checkinService.getTodayClasses(this.selectedDate()));
     } catch {
       // mantener lo previo en caso de fallo de red puntual
     }
@@ -108,7 +152,7 @@ export class AdminCheckin implements AfterViewInit, OnDestroy {
     }
     this.loadingRoster.set(true);
     try {
-      this.roster.set(await this.checkinService.getRoster(time));
+      this.roster.set(await this.checkinService.getRoster(time, this.selectedDate()));
     } catch {
       // ignorar fallo puntual
     } finally {
@@ -135,8 +179,9 @@ export class AdminCheckin implements AfterViewInit, OnDestroy {
     if (!isPlatformBrowser(this.platformId)) return false;
 
     const [hours, minutes] = sessionTime.split(':').map(Number);
+    const [year, month, day] = this.selectedDate().split('-').map(Number);
     const now = new Date();
-    const classStartTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes, 0);
+    const classStartTime = new Date(year, month - 1, day, hours, minutes, 0);
     const concludedTime = classStartTime.getTime() + (50 * 60 * 1000);
     return now.getTime() > concludedTime;
   }
