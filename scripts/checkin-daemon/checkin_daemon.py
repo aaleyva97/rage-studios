@@ -184,10 +184,10 @@ def main():
                     }
                     try:
                         b_res = requests.post(broadcast_url, json=broadcast_payload, headers=broadcast_headers)
-                        if b_res.status_code == 200:
+                        if b_res.status_code in (200, 202):
                             print(f"[Realtime] Difusión enviada con éxito para {client_name}.")
                         else:
-                            print(f"[Realtime] Error al enviar difusión: {b_res.text}")
+                            print(f"[Realtime] Error al enviar difusión (HTTP {b_res.status_code}): {b_res.text}")
                     except Exception as b_err:
                         print(f"[Realtime] Fallo de conexión de red: {b_err}")
                 
