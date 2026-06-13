@@ -24,6 +24,30 @@
     </div>
   </header>
 
+  <!-- Sección de entrada manual para pruebas y respaldo sin lector físico -->
+  <div class="manual-checkin" (click)="$event.stopPropagation()">
+    <details class="manual-details">
+      <summary class="manual-summary">
+        <i class="pi pi-keyboard"></i>
+        <span>Ingresar código manualmente (Pruebas / Respaldo)</span>
+      </summary>
+      <div class="manual-content">
+        <input type="text"
+               class="manual-input-box"
+               [(ngModel)]="manualToken"
+               (keydown.enter)="onManualSubmit()"
+               (click)="$event.stopPropagation()"
+               placeholder="Pega el token del QR aquí..." />
+        <button type="button"
+                class="manual-btn"
+                [disabled]="processing() || !manualToken"
+                (click)="onManualSubmit()">
+          Validar Pase
+        </button>
+      </div>
+    </details>
+  </div>
+
   <!-- Resultado transitorio del escaneo -->
   @if (result(); as r) {
     <div class="scan-banner" [class.scan-banner--ok]="isOk()" [class.scan-banner--err]="!isOk()">

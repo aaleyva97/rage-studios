@@ -28,6 +28,7 @@ export class AdminCheckin implements AfterViewInit, OnDestroy {
 
   // ── Escaneo ────────────────────────────────────────────────
   buffer = '';
+  manualToken = '';
   processing = signal(false);
   result = signal<ScanResult | null>(null);
   successCount = signal(0);
@@ -164,6 +165,13 @@ export class AdminCheckin implements AfterViewInit, OnDestroy {
       if (this.resetTimer) clearTimeout(this.resetTimer);
       this.resetTimer = setTimeout(() => this.result.set(null), 5000);
     }
+  }
+
+  async onManualSubmit() {
+    if (!this.manualToken) return;
+    this.buffer = this.manualToken;
+    this.manualToken = '';
+    await this.onEnter();
   }
 
   // ── Marcado manual ─────────────────────────────────────────
