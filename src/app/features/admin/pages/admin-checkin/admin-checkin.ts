@@ -245,6 +245,57 @@ export class AdminCheckin implements AfterViewInit, OnDestroy {
     return this.result()?.status_code === 'OK';
   }
 
+  isNotice(): boolean {
+    const code = this.result()?.status_code;
+    return code === 'ALREADY_CHECKED_IN' ||
+           code === 'NO_CLASS_IN_WINDOW' ||
+           code === 'NO_BOOKING_TODAY' ||
+           code === 'EXPIRED_TOKEN';
+  }
+
+  isError(): boolean {
+    const code = this.result()?.status_code;
+    return !!code && !this.isOk() && !this.isNotice();
+  }
+
+  getPopupTitle(): string {
+    const code = this.result()?.status_code;
+    switch (code) {
+      case 'OK':
+        return '¡Acceso Confirmado!';
+      case 'ALREADY_CHECKED_IN':
+        return '¡Ya Registrada!';
+      case 'NO_CLASS_IN_WINDOW':
+        return '¡Fuera de Horario!';
+      case 'NO_BOOKING_TODAY':
+        return '¡Sin Clases Hoy!';
+      case 'EXPIRED_TOKEN':
+        return '¡Pase Expirado!';
+      case 'INVALID_TOKEN':
+      default:
+        return '¡Acceso Denegado!';
+    }
+  }
+
+  getPopupIconClass(): string {
+    const code = this.result()?.status_code;
+    switch (code) {
+      case 'OK':
+        return 'pi-check';
+      case 'ALREADY_CHECKED_IN':
+        return 'pi-info-circle';
+      case 'NO_CLASS_IN_WINDOW':
+        return 'pi-clock';
+      case 'NO_BOOKING_TODAY':
+        return 'pi-calendar';
+      case 'EXPIRED_TOKEN':
+        return 'pi-exclamation-triangle';
+      case 'INVALID_TOKEN':
+      default:
+        return 'pi-ban';
+    }
+  }
+
   private beep(ok: boolean) {
     if (!isPlatformBrowser(this.platformId)) return;
     try {

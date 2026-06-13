@@ -97,6 +97,18 @@
     }
   }
 
+  &--warn {
+    .scan-popup-icon-wrap {
+      background: var(--pop-color-light, rgba(239, 68, 68, 0.06));
+      border: 2.5px solid var(--pop-color, #ef4444);
+      color: var(--pop-color, #ef4444);
+      box-shadow: 0 0 20px var(--pop-color-glow, rgba(239, 68, 68, 0.2));
+    }
+    .scan-popup-progress-fill {
+      background: var(--pop-color, #ef4444);
+    }
+  }
+
   &--err {
     .scan-popup-icon-wrap {
       background: #fef2f2;
@@ -271,6 +283,34 @@
   padding: 4px 0;
   text-transform: uppercase;
   letter-spacing: 0.02em;
+}
+
+.scan-popup-warning-msg {
+  color: var(--pop-color, #ef4444);
+  background: var(--pop-color-light, rgba(239, 68, 68, 0.06));
+  border: 1px dashed var(--pop-color-glow, rgba(239, 68, 68, 0.3));
+  font-weight: 800;
+  text-align: center;
+  font-size: 11px;
+  width: 100%;
+  line-height: 1.4;
+  padding: 8px 12px;
+  border-radius: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.scan-popup-next-title {
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #64748b;
+  margin: 12px 0 4px;
+  text-align: center;
+  border-bottom: 1px dashed #e2e8f0;
+  padding-bottom: 4px;
+  width: 100%;
 }
 
 .scan-popup-progress-bar {

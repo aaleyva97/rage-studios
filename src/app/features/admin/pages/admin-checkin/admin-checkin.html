@@ -52,23 +52,24 @@
 
   <!-- Resultado transitorio del escaneo en Pop-up Modal Premium -->
   @if (result(); as r) {
-    <div class="scan-popup-backdrop" (click)="result.set(null)" [class.scan-popup-backdrop--ok]="isOk()" [class.scan-popup-backdrop--err]="!isOk()">
-      <div class="scan-popup-card font-mono" (click)="$event.stopPropagation()">
+    <div class="scan-popup-backdrop" 
+         (click)="result.set(null)" 
+         [class.scan-popup-backdrop--ok]="isOk()" 
+         [class.scan-popup-backdrop--warn]="isNotice()" 
+         [class.scan-popup-backdrop--err]="isError()">
+      <div class="scan-popup-card" (click)="$event.stopPropagation()">
         <!-- Botón para cerrar manual -->
         <button class="scan-popup-close" (click)="result.set(null)" aria-label="Cerrar">
           <i class="pi pi-times"></i>
         </button>
-
+ 
         <div class="scan-popup-header">
           <div class="scan-popup-icon-wrap">
-            <i class="pi" [class.pi-check]="isOk()" [class.pi-exclamation-triangle]="!isOk()"></i>
+            <i [class]="'pi ' + getPopupIconClass()"></i>
           </div>
-          <h2 class="scan-popup-title">
-            @if (isOk()) { ¡Acceso Confirmado! }
-            @else { ¡Acceso Denegado! }
-          </h2>
+          <h2 class="scan-popup-title">{{ getPopupTitle() }}</h2>
         </div>
-
+ 
         <div class="scan-popup-body">
           @if (r.client_name) {
             <div class="scan-popup-client">
@@ -78,9 +79,14 @@
               }
             </div>
           }
-
+ 
           <div class="scan-popup-details">
-            @if (isOk()) {
+            @if (isOk() || r.status_code === 'ALREADY_CHECKED_IN') {
+              @if (r.status_code === 'ALREADY_CHECKED_IN' && r.message) {
+                <div class="scan-popup-warning-msg">
+                  {{ r.message }}
+                </div>
+              }
               <div class="scan-popup-detail-row">
                 <span class="detail-label">Clase:</span>
                 <span class="detail-value text-uppercase">{{ r.class_name || selectedClass()?.coach_name || r.coach_name || 'Coach Demo' }}</span>
@@ -95,6 +101,33 @@
                   <span class="detail-value highlight-bed">Cama {{ r.bed_numbers.join(', ') }}</span>
                 </div>
               }
+            } @else if (r.next_booking; as nb) {
+              <div class="scan-popup-warning-msg" style="margin-bottom: 8px;">
+                {{ r.message }}
+              </div>
+              <div class="scan-popup-next-title">
+                Próxima reserva
+              </div>
+              <div class="scan-popup-detail-row">
+                <span class="detail-label">Fecha:</span>
+                <span class="detail-value">{{ nb.session_date }}</span>
+              </div>
+              <div class="scan-popup-detail-row">
+                <span class="detail-label">Horario:</span>
+                <span class="detail-value">{{ nb.session_time }}</span>
+              </div>
+              @if (nb.coach_name) {
+                <div class="scan-popup-detail-row">
+                  <span class="detail-label">Coach:</span>
+                  <span class="detail-value text-uppercase">{{ nb.coach_name }}</span>
+                </div>
+              }
+              @if (nb.bed_numbers && nb.bed_numbers.length > 0) {
+                <div class="scan-popup-detail-row">
+                  <span class="detail-label">Reformer:</span>
+                  <span class="detail-value highlight-bed">Cama {{ nb.bed_numbers.join(', ') }}</span>
+                </div>
+              }
             } @else {
               <div class="scan-popup-error-msg">
                 {{ r.message || 'Token inválido o expirado' }}
@@ -102,7 +135,7 @@
             }
           </div>
         </div>
-
+ 
         <!-- Barra de progreso de auto-cierre -->
         <div class="scan-popup-progress-bar">
           <div class="scan-popup-progress-fill"></div>
