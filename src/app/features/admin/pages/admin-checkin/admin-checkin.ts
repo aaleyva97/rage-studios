@@ -183,11 +183,26 @@ export class AdminCheckin implements AfterViewInit, OnDestroy {
 
   onBufferChange(value: string) {
     if (!value) return;
+    
+    const token = value.trim();
+    const isHexToken = /^[0-9a-f]{56}$/i.test(token);
+    const isJwtToken = token.startsWith('ey') && token.length === 152;
+    
+    if (isHexToken || isJwtToken) {
+      console.log('AdminCheckin: Complete token format detected. Triggering INSTANT validation.');
+      if (this.changeTimer) clearTimeout(this.changeTimer);
+      this.onEnter();
+      return;
+    }
+
     if (this.changeTimer) clearTimeout(this.changeTimer);
     this.changeTimer = setTimeout(() => {
-      if (this.buffer && this.buffer.length > 50 && this.buffer.startsWith('ey')) {
-        console.log('AdminCheckin: Auto-submitting buffer because of 150ms inactivity:', this.buffer);
-        this.onEnter();
+      if (this.buffer) {
+        const trimmed = this.buffer.trim();
+        if ((trimmed.length >= 50 && trimmed.startsWith('ey')) || /^[0-9a-f]{50,}$/i.test(trimmed)) {
+          console.log('AdminCheckin: Auto-submitting buffer because of 150ms inactivity:', trimmed);
+          this.onEnter();
+        }
       }
     }, 150);
   }
