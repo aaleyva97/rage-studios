@@ -53,7 +53,7 @@ export interface RosterEntry {
   display_name: string;
   bed_numbers: number[];
   extra_attendees: number;
-  attendance_status: 'attended' | 'missed' | null;
+  attendance_status: 'attended' | 'missed' | 'unattended' | null;
   attended: boolean;
   is_membership: boolean;
 }
@@ -136,7 +136,7 @@ export class CheckinService {
   }
 
   /** Marca manualmente la asistencia de una reserva existente. */
-  async markBooking(bookingId: string, status: 'attended' | 'missed' | 'pending'): Promise<ScanResult> {
+  async markBooking(bookingId: string, status: 'attended' | 'missed' | 'pending' | 'unattended'): Promise<ScanResult> {
     const { data, error } = await this.supabaseService.client
       .rpc('admin_mark_booking_attendance', { p_booking_id: bookingId, p_status: status });
     if (error) throw error;

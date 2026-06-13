@@ -34,13 +34,9 @@ export class AdminCheckin implements AfterViewInit, OnDestroy {
   successCount = signal(0);
 
   // ── Lista en vivo ──────────────────────────────────────────
-  selectedDate = signal<string>(() => {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  }());
+  selectedDate = signal<string>(
+    `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}`
+  );
 
   classes = signal<ClassInfo[]>([]);
   selectedTime = signal<string | null>(null);
