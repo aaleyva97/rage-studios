@@ -70,6 +70,11 @@ export class AdminCheckin implements AfterViewInit, OnDestroy {
   }
 
   focusInput() {
+    if (!isPlatformBrowser(this.platformId)) return;
+    const active = document.activeElement;
+    if (active && active.tagName === 'INPUT' && !active.classList.contains('scan-input')) {
+      return; // No interrumpir si el usuario está escribiendo en el input manual
+    }
     setTimeout(() => this.scanInput()?.nativeElement?.focus(), 0);
   }
 
