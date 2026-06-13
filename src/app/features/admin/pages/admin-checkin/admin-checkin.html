@@ -4,8 +4,10 @@
   <input #scanInput
          class="scan-input"
          [(ngModel)]="buffer"
+         (ngModelChange)="onBufferChange($event)"
          (keydown.enter)="onEnter()"
-         (blur)="focusInput()"
+         (focus)="onInputFocus()"
+         (blur)="onInputBlur()"
          autocomplete="off"
          autocorrect="off"
          autocapitalize="off"

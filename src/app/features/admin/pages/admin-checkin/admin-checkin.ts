@@ -179,6 +179,28 @@ export class AdminCheckin implements AfterViewInit, OnDestroy {
     await this.onEnter();
   }
 
+  private changeTimer?: ReturnType<typeof setTimeout>;
+
+  onBufferChange(value: string) {
+    if (!value) return;
+    if (this.changeTimer) clearTimeout(this.changeTimer);
+    this.changeTimer = setTimeout(() => {
+      if (this.buffer && this.buffer.length > 50 && this.buffer.startsWith('ey')) {
+        console.log('AdminCheckin: Auto-submitting buffer because of 150ms inactivity:', this.buffer);
+        this.onEnter();
+      }
+    }, 150);
+  }
+
+  onInputFocus() {
+    console.log('AdminCheckin: Hidden scan input focused successfully.');
+  }
+
+  onInputBlur() {
+    console.log('AdminCheckin: Hidden scan input lost focus.');
+    this.focusInput();
+  }
+
   // ── Marcado manual ─────────────────────────────────────────
   entryKey(e: RosterEntry): string {
     return e.booking_id ?? e.membership_schedule_id ?? e.user_id ?? e.display_name;
