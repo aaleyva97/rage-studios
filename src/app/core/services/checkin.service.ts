@@ -1,4 +1,5 @@
-import { Injectable, inject } from '@angular/core';
+import { Injectable, inject, PLATFORM_ID } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
 import { SupabaseService } from './supabase-service';
 
 export interface CheckinPass {
@@ -58,6 +59,25 @@ export interface RosterEntry {
 @Injectable({ providedIn: 'root' })
 export class CheckinService {
   private supabaseService = inject(SupabaseService);
+  private platformId = inject(PLATFORM_ID);
+  private globalChannel: any;
+
+  constructor() {
+    if (isPlatformBrowser(this.platformId)) {
+      this.getOrCreateGlobalChannel();
+    }
+  }
+
+  private getOrCreateGlobalChannel() {
+    if (!this.globalChannel) {
+      console.log('CheckinService: Initializing global checkin-realtime channel...');
+      this.globalChannel = this.supabaseService.client.channel('checkin-realtime');
+      this.globalChannel.subscribe((status: string) => {
+        console.log(`CheckinService: Global checkin-realtime subscription status: ${status}`);
+      });
+    }
+    return this.globalChannel;
+  }
 
   /**
    * Emite un pase de acceso firmado por el servidor (token rotativo de ~90s)
@@ -81,41 +101,22 @@ export class CheckinService {
   }
 
   /**
-   * Difunde el resultado del escaneo al canal en tiempo real del cliente.
-   * Esto permite que el teléfono del cliente reaccione de forma inmediata (éxito/error).
+   * Difunde el resultado del escaneo al canal en tiempo real global de forma inmediata.
    */
   async broadcastScanResult(clientId: string, result: ScanResult): Promise<void> {
-    console.log(`CheckinService: Attempting to broadcast scan result to client ${clientId}...`, result);
-    const channel = this.supabaseService.client.channel(`checkin-status:${clientId}`);
-    return new Promise<void>((resolve, reject) => {
-      channel.subscribe(async (status) => {
-        console.log(`CheckinService: Broadcast channel subscription status: ${status} for client ${clientId}`);
-        if (status === 'SUBSCRIBED') {
-          try {
-            console.log(`CheckinService: Sending broadcast event 'scan-result' with payload...`);
-            const sendResult = await channel.send({
-              type: 'broadcast',
-              event: 'scan-result',
-              payload: result
-            });
-            console.log(`CheckinService: Broadcast sent successfully:`, sendResult);
-            resolve();
-          } catch (err) {
-            console.error(`CheckinService: Error sending broadcast:`, err);
-            reject(err);
-          } finally {
-            // Espera un momento antes de desuscribirse para asegurar el envío del mensaje
-            setTimeout(() => {
-              console.log(`CheckinService: Unsubscribing temp broadcast channel.`);
-              channel.unsubscribe();
-            }, 1000);
-          }
-        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-          console.error(`CheckinService: Failed to subscribe for broadcast status=${status}`);
-          reject(new Error(`Failed to subscribe for broadcast: ${status}`));
-        }
+    console.log(`CheckinService: Sending instant broadcast to client ${clientId} via global channel...`, result);
+    try {
+      const channel = this.getOrCreateGlobalChannel();
+      const sendResult = await channel.send({
+        type: 'broadcast',
+        event: 'scan-result',
+        payload: result
       });
-    });
+      console.log(`CheckinService: Instant broadcast sent successfully:`, sendResult);
+    } catch (err) {
+      console.error(`CheckinService: Error sending instant broadcast:`, err);
+      throw err;
+    }
   }
 
   /** Clases de hoy con contadores (esperados/registrados) para el selector. */

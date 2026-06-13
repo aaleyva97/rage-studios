@@ -86,18 +86,19 @@ export class AccessPassSheet implements OnDestroy {
       }
 
       const userId = user.id;
-      console.log('AccessPassSheet: Setting up realtime channel checkin-status:' + userId);
-      // Escuchar eventos de broadcast en el canal del usuario
-      this.realtimeChannel = this.supabaseService.client.channel(`checkin-status:${userId}`)
+      console.log('AccessPassSheet: Setting up realtime channel: checkin-realtime');
+      // Escuchar eventos de broadcast en el canal global y filtrar por el ID de este usuario
+      this.realtimeChannel = this.supabaseService.client.channel('checkin-realtime')
         .on('broadcast', { event: 'scan-result' }, (payload: any) => {
           console.log('AccessPassSheet: Received scan-result broadcast:', payload);
-          if (payload && payload.payload) {
+          if (payload && payload.payload && payload.payload.client_id === userId) {
+            console.log('AccessPassSheet: Match client_id, handling scan result.');
             this.handleScanResult(payload.payload);
           }
         });
 
       this.realtimeChannel.subscribe((status: string) => {
-        console.log(`AccessPassSheet: Channel checkin-status:${userId} subscription status:`, status);
+        console.log(`AccessPassSheet: Channel checkin-realtime subscription status:`, status);
       });
     } catch (err) {
       console.warn('AccessPassSheet: No se pudo establecer el canal realtime de check-in:', err);
