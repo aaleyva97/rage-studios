@@ -123,17 +123,38 @@ export class AdminCheckin implements AfterViewInit, OnDestroy {
   async onEnter() {
     const token = this.buffer.trim();
     this.buffer = '';
-    if (!token || this.processing()) return;
+    console.log('AdminCheckin: Scanned code / input text entered:', token);
+    if (!token) {
+      console.warn('AdminCheckin: Empty token entered.');
+      return;
+    }
+    if (this.processing()) {
+      console.warn('AdminCheckin: Busy processing previous scan.');
+      return;
+    }
 
     this.processing.set(true);
     try {
+      console.log('AdminCheckin: Submitting scanPass RPC with token:', token);
       const res = await this.checkinService.scanPass(token);
+      console.log('AdminCheckin: Received scanPass response:', res);
       this.result.set(res);
       this.beep(res.status_code === 'OK');
       if (res.status_code === 'OK') {
         this.successCount.update(c => c + 1);
       }
-    } catch {
+      
+      // Difundir resultado en tiempo real al dispositivo del cliente
+      if (res.client_id) {
+        console.log(`AdminCheckin: Client ID found in response: ${res.client_id}. Initiating realtime broadcast...`);
+        this.checkinService.broadcastScanResult(res.client_id, res).catch(err => {
+          console.warn('AdminCheckin: Error al transmitir el resultado del escaneo al cliente:', err);
+        });
+      } else {
+        console.warn('AdminCheckin: No client_id returned from scanPass RPC, cannot broadcast.');
+      }
+    } catch (error) {
+      console.error('AdminCheckin: Error executing scanPass RPC:', error);
       this.result.set({ status_code: 'INVALID_TOKEN', message: 'Error al procesar el QR. Intenta de nuevo.' });
       this.beep(false);
     } finally {

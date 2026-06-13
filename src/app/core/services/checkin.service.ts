@@ -24,6 +24,14 @@ export interface ScanResult {
   session_time?: string;
   member_code?: string;
   is_membership?: boolean;
+  client_id?: string;
+  next_booking?: {
+    session_date: string;
+    session_time: string;
+    bed_numbers: number[];
+    coach_name: string;
+    is_membership: boolean;
+  } | null;
 }
 
 export interface ClassInfo {
@@ -70,6 +78,44 @@ export class CheckinService {
     const { data, error } = await this.supabaseService.client.rpc('checkin_scan_pass', { p_token: token });
     if (error) throw error;
     return data as ScanResult;
+  }
+
+  /**
+   * Difunde el resultado del escaneo al canal en tiempo real del cliente.
+   * Esto permite que el teléfono del cliente reaccione de forma inmediata (éxito/error).
+   */
+  async broadcastScanResult(clientId: string, result: ScanResult): Promise<void> {
+    console.log(`CheckinService: Attempting to broadcast scan result to client ${clientId}...`, result);
+    const channel = this.supabaseService.client.channel(`checkin-status:${clientId}`);
+    return new Promise<void>((resolve, reject) => {
+      channel.subscribe(async (status) => {
+        console.log(`CheckinService: Broadcast channel subscription status: ${status} for client ${clientId}`);
+        if (status === 'SUBSCRIBED') {
+          try {
+            console.log(`CheckinService: Sending broadcast event 'scan-result' with payload...`);
+            const sendResult = await channel.send({
+              type: 'broadcast',
+              event: 'scan-result',
+              payload: result
+            });
+            console.log(`CheckinService: Broadcast sent successfully:`, sendResult);
+            resolve();
+          } catch (err) {
+            console.error(`CheckinService: Error sending broadcast:`, err);
+            reject(err);
+          } finally {
+            // Espera un momento antes de desuscribirse para asegurar el envío del mensaje
+            setTimeout(() => {
+              console.log(`CheckinService: Unsubscribing temp broadcast channel.`);
+              channel.unsubscribe();
+            }, 1000);
+          }
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          console.error(`CheckinService: Failed to subscribe for broadcast status=${status}`);
+          reject(new Error(`Failed to subscribe for broadcast: ${status}`));
+        }
+      });
+    });
   }
 
   /** Clases de hoy con contadores (esperados/registrados) para el selector. */

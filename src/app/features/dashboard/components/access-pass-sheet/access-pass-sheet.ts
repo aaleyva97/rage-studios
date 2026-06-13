@@ -4,6 +4,7 @@ import { DrawerModule } from 'primeng/drawer';
 import QRCode from 'qrcode';
 import { CheckinService } from '../../../../core/services/checkin.service';
 import { CreditsService } from '../../../../core/services/credits.service';
+import { SupabaseService } from '../../../../core/services/supabase-service';
 
 /**
  * Hoja inferior (bottom sheet) con el "Pase de acceso": muestra un QR firmado
@@ -21,6 +22,7 @@ export class AccessPassSheet implements OnDestroy {
   private platformId = inject(PLATFORM_ID);
   private checkinService = inject(CheckinService);
   protected creditsService = inject(CreditsService);
+  private supabaseService = inject(SupabaseService);
 
   visible = model<boolean>(false);
   streak = input<number>(0);
@@ -32,8 +34,13 @@ export class AccessPassSheet implements OnDestroy {
   loading = signal<boolean>(false);
   errorMsg = signal<string | null>(null);
 
+  // Señales para capturar el resultado del escaneo en vivo
+  successScanResult = signal<any | null>(null);
+  failScanResult = signal<any | null>(null);
+
   private countdownTimer?: ReturnType<typeof setInterval>;
   private expEpoch = 0;
+  private realtimeChannel?: any;
 
   constructor() {
     effect(() => {
@@ -49,6 +56,7 @@ export class AccessPassSheet implements OnDestroy {
 
   private start() {
     this.refresh();
+    this.setupRealtimeListener();
     this.countdownTimer = setInterval(() => {
       const left = Math.max(0, this.expEpoch - Math.floor(Date.now() / 1000));
       this.secondsLeft.set(left);
@@ -62,8 +70,68 @@ export class AccessPassSheet implements OnDestroy {
   private stop() {
     if (this.countdownTimer) clearInterval(this.countdownTimer);
     this.countdownTimer = undefined;
+    this.teardownRealtimeListener();
     this.qrDataUrl.set(null);
     this.errorMsg.set(null);
+    this.successScanResult.set(null);
+    this.failScanResult.set(null);
+  }
+
+  private async setupRealtimeListener() {
+    try {
+      const { data: { user } } = await this.supabaseService.client.auth.getUser();
+      if (!user) {
+        console.warn('AccessPassSheet: No user logged in, cannot listen for check-in broadcast.');
+        return;
+      }
+
+      const userId = user.id;
+      console.log('AccessPassSheet: Setting up realtime channel checkin-status:' + userId);
+      // Escuchar eventos de broadcast en el canal del usuario
+      this.realtimeChannel = this.supabaseService.client.channel(`checkin-status:${userId}`)
+        .on('broadcast', { event: 'scan-result' }, (payload: any) => {
+          console.log('AccessPassSheet: Received scan-result broadcast:', payload);
+          if (payload && payload.payload) {
+            this.handleScanResult(payload.payload);
+          }
+        });
+
+      this.realtimeChannel.subscribe((status: string) => {
+        console.log(`AccessPassSheet: Channel checkin-status:${userId} subscription status:`, status);
+      });
+    } catch (err) {
+      console.warn('AccessPassSheet: No se pudo establecer el canal realtime de check-in:', err);
+    }
+  }
+
+  private teardownRealtimeListener() {
+    if (this.realtimeChannel) {
+      console.log('AccessPassSheet: Unsubscribing from realtime checkin channel.');
+      this.realtimeChannel.unsubscribe();
+      this.realtimeChannel = undefined;
+    }
+  }
+
+  private handleScanResult(res: any) {
+    if (!isPlatformBrowser(this.platformId)) return;
+
+    if (res.status_code === 'OK') {
+      // Vibración de éxito en dispositivos móviles
+      if ('vibrate' in navigator) {
+        navigator.vibrate(100);
+      }
+      this.successScanResult.set(res);
+      // Cerrar la hoja automáticamente después de 3.5 segundos
+      setTimeout(() => {
+        this.close();
+      }, 3500);
+    } else {
+      // Vibración de alerta/error en dispositivos móviles
+      if ('vibrate' in navigator) {
+        navigator.vibrate([150, 80, 150]);
+      }
+      this.failScanResult.set(res);
+    }
   }
 
   async refresh() {
@@ -86,6 +154,25 @@ export class AccessPassSheet implements OnDestroy {
       this.errorMsg.set('No se pudo generar el pase. Revisa tu conexión.');
     } finally {
       this.loading.set(false);
+    }
+  }
+
+  clearFailResult() {
+    this.failScanResult.set(null);
+  }
+
+  formatNextDate(dateStr: string): string {
+    if (!dateStr) return '';
+    try {
+      const date = new Date(dateStr + 'T00:00:00');
+      const days = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+      const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+      const dayName = days[date.getDay()];
+      const dayNum = date.getDate();
+      const monthName = months[date.getMonth()];
+      return `${dayName} ${dayNum} de ${monthName}`;
+    } catch {
+      return dateStr;
     }
   }
 

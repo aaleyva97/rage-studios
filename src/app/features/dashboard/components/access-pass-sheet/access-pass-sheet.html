@@ -11,63 +11,113 @@
 
     <div class="pass__grab"></div>
 
-    <div class="pass__head">
-      <div>
-        <div class="pass__eyebrow">Pase de acceso</div>
-        <h2 class="pass__title">Escanea para entrar</h2>
-      </div>
-      <button class="pass__close" type="button" (click)="close()" aria-label="Cerrar">
-        <i class="pi pi-times"></i>
-      </button>
-    </div>
-
-    <div class="pass__qr-wrap">
-      @if (errorMsg()) {
-        <div class="pass__state pass__state--error">
-          <i class="pi pi-wifi"></i>
-          <span>{{ errorMsg() }}</span>
-          <button type="button" (click)="refresh()">Reintentar</button>
+    @if (successScanResult(); as success) {
+      <div class="pass__success">
+        <div class="pass__success-icon">
+          <i class="pi pi-check"></i>
         </div>
-      } @else if (qrDataUrl(); as url) {
-        <img [src]="url" alt="Código QR de acceso" class="pass__qr" />
-        @if (loading()) {
-          <div class="pass__refreshing"><span class="dot"></span></div>
+        <h2 class="pass__success-title">¡Check-in Confirmado!</h2>
+        <p class="pass__success-msg">Hola, {{ success.client_name }}</p>
+        
+        <div class="pass__success-details">
+          <div style="font-weight: 700; font-size: 11px; color: rgba(0, 0, 0, 0.4); margin-bottom: 2px;">Clase Confirmada</div>
+          <div style="font-size: 15px; font-weight: 900; text-transform: uppercase;">{{ success.class_name }}</div>
+          <div style="font-size: 13px; font-weight: 800; margin-top: 4px;">Hora: {{ success.session_time }}</div>
+          @if (success.is_membership) {
+            <div style="color: var(--pop-color, #ef4444); font-size: 11px; font-weight: 900; margin-top: 8px; letter-spacing: 0.1em; text-transform: uppercase;">Membresía VIP</div>
+          }
+        </div>
+      </div>
+    } @else if (failScanResult(); as fail) {
+      <div class="pass__fail">
+        <div class="pass__fail-icon">
+          <i class="pi pi-exclamation-triangle"></i>
+        </div>
+        <h2 class="pass__fail-title">Check-in fuera de horario</h2>
+        <p class="pass__fail-client">{{ fail.client_name }}</p>
+
+        @if (fail.next_booking; as next) {
+          <div class="pass__fail-next">
+            <div class="pass__fail-next-label">Próxima clase programada:</div>
+            <div class="pass__fail-next-date">
+              📅 {{ formatNextDate(next.session_date) }} a las {{ next.session_time }}
+            </div>
+            <div class="pass__fail-next-details">
+              🛌 Cama {{ next.bed_numbers?.join(', ') || '—' }} (Coach {{ next.coach_name }})
+            </div>
+          </div>
+        } @else {
+          <div class="pass__fail-next">
+            <div class="pass__fail-next-label">Información:</div>
+            <div class="pass__fail-next-date" style="font-size: 13px;">
+              {{ fail.message }}
+            </div>
+          </div>
         }
-      } @else {
-        <div class="pass__state">
-          <div class="spinner"></div>
-          <span>Generando pase…</span>
+
+        <button type="button" class="pass__fail-btn" (click)="clearFailResult()">
+          Entendido
+        </button>
+      </div>
+    } @else {
+      <div class="pass__head">
+        <div>
+          <div class="pass__eyebrow">Pase de acceso</div>
+          <h2 class="pass__title">Escanea para entrar</h2>
+        </div>
+        <button class="pass__close" type="button" (click)="close()" aria-label="Cerrar">
+          <i class="pi pi-times"></i>
+        </button>
+      </div>
+
+      <div class="pass__qr-wrap">
+        @if (errorMsg()) {
+          <div class="pass__state pass__state--error">
+            <i class="pi pi-wifi"></i>
+            <span>{{ errorMsg() }}</span>
+            <button type="button" (click)="refresh()">Reintentar</button>
+          </div>
+        } @else if (qrDataUrl(); as url) {
+          <img [src]="url" alt="Código QR de acceso" class="pass__qr" />
+          @if (loading()) {
+            <div class="pass__refreshing"><span class="dot"></span></div>
+          }
+        } @else {
+          <div class="pass__state">
+            <div class="spinner"></div>
+            <span>Generando pase…</span>
+          </div>
+        }
+      </div>
+
+      @if (secondsLeft() > 0) {
+        <div class="pass__validity">
+          <span class="dot"></span> Válido por {{ secondsLeft() }}s · se renueva solo
         </div>
       }
-    </div>
 
-    @if (secondsLeft() > 0) {
-      <div class="pass__validity">
-        <span class="dot"></span> Válido por {{ secondsLeft() }}s · se renueva solo
+      @if (memberCode()) {
+        <div class="pass__code">ID · {{ memberCode() }}</div>
+      }
+
+      <div class="pass__stats">
+        <div class="stat">
+          <i class="pi pi-bolt"></i>
+          <span class="stat__val">{{ streak() }}</span>
+          <span class="stat__lbl">Racha</span>
+        </div>
+        <div class="stat">
+          <i class="pi pi-ticket"></i>
+          <span class="stat__val">{{ creditsService.getCreditsDisplay() }}</span>
+          <span class="stat__lbl">Créditos</span>
+        </div>
+        <div class="stat">
+          <i class="pi pi-id-card"></i>
+          <span class="stat__val stat__val--sm">{{ membership() || '—' }}</span>
+          <span class="stat__lbl">Plan</span>
+        </div>
       </div>
     }
-
-    @if (memberCode()) {
-      <div class="pass__code">ID · {{ memberCode() }}</div>
-    }
-
-    <div class="pass__stats">
-      <div class="stat">
-        <i class="pi pi-bolt"></i>
-        <span class="stat__val">{{ streak() }}</span>
-        <span class="stat__lbl">Racha</span>
-      </div>
-      <div class="stat">
-        <i class="pi pi-ticket"></i>
-        <span class="stat__val">{{ creditsService.getCreditsDisplay() }}</span>
-        <span class="stat__lbl">Créditos</span>
-      </div>
-      <div class="stat">
-        <i class="pi pi-id-card"></i>
-        <span class="stat__val stat__val--sm">{{ membership() || '—' }}</span>
-        <span class="stat__lbl">Plan</span>
-      </div>
-    </div>
 
   </div>
 </p-drawer>
