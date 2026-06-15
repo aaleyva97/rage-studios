@@ -1,6 +1,7 @@
 #!/bin/bash
 
-# Rage Studios QR Check-in Daemon Installer for macOS
+# Rage Studios QR Check-in Daemon Installer
+# Supports macOS (launchd) & Linux (systemd)
 # Usage: curl -fsSL https://raw.githubusercontent.com/Eddy-C127/rage-checkin-daemon/main/install.sh | bash
 
 set -e
@@ -10,27 +11,52 @@ echo "  RAGE STUDIOS - INSTALADOR DE DAEMON QR CHECK-IN"
 echo "===================================================="
 echo ""
 
-# Directorios de destino
+# Identificar sistema operativo
+OS="$(uname)"
 INSTALL_DIR="$HOME/.rage-checkin-daemon"
 CONFIG_DIR="$HOME/.config/rage-checkin"
 CONFIG_FILE="$CONFIG_DIR/config.json"
-PLIST_FILE="$HOME/Library/LaunchAgents/com.ragestudios.checkin.plist"
 
-# 1. Comprobar si es macOS
-if [ "$(uname)" != "Darwin" ]; then
-    echo "[-] Este instalador automático está diseñado para macOS."
-    echo "    Para Linux, por favor configura el script manualmente."
+if [ "$OS" != "Darwin" ] && [ "$OS" != "Linux" ]; then
+    echo "[-] Sistema operativo no compatible: $OS"
     exit 1
 fi
 
-# 2. Comprobar si Python 3 está instalado
+echo "[+] Detectado sistema operativo: $OS"
+
+# 1. Comprobar si Python 3 está instalado
 if ! command -v python3 &> /dev/null; then
     echo "[-] Error: Python 3 no está instalado en este sistema."
-    echo "    Por favor, instala Python 3 usando Homebrew (brew install python) o desde python.org"
+    if [ "$OS" = "Darwin" ]; then
+        echo "    Instálalo usando Homebrew: brew install python"
+    else
+        echo "    Instálalo usando el administrador de paquetes de tu distro (ej: sudo apt install python3 python3-venv)"
+    fi
     exit 1
 fi
 
-# Crear directorios
+# 2. Configurar permisos del puerto serie (Solo Linux)
+if [ "$OS" = "Linux" ]; then
+    echo "[+] Verificando permisos para puertos serie..."
+    # Buscar si el usuario pertenece al grupo 'dialout' o 'uucp'
+    if ! (groups | grep -qE 'dialout|uucp'); then
+        # Detectar grupo disponible
+        SERIAL_GROUP="dialout"
+        if grep -q "uucp" /etc/group; then
+            SERIAL_GROUP="uucp"
+        fi
+        
+        echo "[!] Tu usuario no pertenece al grupo '$SERIAL_GROUP' requerido para acceder a puertos USB serie."
+        echo "    Se solicitarán permisos de administrador (sudo) para agregarte..."
+        sudo usermod -aG "$SERIAL_GROUP" "$USER"
+        echo "[✓] Agregado al grupo '$SERIAL_GROUP'."
+        echo "    NOTA: En Linux, deberás reiniciar tu sesión (cerrar sesión e iniciar de nuevo) para que los permisos tengan efecto."
+    else
+        echo "[✓] El usuario ya pertenece a los grupos de acceso serial."
+    fi
+fi
+
+# Crear directorios de destino
 mkdir -p "$INSTALL_DIR"
 mkdir -p "$CONFIG_DIR"
 
@@ -58,13 +84,18 @@ if [ "$OVERWRITE_CONFIG" = "y" ]; then
     read -p "    API Key de Supabase [$DEFAULT_KEY]: " key
     key=${key:-$DEFAULT_KEY}
     
-    # Buscar puertos USB de serie conectados en Mac
+    # Buscar puertos USB de serie conectados
     echo "[+] Buscando puertos serie (lectores QR conectados)..."
-    ports=($(ls /dev/cu.usbmodem* /dev/cu.usbserial* 2>/dev/null || true))
+    if [ "$OS" = "Darwin" ]; then
+        ports=($(ls /dev/cu.usbmodem* /dev/cu.usbserial* 2>/dev/null || true))
+        DEFAULT_PORT="/dev/cu.usbmodem101"
+    else
+        ports=($(ls /dev/ttyACM* /dev/ttyUSB* 2>/dev/null || true))
+        DEFAULT_PORT="/dev/ttyACM0"
+    fi
     
     if [ ${#ports[@]} -eq 0 ]; then
-        echo "    No se detectaron puertos de tipo /dev/cu.usbmodem* o /dev/cu.usbserial*."
-        DEFAULT_PORT="/dev/cu.usbmodem101"
+        echo "    No se detectaron puertos activos."
         read -p "    Especifica el puerto serie manualmente [$DEFAULT_PORT]: " port
         port=${port:-$DEFAULT_PORT}
     else
@@ -116,9 +147,12 @@ python3 -m venv "$INSTALL_DIR/venv"
 echo "[+] Descargando script del Daemon..."
 curl -fsSL -o "$INSTALL_DIR/checkin_daemon.py" "https://raw.githubusercontent.com/Eddy-C127/rage-checkin-daemon/main/checkin_daemon.py"
 
-# 6. Crear el LaunchAgent para macOS
-echo "[+] Configurando servicio de auto-arranque (launchd)..."
-cat <<EOF > "$PLIST_FILE"
+# 6. Configurar Servicio de Segundo Plano
+if [ "$OS" = "Darwin" ]; then
+    # --- macOS (launchd) ---
+    echo "[+] Configurando servicio de auto-arranque (launchd)..."
+    PLIST_FILE="$HOME/Library/LaunchAgents/com.ragestudios.checkin.plist"
+    cat <<EOF > "$PLIST_FILE"
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -141,18 +175,46 @@ cat <<EOF > "$PLIST_FILE"
 </dict>
 </plist>
 EOF
+    echo "[+] Iniciando servicio..."
+    launchctl unload "$PLIST_FILE" 2>/dev/null || true
+    launchctl load "$PLIST_FILE"
 
-# 7. Cargar el servicio en macOS launchctl
-echo "[+] Iniciando servicio..."
-launchctl unload "$PLIST_FILE" 2>/dev/null || true
-launchctl load "$PLIST_FILE"
+else
+    # --- Linux (systemd user service) ---
+    echo "[+] Configurando servicio de auto-arranque (systemd)..."
+    SYSTEMD_DIR="$HOME/.config/systemd/user"
+    mkdir -p "$SYSTEMD_DIR"
+    SERVICE_FILE="$SYSTEMD_DIR/rage-checkin.service"
+    
+    cat <<EOF > "$SERVICE_FILE"
+[Unit]
+Description=Rage Studios QR Check-in Daemon
+After=network.target
 
-# 8. Agregar alias en .zshrc
-ZSHRC="$HOME/.zshrc"
-if [ -f "$ZSHRC" ]; then
-    if ! grep -q "rage-checkin" "$ZSHRC"; then
-        echo "[+] Agregando comandos rápidos (aliases) a tu terminal (.zshrc)..."
-        cat <<'EOF' >> "$ZSHRC"
+[Service]
+ExecStart=$INSTALL_DIR/venv/bin/python3 $INSTALL_DIR/checkin_daemon.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target
+EOF
+    echo "[+] Iniciando servicio..."
+    systemctl --user daemon-reload
+    systemctl --user enable rage-checkin.service
+    systemctl --user restart rage-checkin.service
+fi
+
+# 7. Agregar alias en archivos de configuración de Shell
+SHELL_FILES=()
+[ -f "$HOME/.zshrc" ] && SHELL_FILES+=("$HOME/.zshrc")
+[ -f "$HOME/.bashrc" ] && SHELL_FILES+=("$HOME/.bashrc")
+
+for shell_file in "${SHELL_FILES[@]}"; do
+    if ! grep -q "rage-checkin" "$shell_file"; then
+        echo "[+] Agregando atajos (aliases) a $(basename "$shell_file")..."
+        if [ "$OS" = "Darwin" ]; then
+            cat <<'EOF' >> "$shell_file"
 
 # --- RAGE STUDIOS QR DAEMON ALIASES ---
 alias rage-checkin-logs="tail -f ~/Library/Logs/rage-checkin.log"
@@ -161,20 +223,39 @@ alias rage-checkin-status="launchctl list | grep com.ragestudios.checkin"
 alias rage-checkin-config="nano ~/.config/rage-checkin/config.json && rage-checkin-restart"
 # --------------------------------------
 EOF
-        echo "    [i] Abre una nueva terminal o ejecuta 'source ~/.zshrc' para activar los aliases."
+        else
+            cat <<'EOF' >> "$shell_file"
+
+# --- RAGE STUDIOS QR DAEMON ALIASES ---
+alias rage-checkin-logs="journalctl --user -u rage-checkin.service -f -n 100"
+alias rage-checkin-restart="systemctl --user restart rage-checkin.service"
+alias rage-checkin-status="systemctl --user status rage-checkin.service"
+alias rage-checkin-config="nano ~/.config/rage-checkin/config.json && rage-checkin-restart"
+# --------------------------------------
+EOF
+        fi
     fi
-fi
+done
 
 echo ""
 echo "===================================================="
 echo "  [✓] ¡INSTALACIÓN COMPLETADA EXITOSAMENTE!"
 echo "===================================================="
-echo "  - El servicio está corriendo de fondo en la Mac."
-echo "  - Registra todos los logs en: ~/Library/Logs/rage-checkin.log"
+echo "  - El servicio está corriendo de fondo."
+if [ "$OS" = "Darwin" ]; then
+    echo "  - Registra todos los logs en: ~/Library/Logs/rage-checkin.log"
+else
+    echo "  - Registra todos los logs en systemd journal."
+fi
 echo ""
 echo "  Comandos rápidos disponibles:"
 echo "    rage-checkin-logs     -> Ver escaneos y logs en tiempo real"
 echo "    rage-checkin-status   -> Verificar si el daemon está corriendo"
 echo "    rage-checkin-restart  -> Reiniciar el daemon"
-echo "    rage-checkin-config   -> Modificar la configuración (puerto/cuenta)"
+echo "    rage-checkin-config   -> Modificar la configuración"
+echo ""
+if [ "$OS" = "Linux" ]; then
+    echo "  *IMPORTANTE*: Si es la primera vez que instalas, recuerda cerrar sesión"
+    echo "  y volver a entrar para aplicar los nuevos permisos de puertos serie."
+fi
 echo "===================================================="
