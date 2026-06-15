@@ -19,17 +19,9 @@ def load_config():
         try:
             with open(CONFIG_FILE, 'r') as f:
                 return json.load(f)
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"Error al leer archivo de configuración: {e}")
     return {}
-
-def save_config(config):
-    try:
-        os.makedirs(CONFIG_DIR, exist_ok=True)
-        with open(CONFIG_FILE, 'w') as f:
-            json.dump(config, f, indent=2)
-    except Exception as e:
-        print(f"Error al guardar configuración: {e}")
 
 def play_sound(success=True):
     """Reproduce un sonido de alerta según la plataforma."""
@@ -42,11 +34,9 @@ def play_sound(success=True):
             if os.path.exists(sound):
                 subprocess.Popen(['paplay', sound], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             else:
-                # Terminal bell character as fallback
                 sys.stdout.write('\a')
                 sys.stdout.flush()
     except Exception:
-        # Fallback terminal bell
         sys.stdout.write('\a')
         sys.stdout.flush()
 
@@ -74,26 +64,16 @@ def main():
     
     config = load_config()
     
-    # Cargar o preguntar variables
-    url = config.get('SUPABASE_URL') or input(f"Supabase URL [{DEFAULT_URL}]: ").strip() or DEFAULT_URL
-    key = config.get('SUPABASE_KEY') or input(f"Supabase Key [{DEFAULT_KEY}]: ").strip() or DEFAULT_KEY
-    port = config.get('PORT') or input(f"Puerto Serie [{DEFAULT_PORT}]: ").strip() or DEFAULT_PORT
-    email = config.get('EMAIL') or input("Correo de Recepcionista/Admin: ").strip()
-    password = config.get('PASSWORD') or input("Contraseña: ").strip()
+    url = config.get('SUPABASE_URL') or DEFAULT_URL
+    key = config.get('SUPABASE_KEY') or DEFAULT_KEY
+    port = config.get('PORT') or DEFAULT_PORT
+    email = config.get('EMAIL')
+    password = config.get('PASSWORD')
     
     if not email or not password:
-        print("Error: Correo y contraseña son requeridos para validar check-ins como Administrador.")
+        print("Error: Configuración incompleta en config.json. Se requieren correo y contraseña.")
         sys.exit(1)
         
-    # Guardar configuración localmente
-    save_config({
-        'SUPABASE_URL': url,
-        'SUPABASE_KEY': key,
-        'PORT': port,
-        'EMAIL': email,
-        'PASSWORD': password
-    })
-    
     # Obtener Token inicial
     try:
         access_token = login_supabase(url, key, email, password)
@@ -102,26 +82,32 @@ def main():
         print(f"Error al conectar con Supabase: {e}")
         sys.exit(1)
         
-    # Conectar a Lector QR
-    print(f"Conectando al puerto lector QR: {port}...")
-    try:
-        ser = serial.Serial(
-            port=port,
-            baudrate=9600,
-            bytesize=serial.EIGHTBITS,
-            parity=serial.PARITY_NONE,
-            stopbits=serial.STOPBITS_ONE,
-            timeout=1
-        )
-        print("Lector conectado exitosamente. Esperando escaneos de clientes...")
-        play_sound(True)
-    except Exception as e:
-        print(f"Error al abrir el puerto {port}: {e}")
-        print("Por favor, verifica que el lector esté en modo USB CDC y que el puerto sea el correcto.")
-        sys.exit(1)
-        
+    print(f"Puerto lector QR configurado: {port}")
+    ser = None
+    
     while True:
         try:
+            # Si no hay conexión serial activa, intentar abrirla
+            if ser is None or not ser.is_open:
+                print(f"Conectando al puerto lector QR: {port}...")
+                try:
+                    ser = serial.Serial(
+                        port=port,
+                        baudrate=9600,
+                        bytesize=serial.EIGHTBITS,
+                        parity=serial.PARITY_NONE,
+                        stopbits=serial.STOPBITS_ONE,
+                        timeout=1
+                    )
+                    print("Lector conectado exitosamente. Esperando escaneos de clientes...")
+                    play_sound(True)
+                except Exception as e:
+                    print(f"Error al abrir el puerto {port}: {e}")
+                    print("Reintentando en 5 segundos...")
+                    time.sleep(5)
+                    continue
+
+            # Lectura de puerto serie
             if ser.in_waiting > 0:
                 line = ser.readline()
                 token = line.decode('utf-8').strip()
@@ -196,10 +182,27 @@ def main():
                     play_sound(True)
                 else:
                     play_sound(False)
+            else:
+                # Pequeña pausa para no consumir 100% de CPU
+                time.sleep(0.1)
                     
+        except serial.SerialException as se:
+            print(f"Conexión con el lector perdida: {se}")
+            if ser is not None:
+                try:
+                    ser.close()
+                except Exception:
+                    pass
+            ser = None
+            time.sleep(5)
         except KeyboardInterrupt:
             print("\nCerrando daemon por solicitud del usuario.")
             play_sound(False)
+            if ser is not None:
+                try:
+                    ser.close()
+                except Exception:
+                    pass
             break
         except Exception as e:
             print(f"Error inesperado en el bucle principal: {e}")
