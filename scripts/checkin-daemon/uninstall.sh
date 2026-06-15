@@ -2,6 +2,14 @@
 
 # Rage Studios QR Check-in Daemon Uninstaller
 # Supports macOS & Linux
+# Usage: curl -fsSL https://raw.githubusercontent.com/Eddy-C127/rage-checkin-daemon/main/uninstall.sh | bash
+
+set -e
+
+# Redirigir la entrada estándar al TTY controlador si se ejecuta vía pipe (curl | bash)
+if [ ! -t 0 ]; then
+    exec < /dev/tty
+fi
 
 echo "===================================================="
 echo "  RAGE STUDIOS - DESINSTALADOR DE DAEMON QR CHECK-IN"

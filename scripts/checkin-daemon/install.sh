@@ -6,6 +6,11 @@
 
 set -e
 
+# Redirigir la entrada estándar al TTY controlador si se ejecuta vía pipe (curl | bash)
+if [ ! -t 0 ]; then
+    exec < /dev/tty
+fi
+
 echo "===================================================="
 echo "  RAGE STUDIOS - INSTALADOR DE DAEMON QR CHECK-IN"
 echo "===================================================="
