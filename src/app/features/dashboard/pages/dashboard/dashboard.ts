@@ -77,6 +77,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   membership = signal('ÉLITE');
   showMembershipDialog = signal(false);
   userMembership = this.membershipService.userMembership;
+  showMembershipPromo = false;
 
   nextBooking = signal<any | null>(null);
   markingAttendance = signal(false);
