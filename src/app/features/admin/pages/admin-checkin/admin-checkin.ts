@@ -83,7 +83,9 @@ export class AdminCheckin implements AfterViewInit, OnDestroy {
     if (active && active.tagName === 'INPUT' && !active.classList.contains('scan-input')) {
       return; // No interrumpir si el usuario está escribiendo en el input manual
     }
-    setTimeout(() => this.scanInput()?.nativeElement?.focus(), 0);
+    // preventScroll evita que el navegador haga scroll al input oculto (que vive
+    // arriba del componente): sin esto, cada click/marcado saltaba al inicio.
+    setTimeout(() => this.scanInput()?.nativeElement?.focus({ preventScroll: true }), 0);
   }
 
   getTodayDateString(): string {
@@ -282,9 +284,21 @@ export class AdminCheckin implements AfterViewInit, OnDestroy {
     return e.booking_id ?? e.membership_schedule_id ?? e.user_id ?? e.display_name;
   }
 
+  /** Aplica un cambio de estado a una entrada del roster en memoria (optimista). */
+  private patchEntry(key: string, status: RosterEntry['attendance_status']) {
+    this.roster.update(list =>
+      list.map(e =>
+        this.entryKey(e) === key
+          ? { ...e, attendance_status: status, attended: status === 'attended' }
+          : e
+      )
+    );
+  }
+
   async toggleEntry(entry: RosterEntry) {
     if (this.markingKey()) return;
     const key = this.entryKey(entry);
+    const prevStatus = entry.attendance_status;
     this.markingKey.set(key);
     try {
       if (entry.kind === 'booking' && entry.booking_id) {
@@ -297,14 +311,18 @@ export class AdminCheckin implements AfterViewInit, OnDestroy {
         } else if (entry.attendance_status === 'unattended') {
           nextStatus = 'pending';
         }
+        // Feedback inmediato: refleja el nuevo estado antes del round-trip.
+        this.patchEntry(key, nextStatus === 'pending' ? null : nextStatus);
         await this.checkinService.markBooking(entry.booking_id, nextStatus);
       } else if (entry.kind === 'membership' && entry.membership_schedule_id) {
+        this.patchEntry(key, 'attended');
         await this.checkinService.checkinMembership(entry.membership_schedule_id);
       }
       await this.loadClasses();
       await this.loadRoster();
     } catch {
-      // ignorar; el próximo poll reconcilia
+      // revertir el optimismo; el próximo poll reconcilia de todas formas
+      this.patchEntry(key, prevStatus);
     } finally {
       this.markingKey.set(null);
       this.focusInput();
