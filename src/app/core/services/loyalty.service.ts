@@ -30,6 +30,16 @@ export interface AchievementWithStatus {
   claimable: boolean;   // desbloqueado y sin reclamar
   claimed: boolean;
   user_achievement_id: string | null;
+  coupon_id: string | null;
+}
+
+export interface UserCoupon {
+  id: string;
+  code: string;
+  discount_percent: number;
+  expires_at: string;
+  status: 'active' | 'used' | 'expired';
+  source: string;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -57,17 +67,17 @@ export class LoyaltyService {
         .order('order_index', { ascending: true }),
       this.supabase.client
         .from('user_achievements')
-        .select('id, achievement_id, claimed_at, cycle_closed')
+        .select('id, achievement_id, claimed_at, cycle_closed, coupon_id')
         .eq('user_id', userId)
         .eq('cycle_closed', false),
     ]);
 
-    const byAchievement = new Map<string, { id: string; claimed_at: string | null }>();
+    const byAchievement = new Map<string, { id: string; claimed_at: string | null; coupon_id: string | null }>();
     for (const ua of (userAch || []) as any[]) {
       // Conservar el más relevante (sin reclamar tiene prioridad)
       const existing = byAchievement.get(ua.achievement_id);
       if (!existing || (existing.claimed_at && !ua.claimed_at)) {
-        byAchievement.set(ua.achievement_id, { id: ua.id, claimed_at: ua.claimed_at });
+        byAchievement.set(ua.achievement_id, { id: ua.id, claimed_at: ua.claimed_at, coupon_id: ua.coupon_id ?? null });
       }
     }
 
@@ -87,6 +97,7 @@ export class LoyaltyService {
         claimable: !!ua && !ua.claimed_at,
         claimed: !!ua && !!ua.claimed_at,
         user_achievement_id: ua?.id ?? null,
+        coupon_id: ua?.coupon_id ?? null,
       } as AchievementWithStatus;
     });
   }
@@ -106,5 +117,17 @@ export class LoyaltyService {
     const { data, error } = await this.supabase.client.rpc('claim_achievement_reward', { p_achievement_id: achievementId });
     if (error) throw error;
     return data as any;
+  }
+
+  /** Cupones personales del usuario (activos y usados para referencia). */
+  async getUserCoupons(userId: string): Promise<UserCoupon[]> {
+    const { data, error } = await this.supabase.client
+      .from('coupons')
+      .select('id, code, discount_percent, expires_at, status, source')
+      .eq('user_id', userId)
+      .in('status', ['active', 'used'])
+      .order('expires_at', { ascending: true });
+    if (error || !data) return [];
+    return data as UserCoupon[];
   }
 }

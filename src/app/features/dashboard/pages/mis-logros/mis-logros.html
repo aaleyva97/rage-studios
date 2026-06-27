@@ -34,6 +34,33 @@
     vuelve a cero</strong> — tú decides si tomas el premio o sigues por uno mayor.
   </p>
 
+  <!-- Mis Cupones Activos -->
+  @if (activeCoupons().length > 0) {
+    <section class="cupones-section">
+      <p class="cupones-title">🎟️ Mis cupones activos</p>
+      @for (c of activeCoupons(); track c.id) {
+        <div class="cupon-card">
+          <div class="cupon-card__icon">%</div>
+          <div class="cupon-card__body">
+            <p class="cupon-card__discount">{{ c.discount_percent }}% de descuento</p>
+            <p class="cupon-card__code">{{ c.code }}</p>
+            <p class="cupon-card__expires">Vence {{ formatExpiry(c.expires_at) }}</p>
+          </div>
+          <button class="cupon-copy-btn"
+                  [class.cupon-copy-btn--copied]="copiedCode() === c.code"
+                  (click)="copyCode(c.code)"
+                  aria-label="Copiar código">
+            @if (copiedCode() === c.code) {
+              <i class="pi pi-check"></i>
+            } @else {
+              <i class="pi pi-copy"></i>
+            }
+          </button>
+        </div>
+      }
+    </section>
+  }
+
   @if (loading()) {
     <div class="logros-loading">
       <span class="logros-spinner"></span> Cargando…
@@ -66,6 +93,21 @@
             <span class="logro-card__progress-text">
               {{ currentValueFor(a) }} / {{ a.condition_value }} {{ unitFor(a) }}
             </span>
+            @if (a.claimed && couponFor(a); as cup) {
+              <div class="logro-card__coupon">
+                <span class="logro-card__coupon-code">{{ cup.code }}</span>
+                <button class="logro-card__coupon-copy"
+                        [class.logro-card__coupon-copy--copied]="copiedCode() === cup.code"
+                        (click)="copyCode(cup.code)"
+                        aria-label="Copiar código">
+                  @if (copiedCode() === cup.code) {
+                    <i class="pi pi-check"></i>
+                  } @else {
+                    <i class="pi pi-copy"></i>
+                  }
+                </button>
+              </div>
+            }
           </div>
 
           <div class="logro-card__action">

@@ -4,7 +4,7 @@ import { ToastModule } from 'primeng/toast';
 import { MessageService } from 'primeng/api';
 import { SupabaseService } from '../../../../core/services/supabase-service';
 import { CreditsService } from '../../../../core/services/credits.service';
-import { LoyaltyService, AchievementWithStatus, StreakSummary } from '../../../../core/services/loyalty.service';
+import { LoyaltyService, AchievementWithStatus, StreakSummary, UserCoupon } from '../../../../core/services/loyalty.service';
 
 @Component({
   selector: 'app-mis-logros',
@@ -23,11 +23,16 @@ export class MisLogros implements OnInit {
   loading = signal(true);
   summary = signal<StreakSummary>({ daily_streak: 0, sunday_streak: 0, cumulative_classes: 0, longest_daily_streak: 0 });
   achievements = signal<AchievementWithStatus[]>([]);
+  myCoupons = signal<UserCoupon[]>([]);
   claimingId = signal<string | null>(null);
+  copiedCode = signal<string | null>(null);
 
   dailyAchievements = computed(() => this.achievements().filter(a => a.condition_type === 'daily_streak'));
   sundayAchievements = computed(() => this.achievements().filter(a => a.condition_type === 'sunday_streak'));
   otherAchievements = computed(() => this.achievements().filter(a => a.condition_type === 'cumulative_classes'));
+
+  activeCoupons = computed(() => this.myCoupons().filter(c => c.status === 'active'));
+  couponMap = computed(() => new Map(this.myCoupons().map(c => [c.id, c])));
 
   private get uid(): string | null {
     return this.supabase.getUser()?.id ?? null;
@@ -42,12 +47,14 @@ export class MisLogros implements OnInit {
     if (!uid) { this.loading.set(false); return; }
     this.loading.set(true);
     try {
-      const [summary, achievements] = await Promise.all([
+      const [summary, achievements, coupons] = await Promise.all([
         this.loyalty.getStreakSummary(uid),
         this.loyalty.getAchievements(uid),
+        this.loyalty.getUserCoupons(uid),
       ]);
       this.summary.set(summary);
       this.achievements.set(achievements);
+      this.myCoupons.set(coupons);
     } catch {
       this.messageService.add({ severity: 'error', summary: 'Error', detail: 'No se pudieron cargar tus logros.' });
     } finally {
@@ -73,6 +80,24 @@ export class MisLogros implements OnInit {
     if (a.condition_type === 'sunday_streak') return 'domingos';
     if (a.condition_type === 'cumulative_classes') return 'clases';
     return 'días';
+  }
+
+  couponFor(a: AchievementWithStatus): UserCoupon | undefined {
+    return a.coupon_id ? this.couponMap().get(a.coupon_id) : undefined;
+  }
+
+  formatExpiry(dateStr: string): string {
+    return new Date(dateStr).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' });
+  }
+
+  async copyCode(code: string) {
+    try {
+      await navigator.clipboard.writeText(code);
+      this.copiedCode.set(code);
+      setTimeout(() => this.copiedCode.set(null), 2000);
+    } catch {
+      this.messageService.add({ severity: 'info', summary: 'Código', detail: code, life: 5000 });
+    }
   }
 
   rewardLabel(a: AchievementWithStatus): string {
