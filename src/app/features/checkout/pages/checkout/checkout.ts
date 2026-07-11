@@ -144,9 +144,13 @@ export class Checkout implements OnInit {
   if (!user || !pkg) return;
   
   this.isProcessing.set(true);
-  
+
   try {
-    const couponCode = this.appliedDiscount() ? this.couponInput().trim() : null;
+    // Enviar SIEMPRE el código escrito (si lo hay), aunque el usuario no haya
+    // presionado "Aplicar". El servidor revalida de forma autoritativa: aplica
+    // el descuento si el cupón es válido e ignora el código si no lo es. Esto
+    // evita que un cupón válido se pierda por olvidar el botón "Aplicar".
+    const couponCode = this.couponInput().trim() || null;
     const session = await this.paymentService.createCheckoutSession(pkg, user.id, couponCode);
 
     if (session?.url) {
