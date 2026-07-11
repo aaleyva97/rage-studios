@@ -65,11 +65,12 @@
                     <button type="button" class="text-xs text-red-500 font-bold" (click)="removeCoupon()">Quitar</button>
                   </div>
                 } @else {
-                  <div class="flex gap-2">
-                    <input pInputText class="flex-1 uppercase" [ngModel]="couponInput()"
+                  <div class="flex flex-col sm:flex-row gap-2">
+                    <input pInputText class="flex-1 min-w-0 w-full uppercase" [ngModel]="couponInput()"
                            (ngModelChange)="couponInput.set($event)" placeholder="Código (ej. EVENTO10)" />
                     <p-button label="Aplicar" severity="secondary" [loading]="couponChecking()"
-                              [disabled]="!couponInput().trim()" (onClick)="applyCoupon()" />
+                              [disabled]="!couponInput().trim()" (onClick)="applyCoupon()"
+                              styleClass="w-full sm:w-auto justify-center" />
                   </div>
                   @if (couponError()) {
                     <p class="text-xs text-red-500">{{ couponError() }}</p>
