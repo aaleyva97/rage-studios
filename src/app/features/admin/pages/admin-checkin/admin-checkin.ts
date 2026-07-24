@@ -8,6 +8,7 @@ import { InputTextModule } from 'primeng/inputtext';
 import { Popover } from 'primeng/popover';
 import { CheckinService, ScanResult, ClassInfo, RosterEntry, ClientSearchResult } from '../../../../core/services/checkin.service';
 import { BookingService } from '../../../../core/services/booking.service';
+import { ScheduleService } from '../../../../core/services/schedule.service';
 
 /**
  * Estación de check-in para recepción.
@@ -30,6 +31,7 @@ export class AdminCheckin implements AfterViewInit, OnDestroy {
   private platformId = inject(PLATFORM_ID);
   private checkinService = inject(CheckinService);
   private bookingService = inject(BookingService);
+  private scheduleService = inject(ScheduleService);
   private router = inject(Router);
 
   private scanInput = viewChild<ElementRef<HTMLInputElement>>('scanInput');
@@ -63,6 +65,25 @@ export class AdminCheckin implements AfterViewInit, OnDestroy {
     return total === 0 ? 0 : Math.round((this.checkedCount() / total) * 100);
   });
   selectedClass = computed(() => this.classes().find(c => c.session_time === this.selectedTime()) ?? null);
+
+  // ── Camas del turno ────────────────────────────────────────
+  // Una reserva puede llevar acompañantes y ocupar varias camas, por eso el
+  // número de reservas no coincide con el de camas ocupadas. Se cuentan camas
+  // DISTINTAS (igual que la cuadrícula del walk-in) para que nunca se muestre
+  // un total mayor a la capacidad si dos reservas comparten cama por error.
+  occupiedBeds = computed(() => {
+    const beds = new Set<number>();
+    for (const e of this.roster()) (e.bed_numbers || []).forEach(b => beds.add(b));
+    return beds.size;
+  });
+
+  // Capacidad por horario del día seleccionado. Se carga una sola vez por fecha
+  // (nunca en el poll de 5s): la capacidad de un slot no cambia durante la clase.
+  private capacityByTime = signal<Record<string, number>>({});
+  private capacityLoadedFor: string | null = null;
+
+  /** Capacidad (camas) del turno seleccionado; 14 si no se pudo obtener. */
+  bedsCapacity = computed(() => this.capacityByTime()[this.selectedTime() ?? ''] ?? 14);
 
   private resetTimer?: ReturnType<typeof setTimeout>;
   private pollTimer?: ReturnType<typeof setInterval>;
@@ -117,7 +138,8 @@ export class AdminCheckin implements AfterViewInit, OnDestroy {
 
     // Volver a cargar las clases para el nuevo día
     await this.loadClasses();
-    
+    await this.loadCapacities();
+
     // Si la hora previamente seleccionada no existe en el nuevo día, elegir la primera disponible o nula
     const times = this.classes().map(c => c.session_time);
     if (this.selectedTime() && !times.includes(this.selectedTime()!)) {
@@ -137,11 +159,30 @@ export class AdminCheckin implements AfterViewInit, OnDestroy {
   // ── Carga / refresco ───────────────────────────────────────
   private async loadAll() {
     await this.loadClasses();
+    await this.loadCapacities();
     if (!this.selectedTime()) {
       const current = this.classes().find(c => c.is_current) ?? this.classes()[0];
       if (current) this.selectedTime.set(current.session_time);
     }
     await this.loadRoster();
+  }
+
+  /** Capacidad de camas de cada horario de la fecha seleccionada. */
+  private async loadCapacities() {
+    const date = this.selectedDate();
+    if (this.capacityLoadedFor === date) return;
+    const [year, month, day] = date.split('-').map(Number);
+    const jsDay = new Date(year, month - 1, day).getDay();
+    const dayOfWeek = jsDay === 0 ? 7 : jsDay; // domingo = 7 en BD
+    try {
+      const slots = await this.scheduleService.getScheduleSlotsForDay(dayOfWeek);
+      const map: Record<string, number> = {};
+      for (const s of slots) map[s.start_time.substring(0, 5)] = s.max_capacity;
+      this.capacityByTime.set(map);
+      this.capacityLoadedFor = date;
+    } catch {
+      // sin capacidad se usa el valor por defecto (14)
+    }
   }
 
   private async loadClasses() {

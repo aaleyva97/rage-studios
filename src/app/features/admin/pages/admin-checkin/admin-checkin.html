@@ -205,6 +205,11 @@
       <div class="class-summary__bar">
         <div class="class-summary__bar-fill" [style.width.%]="progressPct()"></div>
       </div>
+      <div class="class-summary__beds">
+        <i class="pi pi-th-large"></i>
+        <span class="class-summary__beds-num">{{ occupiedBeds() }}/{{ bedsCapacity() }}</span>
+        <span class="class-summary__beds-lbl">camas ocupadas</span>
+      </div>
       <button type="button" class="walkin-add-btn" (click)="openWalkinDialog()">
         <i class="pi pi-plus"></i>
         <span>Agregar persona a la clase</span>
