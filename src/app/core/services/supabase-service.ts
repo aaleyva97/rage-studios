@@ -457,6 +457,17 @@ async searchUsers(query: string): Promise<UserSearchResult[]> {
     const { data, error } = await this.supabaseClient
       .from('profiles')
       .select('id, full_name, phone, role')
+      // Las cuentas eliminadas desde la app (delete_my_account, migración
+      // 20260808_account_deletion.sql) conservan su fila anonimizada, porque
+      // borrarla se llevaría por cascada su histórico de compras y reservas.
+      // Eso las deja apareciendo aquí como "Cuenta eliminada", y este buscador
+      // es el que alimenta los SIETE selectores del panel: asignar créditos,
+      // descontarlos, gift cards, membresías, blacklist y el asistente. Todos
+      // sirven para actuar SOBRE alguien, y no hay nadie a quien actuar.
+      //
+      // Ojo: sólo se filtra aquí. El histórico —getAdminBookings y su embed
+      // profiles!user_id— sigue mostrándolas, porque esas clases ocurrieron.
+      .is('deleted_at', null)
       .or(`full_name.ilike.%${query}%,phone.ilike.%${query}%`)
       .limit(10)
       .order('full_name', { ascending: true });
