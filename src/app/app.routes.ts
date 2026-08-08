@@ -28,6 +28,13 @@ export const routes: Routes = [
     ]
   },
   {
+    // Aviso de privacidad. Pública y sin guard a propósito: es la URL que se
+    // declara en App Store Connect —sin ella no se puede ni enviar la app— y a
+    // la que enlaza la app nativa. App Review la abre sin sesión.
+    path: 'privacidad',
+    loadComponent: () => import('./features/legal/pages/privacy/privacy').then(m => m.Privacy)
+  },
+  {
     path: 'auth/confirm',
     loadComponent: () => import('./features/account/pages/auth-confirm/auth-confirm').then(m => m.AuthConfirm)
   },

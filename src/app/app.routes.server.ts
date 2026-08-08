@@ -20,6 +20,13 @@ export const serverRoutes: ServerRoute[] = [
     path: 'mi-cuenta/**',
     renderMode: RenderMode.Server
   },
+  // Aviso de privacidad: contenido estático, sin sesión ni consultas. Se
+  // prerenderiza porque es la URL que Apple abre para aprobar la app, y una
+  // caída del render en servidor no debería poder tumbarla.
+  {
+    path: 'privacidad',
+    renderMode: RenderMode.Prerender
+  },
   // Static routes can be prerendered (landing page, etc.)
   {
     path: '',

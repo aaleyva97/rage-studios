@@ -1,0 +1,231 @@
+<main class="min-h-screen bg-white text-gray-800">
+  <div class="max-w-3xl mx-auto px-5 py-10">
+
+    <a routerLink="/" class="text-sm text-gray-500 underline hover:text-gray-800">
+      ← Volver al inicio
+    </a>
+
+    <h1 class="mt-6 text-3xl font-bold text-gray-900">Aviso de Privacidad</h1>
+    <p class="mt-2 text-sm text-gray-500">
+      Última actualización: {{ lastUpdated }}
+    </p>
+
+    <!-- ================================================================= -->
+    <section class="mt-8">
+      <h2 class="text-xl font-semibold text-gray-900">1. Quién es responsable de tus datos</h2>
+      <p class="mt-3 leading-relaxed">
+        <!-- PENDIENTE (legal, no bloquea a Apple): la LFPDPPP art. 16-I exige
+             la razón social y el domicilio fiscal del responsable de forma
+             expresa. Sustituir "RAGE STUDIOS" y "Monterrey, Nuevo León" por los
+             datos registrales cuando se tengan. -->
+        <strong>RAGE STUDIOS</strong> (en adelante, «el Estudio»), con domicilio en
+        Monterrey, Nuevo León, México, es responsable del tratamiento de tus datos
+        personales, tanto en el sitio <strong>ragestudios.mx</strong> como en la
+        aplicación móvil RageStudios para iOS y Android.
+      </p>
+      <p class="mt-3 leading-relaxed">
+        Puedes contactarnos en
+        <a [href]="'mailto:' + contactEmail" class="text-gray-900 underline">{{ contactEmail }}</a>
+        o por WhatsApp al
+        <a [href]="whatsapp" target="_blank" rel="noopener noreferrer"
+           class="text-gray-900 underline">{{ contactPhone }}</a>.
+      </p>
+    </section>
+
+    <!-- ================================================================= -->
+    <section class="mt-8">
+      <h2 class="text-xl font-semibold text-gray-900">2. Qué datos recabamos</h2>
+      <p class="mt-3 leading-relaxed">Recabamos únicamente lo necesario para que puedas reservar y tomar clases:</p>
+
+      <h3 class="mt-5 font-semibold text-gray-900">Cuando creas tu cuenta</h3>
+      <ul class="mt-2 list-disc pl-6 space-y-1">
+        <li>Nombre completo.</li>
+        <li>Correo electrónico.</li>
+        <li>Teléfono.</li>
+        <li>Contraseña, que se guarda cifrada. Nadie del Estudio puede leerla.</li>
+      </ul>
+
+      <h3 class="mt-5 font-semibold text-gray-900">Cuando usas el servicio</h3>
+      <ul class="mt-2 list-disc pl-6 space-y-1">
+        <li>Tus reservas: fecha, hora, coach y reformer asignado.</li>
+        <li>Tu asistencia a clase, registrada al escanear tu pase de acceso en recepción.</li>
+        <li>Tus compras de paquetes: importe, fecha y estado del pago.</li>
+        <li>Tus créditos: cuántos tienes, cuándo vencen y en qué los has usado.</li>
+        <li>Tus rachas, logros y cupones.</li>
+        <li>
+          El nombre de las acompañantes que registres al reservar. Sólo tú lo
+          escribes: al hacerlo, confirmas que cuentas con su consentimiento para
+          compartirlo con el Estudio.
+        </li>
+      </ul>
+
+      <h3 class="mt-5 font-semibold text-gray-900">Si activas las notificaciones</h3>
+      <ul class="mt-2 list-disc pl-6 space-y-1">
+        <li>
+          Un identificador del dispositivo que sirve para entregarte los avisos
+          (token de notificaciones push) y el tipo de dispositivo: iOS, Android o
+          navegador web.
+        </li>
+        <li>
+          Un registro técnico de cada aviso enviado —cuándo se mandó y si llegó—
+          para poder diagnosticar entregas fallidas.
+        </li>
+        <li>
+          Si activas las notificaciones <strong>desde el sitio web</strong>, ese
+          registro incluye además el idioma, la zona horaria, el navegador y la
+          resolución de pantalla del equipo. La aplicación móvil no recaba ninguno
+          de esos datos.
+        </li>
+      </ul>
+      <p class="mt-3 leading-relaxed">
+        No registramos tu dirección IP.
+      </p>
+
+      <div class="mt-5 rounded-lg border border-gray-200 bg-gray-50 p-4">
+        <p class="leading-relaxed">
+          <strong>No guardamos los datos de tu tarjeta.</strong> Los pagos se
+          procesan íntegramente en Stripe: los datos de tu tarjeta viajan a Stripe
+          y nunca pasan por los servidores del Estudio, que sólo conserva el
+          importe, la fecha y si el cobro se completó.
+        </p>
+      </div>
+
+      <p class="mt-4 leading-relaxed">
+        No recabamos tu ubicación, no accedemos a tu cámara, a tus fotos ni a tus
+        contactos, y no usamos tus datos para publicidad ni los vendemos a nadie.
+        La app no incluye rastreadores publicitarios ni de analítica.
+      </p>
+    </section>
+
+    <!-- ================================================================= -->
+    <section class="mt-8">
+      <h2 class="text-xl font-semibold text-gray-900">3. Para qué los usamos</h2>
+      <ul class="mt-3 list-disc pl-6 space-y-1">
+        <li>Crear y mantener tu cuenta.</li>
+        <li>Gestionar tus reservas, tu lugar en la lista de espera y tu acceso al estudio.</li>
+        <li>Administrar tus créditos y procesar tus compras.</li>
+        <li>Enviarte recordatorios de tus clases y avisos sobre cambios que te afecten.</li>
+        <li>Llevar tus rachas y entregarte las recompensas del programa de logros.</li>
+        <li>Cumplir con nuestras obligaciones contables y fiscales.</li>
+      </ul>
+      <p class="mt-3 leading-relaxed">
+        Las notificaciones son opcionales. Puedes desactivarlas cuando quieras
+        desde <em>Perfil</em> en la app o desde los ajustes de tu teléfono, y
+        seguirás pudiendo reservar con normalidad.
+      </p>
+    </section>
+
+    <!-- ================================================================= -->
+    <section class="mt-8">
+      <h2 class="text-xl font-semibold text-gray-900">4. Con quién los compartimos</h2>
+      <p class="mt-3 leading-relaxed">
+        No vendemos tus datos. Los compartimos únicamente con los proveedores que
+        hacen funcionar el servicio, y sólo con lo que cada uno necesita:
+      </p>
+      <ul class="mt-3 list-disc pl-6 space-y-2">
+        <li><strong>Supabase</strong> — alojamiento de la base de datos y gestión de cuentas.</li>
+        <li><strong>Stripe</strong> — procesamiento de pagos.</li>
+        <li><strong>Google (Firebase Cloud Messaging)</strong> — entrega de las notificaciones push.</li>
+        <li><strong>Apple y Google</strong> — distribución de la aplicación móvil.</li>
+      </ul>
+    </section>
+
+    <!-- ================================================================= -->
+    <section class="mt-8">
+      <h2 class="text-xl font-semibold text-gray-900">5. Cómo eliminar tu cuenta</h2>
+      <p class="mt-3 leading-relaxed">
+        Puedes eliminar tu cuenta tú misma, sin pedírselo a nadie, desde la
+        aplicación móvil: <strong>Perfil → Eliminar mi cuenta</strong>. Es
+        permanente y no se puede deshacer.
+      </p>
+
+      <h3 class="mt-5 font-semibold text-gray-900">Qué se elimina</h3>
+      <ul class="mt-2 list-disc pl-6 space-y-1">
+        <li>Tu acceso: la contraseña se destruye y no podrás volver a entrar.</li>
+        <li>Tu nombre, tu teléfono y tu correo electrónico.</li>
+        <li>Los nombres de las acompañantes que hubieras registrado.</li>
+        <li>Tus créditos sin usar, que se pierden sin reembolso.</li>
+        <li>Tus rachas, tus logros y tus cupones sin usar.</li>
+        <li>Tus recordatorios programados y todos los registros técnicos de notificaciones asociados a tu cuenta.</li>
+      </ul>
+      <p class="mt-3 leading-relaxed">
+        Antes de eliminarla cancelamos las clases que tengas reservadas —para que
+        otra persona pueda ocupar tu reformer— y te damos de baja de las listas de
+        espera en las que estés.
+      </p>
+
+      <h3 class="mt-5 font-semibold text-gray-900">Qué conservamos, y por qué</h3>
+      <p class="mt-2 leading-relaxed">
+        Conservamos el registro de tus compras y pagos, y el de las clases a las
+        que asististe, <strong>disociados de tu identidad</strong>: quedan sin tu
+        nombre, sin tu correo y sin tu teléfono, de modo que ya no permiten
+        identificarte.
+      </p>
+      <p class="mt-2 leading-relaxed">
+        Lo hacemos por dos razones: las operaciones de pago deben conservarse para
+        cumplir obligaciones contables y fiscales, y el histórico de ocupación de
+        clases —cuántas personas hubo en cada horario— es lo que le permite al
+        Estudio planear su programación. Ninguno de esos registros permite
+        reconstruir quién eras.
+      </p>
+      <p class="mt-3 leading-relaxed">
+        Tu correo electrónico queda liberado: puedes volver a registrarte con la
+        misma dirección cuando quieras, aunque será una cuenta nueva y desde cero.
+      </p>
+    </section>
+
+    <!-- ================================================================= -->
+    <section class="mt-8">
+      <h2 class="text-xl font-semibold text-gray-900">6. Tus derechos</h2>
+      <p class="mt-3 leading-relaxed">
+        Puedes acceder a tus datos, rectificarlos si son incorrectos, cancelarlos
+        u oponerte a su tratamiento (derechos ARCO), así como revocar tu
+        consentimiento en cualquier momento.
+      </p>
+      <p class="mt-3 leading-relaxed">
+        Buena parte puedes hacerlo tú misma desde la app: <em>Perfil → Mis datos</em>
+        para consultar y corregir tu nombre y teléfono, <em>Cambiar contraseña</em>
+        para tu credencial, y <em>Eliminar mi cuenta</em> para darte de baja.
+      </p>
+      <p class="mt-3 leading-relaxed">
+        Para cualquier otra solicitud, escríbenos y te responderemos en un plazo
+        máximo de 20 días hábiles:
+      </p>
+      <ul class="mt-3 list-disc pl-6 space-y-1">
+        <li>
+          Correo:
+          <a [href]="'mailto:' + contactEmail" class="text-gray-900 underline">{{ contactEmail }}</a>
+        </li>
+        <li>
+          WhatsApp:
+          <a [href]="whatsapp" target="_blank" rel="noopener noreferrer"
+             class="text-gray-900 underline">{{ contactPhone }}</a>
+        </li>
+      </ul>
+    </section>
+
+    <!-- ================================================================= -->
+    <section class="mt-8">
+      <h2 class="text-xl font-semibold text-gray-900">7. Menores de edad</h2>
+      <p class="mt-3 leading-relaxed">
+        El servicio no está dirigido a menores de edad y las clases del Estudio no
+        son aptas para niños. No recabamos datos de menores de forma consciente. Si
+        detectamos una cuenta creada por una persona menor de edad, la eliminaremos.
+      </p>
+    </section>
+
+    <!-- ================================================================= -->
+    <section class="mt-8">
+      <h2 class="text-xl font-semibold text-gray-900">8. Cambios a este aviso</h2>
+      <p class="mt-3 leading-relaxed">
+        Si cambiamos este aviso, actualizaremos la fecha del encabezado y
+        publicaremos la nueva versión en esta misma dirección. Los cambios
+        relevantes se comunicarán además dentro de la aplicación.
+      </p>
+    </section>
+
+    <p class="mt-10 border-t border-gray-200 pt-6 text-sm text-gray-500">
+      RAGE STUDIOS ® — Última actualización: {{ lastUpdated }}
+    </p>
+  </div>
+</main>
