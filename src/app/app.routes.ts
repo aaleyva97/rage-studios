@@ -43,9 +43,18 @@ export const routes: Routes = [
     loadComponent: () => import('./features/account/pages/email-confirmed/email-confirmed').then(m => m.EmailConfirmed)
   },
   {
+    // Alias heredado de /dashboard. Dos detalles, y ninguno es cosmético:
+    //
+    // 1. Sin pathMatch: 'full'. Con 'full' solo casaba la URL exacta, así que
+    //    cualquier hijo —/mi-cuenta/reservas, /mi-cuenta/cambiar-contrasena—
+    //    caía en el wildcard de abajo y acababa en la home. Con prefix match
+    //    el router arrastra los segmentos que sobran.
+    // 2. redirectTo RELATIVO ('dashboard', sin barra). Un redirect absoluto
+    //    ('/dashboard') descarta esos segmentos y manda todo a /dashboard a
+    //    secas: verificado en app.routes.redirect.spec.ts, que falla si se
+    //    vuelve a poner la barra.
     path: 'mi-cuenta',
-    redirectTo: '/dashboard',
-    pathMatch: 'full'
+    redirectTo: 'dashboard'
   },
   {
     path: 'dashboard',

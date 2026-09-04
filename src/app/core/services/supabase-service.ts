@@ -89,7 +89,7 @@ export class SupabaseService {
         // una vez que la sesión ya está lista, evitando que el authGuard lo rebote a la home.
         if (event === 'PASSWORD_RECOVERY') {
           this.currentUser.next(session?.user ?? null);
-          this.router.navigate(['/mi-cuenta/cambiar-contrasena']);
+          this.router.navigate(['/dashboard/cambiar-contrasena']);
           return;
         }
 

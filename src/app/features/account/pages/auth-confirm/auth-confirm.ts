@@ -58,7 +58,7 @@ export class AuthConfirm implements OnInit {
 
       // Token válido: ya hay sesión. Redirigimos según la acción del correo.
       if (type === 'recovery') {
-        this.router.navigate(['/mi-cuenta/cambiar-contrasena']);
+        this.router.navigate(['/dashboard/cambiar-contrasena']);
       } else {
         this.router.navigate(['/email-confirmado']);
       }

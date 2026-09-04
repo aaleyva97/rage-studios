@@ -57,8 +57,12 @@ export class ForgotPasswordDialog {
       this.messageService.add({
         severity: 'success',
         summary: 'Correo enviado',
-        detail: 'Te hemos enviado un enlace. Al hacer clic, iniciarás sesión automáticamente y serás dirigido a "Mi Cuenta" para cambiar tu contraseña',
-        life: 7000
+        // Lo del correo más reciente no es un detalle: Supabase guarda un solo
+        // token de recuperación por usuario, así que pedir otro correo mata el
+        // anterior. Sin este aviso la gente vuelve al primer correo del hilo
+        // —Gmail los agrupa, mismo asunto— y se topa con "el enlace expiró".
+        detail: 'Te enviamos un enlace para crear tu nueva contraseña. Si pides otro correo, el anterior deja de funcionar: abre siempre el más reciente.',
+        life: 9000
       });
       
       setTimeout(() => {
